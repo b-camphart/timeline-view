@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler"
+  },
+  "include": [
+    "vite.config.ts", 
+    "src/obsidian/plugin/manifest.ts",
+    "src/obsidian/plugin/versions.ts",
+    "e2e/**/*.ts"
+  ]
+}
