@@ -7,7 +7,7 @@ if (! (manifest.version in versions)) {
     const versionsUpdate = {...versions} as { [version: string]: string };
     versionsUpdate[manifest.version] = manifest.minAppVersion;
     writeFileSync(
-        "src/obsidian/versions.ts", 
+        "src/obsidian/plugin/versions.ts", 
         `export default ${JSON.stringify(versionsUpdate, null, "\t")};`
     );
     
