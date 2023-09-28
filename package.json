@@ -7,7 +7,7 @@
 		"check": "svelte-check",
 		"dev": "vite build --mode development --watch",
 		"build": "npm run obsidian:version && vite build && git add main.js styles.css versions.json manifest.json",
-		"obsidian:version": "tsx src/obsidian/version-bump.ts && git add src/obsidian/versions.ts"
+		"obsidian:version": "tsx src/obsidian/plugin/version-bump.ts && git add src/obsidian/plugin/versions.ts"
 	},
 	"type": "module",
 	"module": "main.js",
