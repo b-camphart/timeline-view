@@ -16,8 +16,8 @@ Toggle if you'd like to see the names of notes below their point on the timeline
 
 - [ ] Filter based on obsidian query
 - [ ] Color groups based on obsidian query
-- [ ] Manual Vertical Positioning of Notes
-- [ ] Vertical Layout
-- [ ] Create new note with property based on filter and position in timeline
-- [ ] Embeds?
-- [ ] Mobile support
+- [ ] [Manual Vertical Positioning of Notes](https://github.com/b-camphart/plot-point-timeline/issues/1)
+- [ ] [Vertical Layout](https://github.com/b-camphart/plot-point-timeline/issues/2)
+- [ ] [Create new note with property based on filter and position in timeline](https://github.com/b-camphart/plot-point-timeline/issues/4)
+- [ ] [Embeds?](https://github.com/b-camphart/plot-point-timeline/issues/6)
+- [ ] [Mobile support](https://github.com/b-camphart/plot-point-timeline/issues/7)
