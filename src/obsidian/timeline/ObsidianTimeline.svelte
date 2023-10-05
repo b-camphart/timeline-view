@@ -15,6 +15,7 @@
 	import PropertySelection from "../properties/PropertySelection.svelte";
 	import { getPropertySelector } from "../properties/NotePropertySelector";
 	import { type NamespacedWritableFactory } from "../../timeline/Persistence";
+	import { parseFileSearchQuery } from "./filter/parser";
 
 	export let namespacedWritable: NamespacedWritableFactory;
 	export let app: App;
@@ -61,6 +62,8 @@
 		}
 	}
 
+	let filterText = ""
+	$: activeFilters = parseFileSearchQuery(filterText)
 	let files = app.vault.getMarkdownFiles();
 
 	function openFile(event: Event | undefined, item: TimelineItem) {
@@ -78,9 +81,9 @@
 			.openFile(file);
 	}
 
-	$: items = files.map(
-		(file) => new TimelineFileItem(file, propertySelection)
-	);
+	$: items = files
+		.filter(file => activeFilters.every(filter => filter.appliesTo(file)))
+		.map((file) => new TimelineFileItem(file, propertySelection));
 
 	export function addFile(file: TFile) {
 		files.push(file);
@@ -147,11 +150,18 @@
 		previousOrderProperty = $orderProperty;
 	}
 
-	let propertySectionCollapsed = namespacedWritable
+	let settingsNamespace = namespacedWritable
 		.namespace("controls")
 		.namespace("settings")
+
+	let propertySectionCollapsed = settingsNamespace
 		.namespace("property")
 		.make("collapsed", true);
+
+	let filterSectionCollapsed = settingsNamespace
+		.namespace("filter")
+		.make("collapsed", true);
+
 </script>
 
 <TimelineView
@@ -175,8 +185,8 @@
 				/>
 			</Row>
 		</CollapsableSection>
-		<CollapsableSection name="Filter">
-			<span>Coming Soon!</span>
+		<CollapsableSection name="Filter" bind:collapsed={$filterSectionCollapsed}>
+			<input type="search" placeholder="Search files..." bind:value={filterText} />
 		</CollapsableSection>
 		<CollapsableSection name="Groups">
 			<span>Coming Soon!</span>
@@ -393,6 +403,10 @@
 	:global(.timeline-settings) :global(.row) {
 		flex-direction: column;
 		gap: var(--size-2-1);
+	}
+
+	:global(.timeline-settings) :global(input[type="search"]) {
+		width: 100%;
 	}
 
 	:global(.timeline-settings) :global(.text-input) > :global(*),
