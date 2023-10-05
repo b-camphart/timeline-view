@@ -11,10 +11,12 @@ node_modules
 # Exclude sourcemaps
 *.map
 
-# obsidian
-data.json
-
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
 
+# obsidian
+data.json
+main.js
+
+# testing
 testVault
