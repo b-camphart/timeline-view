@@ -25,10 +25,10 @@ export default class ObsidianTimelinePlugin extends Plugin implements Obsidian, 
 
         this.registerView(TimelineItemView.viewType, (leaf) => new TimelineItemView(leaf, this, this))
 
-        this.addRibbonIcon("waves", "Open Timeline View", () => this.openTimelineView())
+        this.addRibbonIcon("waves", "Open timeline view", () => this.openTimelineView())
         this.addCommand({
             id: "open-timeline-view",
-            name: "Open Timeline View",
+            name: "Open timeline view",
             callback: () => this.openTimelineView()
         })
 
