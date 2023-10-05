@@ -33,6 +33,8 @@ function config(buildOverrides: Partial<BuildOptions> & { outDir: string }, addi
         }
       },
       target: "es2018",
+      minify: false,
+      cssMinify: false,
       rollupOptions: {
         external: [
           "obsidian",
@@ -74,7 +76,6 @@ function productionBuild() {
   generatePluginJson(outDir);
 
   return config({
-    minify: true,
     outDir,
     emptyOutDir: false,
   })
@@ -91,8 +92,6 @@ function developmentBuild() {
 
   return config({
     sourcemap: "inline",
-    minify: false,
-    cssMinify: false,
     outDir,
   }, [
     {
