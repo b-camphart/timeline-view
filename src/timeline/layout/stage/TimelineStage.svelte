@@ -117,6 +117,14 @@
 	{#if mouseMeasurement != null}
 		<div class="measurement" style="left:{mouseMeasurement.x}px;" />
 	{/if}
+	<TimelinePoint 
+		tabindex={-1}
+		name=""
+		value=""
+		style="visibility: hidden;disabled: true;"
+		displayName={displayNames}
+		bind:measuredWidth={pointDiameter}
+	/>
 	{#each displayItems as item, itemIndex (item.id())}
 		<TimelinePoint
 			tabindex={itemIndex}
@@ -124,7 +132,6 @@
 			value={display.displayValue(item.value())}
 			style="top:{item.positionY()}px;left:{item.positionX() - pointOffset}px;"
 			displayName={displayNames}
-			bind:measuredWidth={pointDiameter}
 			on:click={itemClicked}
 			on:keydown={keyDownOnItem}
 		/>

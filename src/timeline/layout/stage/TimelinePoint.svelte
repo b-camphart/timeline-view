@@ -7,17 +7,31 @@
     /**
      * @readonly
      */
-    export let measuredWidth: number = 0;
+    export let measuredWidth: number | undefined = undefined;
 
     $: additionalInfo = displayName ? value : `${name}\n${value}`;
 
 </script>
 
-
+{#if measuredWidth != null}
+    <div
+        class="timeline-point"
+        {style}
+        bind:clientWidth={measuredWidth}
+        on:click
+        on:keydown
+        role="link"
+        {tabindex}
+        aria-label={additionalInfo}
+    >
+        {#if displayName}
+            <div class="display-name">{name}</div>
+        {/if}
+    </div>
+{/if}
 <div
     class="timeline-point"
     {style}
-    bind:clientWidth={measuredWidth}
     on:click
     on:keydown
     role="link"
