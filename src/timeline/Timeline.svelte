@@ -12,6 +12,7 @@
 	import TimelineRuler from "./layout/ruler/TimelineRuler.svelte";
 	import TimelineStage from "./layout/stage/TimelineStage.svelte";
 	import type { NamespacedWritableFactory } from "./Persistence";
+	import CanvasStage from "./layout/stage/CanvasStage.svelte";
 
 	export let namespacedWritable: NamespacedWritableFactory | undefined = undefined;
 	export let items: TimelineItem[];
@@ -88,16 +89,22 @@
 		{focalValue}
 		on:mouseMeasurement={(event) => (mouseMeasurement = event.detail)}
 	/>
-	<TimelineStage
-		{display}
-		{mouseMeasurement}
-		{items}
-		displayNames={displayDataPointNames}
-		valuePerPixel={$valuePerPixel}
+	<CanvasStage
+		items={items}
+		scale={{
+			toPixels(value) {
+				return Math.floor(value / $valuePerPixel)
+			},
+			toValue(pixels) {
+				return $valuePerPixel * pixels
+			}
+		}}
 		{focalValue}
 		bind:width={stageWidth}
-		{navigation}
-		on:selectItem
+		on:scrollX={({ detail }) => navigation.scrollToValue(focalValue + detail)}
+		on:zoomIn={({ detail }) => navigation.zoomIn(detail)}
+		on:zoomOut={({ detail }) => navigation.zoomOut(detail)}
+		on:select
 	/>
 	<TimelineControls
 		namespacedWritable={namespacedWritable?.namespace("controls")}

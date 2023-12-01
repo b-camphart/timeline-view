@@ -160,7 +160,7 @@
 	{displayPropertyAs}
 	{items}
 	bind:this={timelineView}
-	on:selectItem={(e) => openFile(e.detail.causedBy, e.detail.item)}
+	on:select={(e) => openFile(e.detail.causedBy, e.detail.item)}
 >
 	<svelte:fragment slot="additional-settings">
 		<CollapsableSection
@@ -202,9 +202,16 @@
 	:global(.timeline-point) {
 		background-color: var(--graph-node);
 		transition: background-color 0.5s;
+		cursor: pointer;
+		width: var(--point-diameter);
+		height: var(--point-diameter);
+        margin: var(--margin-between-points);
+		border-radius: 100%;
+        display: flex;
+        justify-content: center;
 	}
 
-	:global(.timeline-point):hover {
+	:global(.timeline-point.hover) {
 		border: 2px solid var(--graph-node-focused);
 		box-sizing: content-box;
 		translate: -2px -2px;
@@ -213,6 +220,12 @@
 
 	:global(.timeline-point) :global(.display-name) {
 		background-color: var(--background-primary);
+		white-space: nowrap;
+		position: relative;
+		top: calc(
+			var(--point-diameter) + 8px
+		);
+		pointer-events: none;
 	}
 
 	:global(.timeline-controls) {
