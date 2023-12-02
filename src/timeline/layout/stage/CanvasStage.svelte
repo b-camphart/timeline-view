@@ -20,14 +20,22 @@
 		select: { item: TimelineItem; causedBy: Event };
 	}>();
 
-	export let items: TimelineItem[];
+	export let sortedItems: TimelineItem[];
+	$: sortedItems.find((_, index) => {
+		if (index === 0) {
+			console.log("Stage received new sorted items")
+		}
+	})
 	export let scale: Scale;
 	export let focalValue: number;
 	export let width: number = 0;
 
 	let canvas: HTMLCanvasElement | undefined;
-	let point1: HTMLDivElement | undefined;
-	let point2: HTMLDivElement | undefined;
+	const pointElements: (HTMLDivElement | undefined)[] = [
+		undefined,
+		undefined,
+		undefined,
+	]
 	let stageCSSTarget: HTMLDivElement | undefined;
 	let canvasTop = 0;
 
@@ -55,13 +63,12 @@
 	function onPointsOrScaleChanged(points: TimelineItem[], scale: Scale) {
 		changesNeeded = true;
 	}
-	$: onPointsOrScaleChanged(items, scale);
+	$: onPointsOrScaleChanged(sortedItems, scale);
 
 	const resizeObserver = new ResizeObserver(() => {
 		if (
 			canvas == null ||
-			point1 == null ||
-			point2 == null ||
+			pointElements.some(el => el == null) ||
 			stageCSSTarget == null
 		) {
 			return;
@@ -77,22 +84,22 @@
 			viewport.height != stageCSSTarget.clientHeight ||
 			viewport.padding !=
 				stageCSSTarget.clientWidth - stageCSSTarget.innerWidth ||
-			pointDimentions.width != point1.clientWidth;
+			pointDimentions.width != pointElements[0]!.clientWidth;
 
 		viewport.width = stageCSSTarget.clientWidth;
 		viewport.height = stageCSSTarget.clientHeight;
 		viewport.padding =
 			stageCSSTarget.clientWidth -
 			stageCSSTarget.innerWidth +
-			point1.clientWidth;
-		pointDimentions.width = point1.clientWidth;
+			pointElements[0]!.clientWidth;
+		pointDimentions.width = pointElements[0]!.clientWidth;
 		pointDimentions.marginX = Math.max(
 			0,
-			point2.offsetLeft - (point1.offsetLeft + point1.clientWidth),
+			pointElements[1]!.offsetLeft - (pointElements[0]!.offsetLeft + pointElements[0]!.clientWidth),
 		);
 		pointDimentions.marginY = Math.max(
 			0,
-			point2.offsetTop - (point1.offsetTop + point1.clientHeight),
+			pointElements[2]!.offsetTop - (pointElements[0]!.offsetTop + pointElements[0]!.clientHeight),
 		);
 
 		const reportedWidth = viewport.width - viewport.padding;
@@ -145,15 +152,15 @@
 	}
 
 	onMount(() => {
-		if (canvas == null || point1 == null || stageCSSTarget == null) {
+		if (canvas == null || pointElements.some(el => el == null) || stageCSSTarget == null) {
 			return;
 		}
 
 		resizeObserver.observe(canvas);
-		resizeObserver.observe(point1);
+		resizeObserver.observe(pointElements[0]!);
 		resizeObserver.observe(stageCSSTarget);
 
-		pointStyle = getComputedStyle(point1);
+		pointStyle = getComputedStyle(pointElements[0]!);
 
 		function draw() {
 			if (canvas == null) return;
@@ -170,7 +177,7 @@
 					viewport,
 					pointDimentions,
 					scale,
-					items,
+					sortedItems,
 				)) {
 					pointBounds.push(pointBound);
 				}
@@ -200,8 +207,9 @@
 	</div>
 {/if}
 <div class="stage" bind:this={stageCSSTarget}>
-	<div class="timeline-point" bind:this={point1}></div>
-	<div class="timeline-point" bind:this={point2}></div>
+	<div class="timeline-point" bind:this={pointElements[0]} style="float: left;"></div>
+	<div class="timeline-point" bind:this={pointElements[1]} style="clear: right;"></div>
+	<div class="timeline-point" bind:this={pointElements[2]}></div>
 </div>
 
 <style>

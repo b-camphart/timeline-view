@@ -16,14 +16,14 @@ export function* renderStage(
         toPixels(value: number): number,
         toValue(pixels: number): number
     },
-    items: TimelineItem[],
+    sortedItems: TimelineItem[],
 ) {
     const pointRadius = point.width / 2
     const PI2 = 2 * Math.PI
 
     this.beginPath()
     this.clearRect(0, 0, viewport.width, viewport.height)
-    for (const bounds of layoutPoints(viewport, point, scale, items)) {
+    for (const bounds of layoutPoints(viewport, point, scale, sortedItems)) {
         this.moveTo(bounds.right, bounds.centerY)
         this.arc(bounds.centerX, bounds.centerY, pointRadius, 0, PI2)
         yield(bounds)
@@ -47,7 +47,7 @@ function* layoutPoints(
         toPixels(value: number): number,
         toValue(pixels: number): number
     },
-    items: TimelineItem[],
+    sortedItems: TimelineItem[],
 ) {
 
     const renderWidth = viewport.width + point.width
@@ -62,17 +62,11 @@ function* layoutPoints(
 
     const lastXByRow: number[] = []
 
-    const sortedItems: TimelineItem[] = []
-    for (const point of items) {
-        if (visibleRange[0] <= point.value() && visibleRange[1] >= point.value()) {
-            sortedItems.push(point)
-        }
-    }
-    sortedItems.sort((item1, item2) => item1.value() - item2.value())
-
-    let prev: { relativeLeftMargin: number, row: number } | undefined;
+    let prev: { relativeLeftMargin: number, row: number, value: number } | undefined;
 
     for (const item of sortedItems) {
+        if (item.value() > visibleRange[1]) continue;
+
         const absolutePixelCenter = scale.toPixels(item.value())
         const relativePixelCenter = absolutePixelCenter + leftOffset
         const relativeLeftMargin = (relativePixelCenter - pointRadius) - point.marginX
@@ -92,7 +86,7 @@ function* layoutPoints(
         )
         lastXByRow[row] = bounds.right
 
-        prev = { relativeLeftMargin, row }
+        prev = { relativeLeftMargin, row, value: item.value() }
 
         if (bounds.top < renderHeight)
             yield(bounds)

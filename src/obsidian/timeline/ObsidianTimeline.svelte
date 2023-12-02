@@ -13,8 +13,9 @@
 	import CollapsableSection from "../../view/CollapsableSection.svelte";
 	import Row from "../../view/layouts/Row.svelte";
 	import PropertySelection from "../properties/PropertySelection.svelte";
-	import { getPropertySelector } from "../properties/NotePropertySelector";
+	import { getPropertySelector, type FilePropertySelector } from "../properties/NotePropertySelector";
 	import { type NamespacedWritableFactory } from "../../timeline/Persistence";
+	import { onMount } from "svelte";
 
 	export let namespacedWritable: NamespacedWritableFactory;
 	export let app: App;
@@ -31,11 +32,16 @@
 		modified: "datetime",
 		...filterByType(properties.listKnownProperties(), validPropertyTypes),
 	};
-	$: propertySelection = getPropertySelector(
-		$orderProperty,
-		availableProperties,
-		app.metadataCache
-	);
+	const propertySelection = {
+		selector: getPropertySelector(
+			$orderProperty,
+			availableProperties,
+			app.metadataCache
+		),
+		selectProperty(file: TFile) {
+			return this.selector.selectProperty(file)
+		},
+	}
 
 	let displayNoteNames = namespacedWritable.make("displayNoteNames", false);
 
@@ -61,8 +67,6 @@
 		}
 	}
 
-	let files = app.vault.getMarkdownFiles();
-
 	function openFile(event: Event | undefined, item: TimelineItem) {
 		const file = app.vault.getAbstractFileByPath(item.id());
 		if (file == null || !(file instanceof TFile)) {
@@ -78,36 +82,62 @@
 			.openFile(file);
 	}
 
-	$: items = files.map(
-		(file) => new TimelineFileItem(file, propertySelection)
-	);
+	const files: Map<string, TimelineFileItem> = new Map();
+	let items: TimelineFileItem[] = []
+
+	let timelineView: TimelineView;
+	onMount(() => {
+		if (timelineView == null) return
+		for (const file of app.vault.getMarkdownFiles()) {
+			files.set(file.path, new TimelineFileItem(file, propertySelection))
+		}
+		items = Array.from(files.values())
+		timelineView.replaceItems(items)
+		if (items.length === 1) {
+			timelineView.$set({ focalValue: items[0].value() })
+		}
+		if (items.length > 1) {
+			const firstValue = items[0].value()
+			const diff = items.last()!.value() - firstValue
+			timelineView.$set({ focalValue: (diff / 2) + firstValue })
+		}
+	})
 
 	export function addFile(file: TFile) {
-		files.push(file);
-		files = files;
+		if (timelineView == null) return
+		const item = new TimelineFileItem(file, propertySelection)
+		files.set(file.path, item)
+		timelineView.addItem(item)
 	}
 
 	export function deleteFile(file: TFile) {
-		files = files.filter((it) => it.path !== file.path);
+		if (timelineView == null) return
+		const item = files.get(file.path)
+		if (item == null) return
+		if (files.delete(file.path)) {
+			timelineView.removeItem(item)
+		}
 	}
 
 	export function modifyFile(file: TFile) {
-		files = files.map((it) => {
-			if (it.path === file.path) {
-				return file;
-			}
-			return it;
-		});
+		if (timelineView == null) return
+		timelineView.modifyItemValue(file.path, propertySelection.selectProperty(file))
 	}
 
 	export function renameFile(file: TFile, oldPath: string) {
-		files = files.map((it) => {
-			if (it.path === oldPath) {
-				return file;
-			}
-			return it;
-		});
+		if (timelineView == null) return
+		timelineView.renameItem(oldPath, file.name)
 	}
+
+	orderProperty.subscribe(newOrderProperty => {
+		propertySelection.selector = getPropertySelector(
+			newOrderProperty,
+			availableProperties,
+			app.metadataCache
+		);
+		if (timelineView == null) return
+		timelineView.replaceItems(items)
+	})
 
 	let orderPropertyOptions: string[] = Object.keys(availableProperties);
 
@@ -139,8 +169,6 @@
 			availableProperties = availableProperties;
 		}
 	}
-
-	let timelineView: TimelineView;
 	let previousOrderProperty = $orderProperty;
 	$: if (timelineView && previousOrderProperty != $orderProperty) {
 		timelineView.zoomToFit();
@@ -158,7 +186,6 @@
 	{namespacedWritable}
 	bind:displayDataPointNames={$displayNoteNames}
 	{displayPropertyAs}
-	{items}
 	bind:this={timelineView}
 	on:select={(e) => openFile(e.detail.causedBy, e.detail.item)}
 >
