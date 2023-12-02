@@ -5,7 +5,8 @@ export function* renderStage(
     viewport:{
         width: number,
         height: number,
-        centerValue: number
+        centerValue: number,
+        scrollTop: number
     },
     point: {
         width: number,
@@ -20,13 +21,27 @@ export function* renderStage(
 ) {
     const pointRadius = point.width / 2
     const PI2 = 2 * Math.PI
+    const renderHeight = viewport.height + point.width
 
     this.beginPath()
     this.clearRect(0, 0, viewport.width, viewport.height)
-    for (const bounds of layoutPoints(viewport, point, scale, sortedItems)) {
-        this.moveTo(bounds.right, bounds.centerY)
-        this.arc(bounds.centerX, bounds.centerY, pointRadius, 0, PI2)
-        yield(bounds)
+
+    const pointBounds = Array.from(layoutPoints(viewport, point, scale, sortedItems))
+    let maxY = 0;
+    for (const bounds of pointBounds) {
+        if (bounds.bottom > maxY) maxY = bounds.bottom
+    }
+
+    const maxScroll = Math.max(0, (maxY + point.marginY) - viewport.height)
+    if (viewport.scrollTop > maxScroll) viewport.scrollTop = maxScroll
+
+    for (const bounds of pointBounds) {
+        const scrolledY = bounds.centerY - viewport.scrollTop
+        if (scrolledY < -point.width || scrolledY > renderHeight) continue
+
+        this.moveTo(bounds.right, scrolledY)
+        this.arc(bounds.centerX, scrolledY, pointRadius, 0, PI2)
+        yield new PointBounds(bounds.centerX, scrolledY, bounds.item, point)
     }
     this.closePath()
     this.fill()
@@ -51,7 +66,6 @@ function* layoutPoints(
 ) {
 
     const renderWidth = viewport.width + point.width
-    const renderHeight = viewport.height + point.width
     // range within which, even if a point is slightly off screen, part of it would still be visible
     const visibleRange: [number, number] = [
         viewport.centerValue - scale.toValue(renderWidth / 2),
@@ -88,8 +102,7 @@ function* layoutPoints(
 
         prev = { relativeLeftMargin, row, value: item.value() }
 
-        if (bounds.top < renderHeight)
-            yield(bounds)
+        yield(bounds)
     }
 }
 

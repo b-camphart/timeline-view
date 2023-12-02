@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from "svelte";
 	import { PointBounds, renderStage } from "./CanvasStage";
-	import type { TimelineItem } from "../../Timeline";
+	import type { TimelineItem, ValueDisplay } from "../../Timeline";
 
 	interface Scale {
 		toPixels(value: number): number;
@@ -20,6 +20,7 @@
 		select: { item: TimelineItem; causedBy: Event };
 	}>();
 
+	export let display: ValueDisplay;
 	export let sortedItems: TimelineItem[];
 	$: sortedItems.find((_, index) => {
 		if (index === 0) {
@@ -44,6 +45,7 @@
 		height: 0,
 		centerValue: 0,
 		padding: 0,
+		scrollTop: 0
 	};
 
 	$: if (viewport.centerValue != focalValue) {
@@ -125,6 +127,12 @@
 					within: viewport.width,
 				});
 			}
+		} else {
+			const newScroll = Math.max(0, viewport.scrollTop + event.deltaY)
+			if (viewport.scrollTop != newScroll) {
+				viewport.scrollTop = newScroll
+				changesNeeded = true
+			}
 		}
 	}
 
@@ -172,6 +180,7 @@
 			if (changesNeeded) {
 				renderContext.fillStyle = pointStyle!.backgroundColor;
 				pointBounds = [];
+				let maxY = 0;
 				for (const pointBound of renderStage.call(
 					renderContext,
 					viewport,
@@ -180,7 +189,9 @@
 					sortedItems,
 				)) {
 					pointBounds.push(pointBound);
+					if (pointBound.bottom > maxY) maxY = pointBound.bottom
 				}
+
 				if (hover != null) detectHover({ offsetX: hover.pos[0], offsetY: hover.pos[1] })
 				changesNeeded = false;
 			}
@@ -204,7 +215,7 @@
 		class="timeline-point hover"
 		style="top: {hover.bounds.y + canvasTop}px; left: {hover.bounds.x}px;"
 	>
-		<div class="display-name">{hover.bounds.item.name()}: {hover.bounds.item.value()}</div>
+		<div class="display-name">{hover.bounds.item.name()}: {display.displayValue(hover.bounds.item.value())}</div>
 	</div>
 {/if}
 <div class="stage" bind:this={stageCSSTarget}>

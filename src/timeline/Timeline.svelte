@@ -87,7 +87,6 @@
 	const valuePerPixel = valuePerPixelStore(scale);
 	$: $valuePerPixel = scale;
 
-	let mouseMeasurement: { value: string; x: number } | undefined;
 	let stageWidth: number;
 	
 
@@ -126,9 +125,9 @@
 		{display}
 		valuePerPixel={$valuePerPixel}
 		{focalValue}
-		on:mouseMeasurement={(event) => (mouseMeasurement = event.detail)}
 	/>
 	<CanvasStage
+		{display}
 		{sortedItems}
 		scale={{
 			toPixels(value) {
