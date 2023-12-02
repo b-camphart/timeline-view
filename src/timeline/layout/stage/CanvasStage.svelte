@@ -60,11 +60,6 @@
 
 	let changesNeeded = true;
 
-	function onPointsOrScaleChanged(points: TimelineItem[], scale: Scale) {
-		changesNeeded = true;
-	}
-	$: onPointsOrScaleChanged(sortedItems, scale);
-
 	const resizeObserver = new ResizeObserver(() => {
 		if (
 			canvas == null ||
@@ -135,21 +130,26 @@
 
 	function handleClick(event: MouseEvent) {
 		if (hover == null) return;
-		dispatch("select", { item: hover.item, causedBy: event });
+		dispatch("select", { item: hover.bounds.item, causedBy: event });
 	}
 
 	let pointBounds: PointBounds[] = [];
-	let hover: PointBounds | null = null;
+	let hover: { bounds: PointBounds, pos: [number, number ]} | null = null;
 
-	function detectHover(event: MouseEvent) {
+	function detectHover(event: { offsetX: number, offsetY: number }) {
 		for (const bounds of pointBounds) {
 			if (bounds.contains(event.offsetX, event.offsetY)) {
-				hover = bounds;
+				hover = {bounds, pos: [event.offsetX, event.offsetY]};
 				return;
 			}
 		}
 		hover = null;
 	}
+
+	function onPointsOrScaleChanged(points: TimelineItem[], scale: Scale) {
+		changesNeeded = true;
+	}
+	$: onPointsOrScaleChanged(sortedItems, scale);
 
 	onMount(() => {
 		if (canvas == null || pointElements.some(el => el == null) || stageCSSTarget == null) {
@@ -181,6 +181,7 @@
 				)) {
 					pointBounds.push(pointBound);
 				}
+				if (hover != null) detectHover({ offsetX: hover.pos[0], offsetY: hover.pos[1] })
 				changesNeeded = false;
 			}
 			requestAnimationFrame(draw);
@@ -201,9 +202,9 @@
 {#if hover != null}
 	<div
 		class="timeline-point hover"
-		style="top: {hover.y + canvasTop}px; left: {hover.x}px;"
+		style="top: {hover.bounds.y + canvasTop}px; left: {hover.bounds.x}px;"
 	>
-		<div class="display-name">{hover.item.name()}: {hover.item.value()}</div>
+		<div class="display-name">{hover.bounds.item.name()}: {hover.bounds.item.value()}</div>
 	</div>
 {/if}
 <div class="stage" bind:this={stageCSSTarget}>
