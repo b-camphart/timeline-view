@@ -5,20 +5,62 @@
 		timelineDateValueDisplay,
 		type TimelineItem,
 		timelineNumericValueDisplay,
-		map,
 	} from "./Timeline";
 	import { writable as makeWritable, readonly } from "svelte/store";
 	import { timelineNavigation } from "./controls/TimelineNavigation";
 	import TimelineRuler from "./layout/ruler/TimelineRuler.svelte";
-	import TimelineStage from "./layout/stage/TimelineStage.svelte";
 	import type { NamespacedWritableFactory } from "./Persistence";
+	import CanvasStage from "./layout/stage/CanvasStage.svelte";
+	import { setTimeout } from "timers";
 
 	export let namespacedWritable: NamespacedWritableFactory | undefined = undefined;
-	export let items: TimelineItem[];
 	export let displayDataPointNames: boolean;
 	export let displayPropertyAs: "numeric" | "date";
 	export let focalValue: number = 0
 	export let scale: number = 1;
+
+	let sortedItems: TimelineItem[] = []
+	$: sortedItems.find((_, index) => {
+		if (index === 0) {
+			console.log("Timeline produced new sorted items")
+		}
+	})
+	let unsortedItems: TimelineItem[] = []
+	function sortItems() {
+		return unsortedItems.toSorted((a, b) => a.value() - b.value())
+	}
+	let sortTimeout: ReturnType<typeof setTimeout> | undefined;
+	function scheduleSortUpdate() {
+		if (sortTimeout != null) return;
+
+		sortTimeout = setTimeout(() => {
+			sortTimeout = undefined
+			sortedItems = sortItems()
+		}, 250)
+	}
+
+	export function addItem(item: TimelineItem) {
+		unsortedItems.push(item)
+		scheduleSortUpdate()
+	}
+
+	export function removeItem(item: TimelineItem) {
+		unsortedItems.remove(item)
+		scheduleSortUpdate()
+	}
+
+	export function modifyItemValue(id: string, value: number) {
+		scheduleSortUpdate()
+	}
+
+	export function replaceItems(replacements: TimelineItem[]) {
+		unsortedItems = replacements
+		sortedItems = sortItems()
+	}
+
+	export function renameItem(id: string, name: string) {
+		// no op
+	}
 
 	function valuePerPixelStore(initialValue: number = 1) {
 		function atLeastMinimum(value: number) {
@@ -45,15 +87,12 @@
 	const valuePerPixel = valuePerPixelStore(scale);
 	$: $valuePerPixel = scale;
 
-	let mouseMeasurement: { value: string; x: number } | undefined;
 	let stageWidth: number;
-
-	let itemValues = makeWritable(map(items, item => item.value()))
-	$: itemValues.set(map(items, item => item.value()))
+	
 
 	const navigation: TimelineNavigation = timelineNavigation(
 		valuePerPixel, 
-		readonly(itemValues), 
+		{ get() { return sortedItems } },
 		(updater) => {
 			const newFocalValue = updater(focalValue)
 			if (newFocalValue != focalValue) {
@@ -86,18 +125,24 @@
 		{display}
 		valuePerPixel={$valuePerPixel}
 		{focalValue}
-		on:mouseMeasurement={(event) => (mouseMeasurement = event.detail)}
 	/>
-	<TimelineStage
+	<CanvasStage
 		{display}
-		{mouseMeasurement}
-		{items}
-		displayNames={displayDataPointNames}
-		valuePerPixel={$valuePerPixel}
+		{sortedItems}
+		scale={{
+			toPixels(value) {
+				return Math.floor(value / $valuePerPixel)
+			},
+			toValue(pixels) {
+				return $valuePerPixel * pixels
+			}
+		}}
 		{focalValue}
 		bind:width={stageWidth}
-		{navigation}
-		on:selectItem
+		on:scrollX={({ detail }) => navigation.scrollToValue(focalValue + detail)}
+		on:zoomIn={({ detail }) => navigation.zoomIn(detail)}
+		on:zoomOut={({ detail }) => navigation.zoomOut(detail)}
+		on:select
 	/>
 	<TimelineControls
 		namespacedWritable={namespacedWritable?.namespace("controls")}
