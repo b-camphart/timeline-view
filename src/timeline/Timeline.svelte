@@ -20,11 +20,6 @@
 	export let scale: number = 1;
 
 	let sortedItems: TimelineItem[] = []
-	$: sortedItems.find((_, index) => {
-		if (index === 0) {
-			console.log("Timeline produced new sorted items")
-		}
-	})
 	let unsortedItems: TimelineItem[] = []
 	function sortItems() {
 		return unsortedItems.toSorted((a, b) => a.value() - b.value())

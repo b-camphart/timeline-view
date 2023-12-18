@@ -22,11 +22,6 @@
 
 	export let display: ValueDisplay;
 	export let sortedItems: TimelineItem[];
-	$: sortedItems.find((_, index) => {
-		if (index === 0) {
-			console.log("Stage received new sorted items")
-		}
-	})
 	export let scale: Scale;
 	export let focalValue: number;
 	export let width: number = 0;

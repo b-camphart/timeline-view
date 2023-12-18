@@ -69,9 +69,9 @@
 		}
 	}
 
-	let filterText = ""
-	const activeFilters = writable(parseFileSearchQuery(filterText))
-	$: activeFilters.set(parseFileSearchQuery(filterText))
+	const filterText = writable("");
+	const activeFilters = writable(parseFileSearchQuery($filterText))
+	filterText.subscribe(newFilterText => activeFilters.set(parseFileSearchQuery(newFilterText)))
 
 	function openFile(event: Event | undefined, item: TimelineItem) {
 		const file = app.vault.getAbstractFileByPath(item.id());
@@ -108,6 +108,13 @@
 			const diff = items.last()!.value() - firstValue
 			timelineView.$set({ focalValue: (diff / 2) + firstValue })
 		}
+
+		activeFilters.subscribe(newFilters => {
+			items = Array.from(files.values())
+				.filter(file => newFilters.every(filter => filter.appliesTo(file.obsidianFile)))
+			timelineView.replaceItems(items)
+		})
+
 	})
 
 	export function addFile(file: TFile) {
@@ -219,7 +226,7 @@
 			</Row>
 		</CollapsableSection>
 		<CollapsableSection name="Filter" bind:collapsed={$filterSectionCollapsed}>
-			<input type="search" placeholder="Search files..." bind:value={filterText} />
+			<input type="search" placeholder="Search files..." bind:value={$filterText} />
 		</CollapsableSection>
 		<CollapsableSection name="Groups">
 			<span>Coming Soon!</span>
