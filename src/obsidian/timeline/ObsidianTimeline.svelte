@@ -369,7 +369,7 @@
 		border: 0;
 		top: var(--size-4-2) !important;
 		right: var(--size-4-2) !important;
-		padding: var(--size-2-2);
+		padding: var(--size-2-2) !important;
 		color: var(--icon-color);
 		border-radius: var(--clickable-icon-radius);
 		opacity: var(--icon-opacity);
