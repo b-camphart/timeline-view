@@ -13,10 +13,11 @@
 	import CollapsableSection from "../../view/CollapsableSection.svelte";
 	import Row from "../../view/layouts/Row.svelte";
 	import PropertySelection from "../properties/PropertySelection.svelte";
-	import { getPropertySelector, type FilePropertySelector } from "../properties/NotePropertySelector";
+	import { getPropertySelector } from "../properties/NotePropertySelector";
 	import { type NamespacedWritableFactory } from "../../timeline/Persistence";
 	import { parseFileSearchQuery } from "./filter/parser";
 	import { onMount } from "svelte";
+	import { writable } from "svelte/store";
 
 	export let namespacedWritable: NamespacedWritableFactory;
 	export let app: App;
@@ -69,7 +70,8 @@
 	}
 
 	let filterText = ""
-	$: activeFilters = parseFileSearchQuery(filterText)
+	const activeFilters = writable(parseFileSearchQuery(filterText))
+	$: activeFilters.set(parseFileSearchQuery(filterText))
 
 	function openFile(event: Event | undefined, item: TimelineItem) {
 		const file = app.vault.getAbstractFileByPath(item.id());
@@ -96,7 +98,7 @@
 			files.set(file.path, new TimelineFileItem(file, propertySelection))
 		}
 		items = Array.from(files.values())
-			.filter(file => activeFilters.every(filter => filter.appliesTo(file.obsidianFile)))
+			.filter(file => $activeFilters.every(filter => filter.appliesTo(file.obsidianFile)))
 		timelineView.replaceItems(items)
 		if (items.length === 1) {
 			timelineView.$set({ focalValue: items[0].value() })
@@ -112,7 +114,9 @@
 		if (timelineView == null) return
 		const item = new TimelineFileItem(file, propertySelection)
 		files.set(file.path, item)
-		timelineView.addItem(item)
+		if ($activeFilters.every(filter => filter.appliesTo(file))) {
+			timelineView.addItem(item)
+		}
 	}
 
 	export function deleteFile(file: TFile) {
