@@ -6,6 +6,7 @@
 	"scripts": {
 		"check": "svelte-check",
 		"dev": "vite build --mode development --watch",
+		"test:unit": "vitest --config ./test/vitest.config.ts",
 		"build": "npm run obsidian:version && vite build && git add styles.css versions.json manifest.json",
 		"obsidian:version": "tsx src/obsidian/plugin/version-bump.ts && git add src/obsidian/plugin/versions.ts"
 	},
