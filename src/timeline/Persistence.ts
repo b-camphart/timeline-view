@@ -7,7 +7,10 @@ export interface NamespacedWritableFactory {
 
 }
 
-export function namespacedWritableFactory(namespace: string, parent: Pick<Writable<any | undefined | null>, "update" | "subscribe">): NamespacedWritableFactory {
+export function namespacedWritableFactory(
+    namespace: string, 
+    parent: Pick<Writable<any | undefined | null>, "update" | "subscribe">
+): NamespacedWritableFactory {
     const children = new Map<string, Writable<any>>();
 
     return {
@@ -25,14 +28,14 @@ export function namespacedWritableFactory(namespace: string, parent: Pick<Writab
                     if (newParentValue == null) {
                         backingWritable.set(defaultValue)
                     } else {
-                        backingWritable.set(newParentValue[key] ?? defaultValue)
+                        backingWritable.set(newParentValue[namespacedKey] ?? defaultValue)
                     }
                     firstParentEvent = false;
                 } else {
                     if (newParentValue == null) {
                         backingWritable.set(defaultValue);
                     } else {
-                        backingWritable.set(newParentValue[key])
+                        backingWritable.set(newParentValue[namespacedKey])
                     }
                 }
             })
