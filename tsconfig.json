@@ -14,7 +14,10 @@
     "allowJs": true,
     "checkJs": true,
     "isolatedModules": true,
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    "paths": {
+      "src/*": ["./src/*"]
+    }
   },
   "include": ["src/**/*.d.ts", "src/**/*.ts", "src/**/*.js", "src/**/*.svelte"],
   "exclude": [
