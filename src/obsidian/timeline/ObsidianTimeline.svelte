@@ -69,7 +69,14 @@
 		}
 	}
 
-	const filterText = writable("");
+	let settingsNamespace = namespacedWritable
+		.namespace("controls")
+		.namespace("settings")
+
+	let filterSection = settingsNamespace
+		.namespace("filter")
+
+	const filterText = filterSection.make("query", "")
 	const activeFilters = writable(parseFileSearchQuery($filterText))
 	filterText.subscribe(newFilterText => activeFilters.set(parseFileSearchQuery(newFilterText)))
 
@@ -191,16 +198,11 @@
 		previousOrderProperty = $orderProperty;
 	}
 
-	let settingsNamespace = namespacedWritable
-		.namespace("controls")
-		.namespace("settings")
-
 	let propertySectionCollapsed = settingsNamespace
 		.namespace("property")
 		.make("collapsed", true);
 
-	let filterSectionCollapsed = settingsNamespace
-		.namespace("filter")
+	let filterSectionCollapsed = filterSection
 		.make("collapsed", true);
 
 </script>
