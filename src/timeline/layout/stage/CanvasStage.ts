@@ -23,6 +23,8 @@ export function* renderStage(
     const PI2 = 2 * Math.PI
     const renderHeight = viewport.height + point.width
 
+    const defaultColor = this.fillStyle;
+
     this.beginPath()
     this.clearRect(0, 0, viewport.width, viewport.height)
 
@@ -35,12 +37,25 @@ export function* renderStage(
     const maxScroll = Math.max(0, (maxY + point.marginY) - viewport.height)
     if (viewport.scrollTop > maxScroll) viewport.scrollTop = maxScroll
 
+    let currentColor = this.fillStyle;
+
     for (const bounds of pointBounds) {
         const scrolledY = bounds.centerY - viewport.scrollTop
         if (scrolledY < -point.width || scrolledY > renderHeight) continue
 
+        const color = bounds.item.color() ?? defaultColor;
+
+        if (color !== currentColor) {
+            this.closePath();
+            this.fill();
+            this.beginPath();
+        }
+
+        this.fillStyle = color;
+
         this.moveTo(bounds.right, scrolledY)
         this.arc(bounds.centerX, scrolledY, pointRadius, 0, PI2)
+
         yield new PointBounds(bounds.centerX, scrolledY, bounds.item, point)
     }
     this.closePath()

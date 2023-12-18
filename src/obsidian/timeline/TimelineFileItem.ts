@@ -6,7 +6,8 @@ export class TimelineFileItem implements TimelineItem {
 
     constructor(
         public obsidianFile: TFile,
-        private propertySelection: FilePropertySelector
+        private propertySelection: FilePropertySelector,
+        private colorSelection: { selectColor(file: TFile): string | undefined }
     ) {}
     
     id(): string {
@@ -19,5 +20,9 @@ export class TimelineFileItem implements TimelineItem {
 
     name(): string {
         return this.obsidianFile.basename;
+    }
+
+    color(): string | undefined {
+        return this.colorSelection.selectColor(this.obsidianFile);
     }
 }

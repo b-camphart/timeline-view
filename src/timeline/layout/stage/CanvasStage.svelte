@@ -154,6 +154,10 @@
 	}
 	$: onPointsOrScaleChanged(sortedItems, scale);
 
+	export function invalidateColors() {
+		changesNeeded = true
+	}
+
 	onMount(() => {
 		if (canvas == null || pointElements.some(el => el == null) || stageCSSTarget == null) {
 			return;

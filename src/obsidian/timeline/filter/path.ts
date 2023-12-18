@@ -10,21 +10,21 @@ export function filterByPathPattern(path: RegExp): FileFilter {
 }
 
 
-class PathFilter implements FileFilter {
+export class PathFilter implements FileFilter {
 
     constructor(private path: string) {}
 
-    appliesTo(file: TFile): boolean {
+    appliesTo(file: Pick<TFile, 'path'>): boolean {
         return file.path.includes(this.path)
     }
 
 }
 
-class PathRegexFilter implements FileFilter {
+export class PathRegexFilter implements FileFilter {
 
     constructor(private path: RegExp) {}
 
-    appliesTo(file: TFile): boolean {
+    appliesTo(file: Pick<TFile, 'path'>): boolean {
         return this.path.test(file.path);
     }
 }

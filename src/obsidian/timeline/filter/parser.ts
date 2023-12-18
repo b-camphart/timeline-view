@@ -1,7 +1,10 @@
 import { type FileFilter, matchAllFilters, negated, orFilter } from "./FileFilter";
 import { filterByPath } from "./path";
 
-export function parseFileSearchQuery(query: string) {
+export function parseFileSearchQuery(
+    query: string, 
+    defaultCombo: (filters: FileFilter[]) => FileFilter = matchAllFilters
+) {
     query = query.trim()
     const filters: FileFilter[] = [];
 
@@ -11,7 +14,7 @@ export function parseFileSearchQuery(query: string) {
     }
     parser.end(filters);
 
-    const filter = matchAllFilters(filters);
+    const filter = defaultCombo(filters);
 
     return filter
 

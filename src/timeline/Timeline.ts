@@ -15,7 +15,9 @@ export interface TimelineUserInput {
 export interface TimelineItem {
     id(): string;
     value(): number;
-    name(): string
+    name(): string;
+
+    color(): string | undefined;
 }
 
 export interface TimelineDisplayItem extends TimelineItem {
@@ -48,6 +50,10 @@ class DisplayItem implements TimelineDisplayItem {
         return this.item.name()
     }
 
+    color(): string | undefined {
+        return this.item.color()
+    }
+
     positionX(): number {
         return this.x
     }
@@ -78,6 +84,10 @@ class ShiftedDisplayItem implements TimelineDisplayItem {
 
     name() {
         return this.original.name()
+    }
+
+    color() {
+        return this.original.color()
     }
 
     positionX(): number {

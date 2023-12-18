@@ -19,6 +19,8 @@
 	export let focalValue: number = 0
 	export let scale: number = 1;
 
+	let stage: CanvasStage | undefined;
+
 	let sortedItems: TimelineItem[] = []
 	let unsortedItems: TimelineItem[] = []
 	function sortItems() {
@@ -44,6 +46,14 @@
 		scheduleSortUpdate()
 	}
 
+	export function modifyItemColor(id: string, color: string | undefined) {
+		stage?.invalidateColors();
+	}
+
+	export function modifyItemColors() {
+		stage?.invalidateColors();
+	}
+	
 	export function modifyItemValue(id: string, value: number) {
 		scheduleSortUpdate()
 	}
@@ -133,6 +143,7 @@
 			}
 		}}
 		{focalValue}
+		bind:this={stage}
 		bind:width={stageWidth}
 		on:scrollX={({ detail }) => navigation.scrollToValue(focalValue + detail)}
 		on:zoomIn={({ detail }) => navigation.zoomIn(detail)}
