@@ -1,4 +1,4 @@
-import { type FileFilter, matchAllFilters } from "./FileFilter";
+import { type FileFilter, matchAllFilters, negated, orFilter } from "./FileFilter";
 import { filterByPath } from "./path";
 
 export function parseFileSearchQuery(query: string) {
@@ -11,7 +11,9 @@ export function parseFileSearchQuery(query: string) {
     }
     parser.end(filters);
 
-    return filters;
+    const filter = matchAllFilters(filters);
+
+    return filter
 
 }
 
@@ -47,7 +49,12 @@ class WordParser implements Parser {
 
     parseCharacter(char: string, filters: FileFilter[]) {
         if (char === " ") {
-            filters.push(filterByPath(this.buffer))
+            if (this.buffer.toLocaleUpperCase() === "OR") {
+                return new OrParser()
+            }
+            if (this.buffer.toLocaleUpperCase() !== "AND") {
+                filters.push(filterByPath(this.buffer))
+            }
             return DefaultParser;
         }
         this.buffer += char
@@ -55,6 +62,11 @@ class WordParser implements Parser {
     }
 
     end(filters: FileFilter[]) {
+        switch(this.buffer.toLocaleUpperCase()) {
+            case "OR":
+            case "AND":
+                return;
+        }
         filters.push(filterByPath(this.buffer))
     }
 
@@ -140,11 +152,25 @@ class GroupedParser implements Parser {
     }
 }
 
+class OrParser implements Parser {
 
-function negated(filters: FileFilter[]): FileFilter {
-    return {
-        appliesTo(file) {
-            return filters.every(filter => !filter.appliesTo(file))
-        },
+    private internalParser: Parser;
+    private secondFilters: FileFilter[] = [];
+  
+    constructor() {
+        this.internalParser = DefaultParser;
+    }
+
+    parseCharacter(char: string, filters: FileFilter[]): Parser {
+        this.internalParser = this.internalParser.parseCharacter(char, this.secondFilters)
+        return this;
+    }
+
+    end(filters: FileFilter[]): void {
+        this.internalParser.end(this.secondFilters)
+
+        const firstFilters = [...filters]
+        filters.splice(0, filters.length)
+        filters.push(orFilter(firstFilters, this.secondFilters))
     }
 }

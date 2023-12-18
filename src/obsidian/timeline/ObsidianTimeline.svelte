@@ -77,8 +77,8 @@
 		.namespace("filter")
 
 	const filterText = filterSection.make("query", "")
-	const activeFilters = writable(parseFileSearchQuery($filterText))
-	filterText.subscribe(newFilterText => activeFilters.set(parseFileSearchQuery(newFilterText)))
+	const activeFilter = writable(parseFileSearchQuery($filterText))
+	filterText.subscribe(newFilterText => activeFilter.set(parseFileSearchQuery(newFilterText)))
 
 	function openFile(event: Event | undefined, item: TimelineItem) {
 		const file = app.vault.getAbstractFileByPath(item.id());
@@ -105,7 +105,7 @@
 			files.set(file.path, new TimelineFileItem(file, propertySelection))
 		}
 		items = Array.from(files.values())
-			.filter(file => $activeFilters.every(filter => filter.appliesTo(file.obsidianFile)))
+			.filter(file => $activeFilter.appliesTo(file.obsidianFile))
 		timelineView.replaceItems(items)
 		if (items.length === 1) {
 			timelineView.$set({ focalValue: items[0].value() })
@@ -116,9 +116,9 @@
 			timelineView.$set({ focalValue: (diff / 2) + firstValue })
 		}
 
-		activeFilters.subscribe(newFilters => {
+		activeFilter.subscribe(newFilter => {
 			items = Array.from(files.values())
-				.filter(file => newFilters.every(filter => filter.appliesTo(file.obsidianFile)))
+				.filter(file => newFilter.appliesTo(file.obsidianFile))
 			timelineView.replaceItems(items)
 		})
 
@@ -128,7 +128,7 @@
 		if (timelineView == null) return
 		const item = new TimelineFileItem(file, propertySelection)
 		files.set(file.path, item)
-		if ($activeFilters.every(filter => filter.appliesTo(file))) {
+		if ($activeFilter.appliesTo(file)) {
 			timelineView.addItem(item)
 		}
 	}
