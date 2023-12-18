@@ -269,28 +269,18 @@ class MappedIterable<T, R> implements Iterable<R> {
     constructor(private base: Iterable<T>, private transform: (item: T, index: number) => R) {}
 
     [Symbol.iterator]() {
-        const baseIterator = this.base[Symbol.iterator]();
-        let index = -1;
-
-        return {
-            next: () => {
+        const self = this
+        return function* () {
+            let index = 0;
+            for (const value of self.base) {
+                yield self.transform(value, index)
                 index++;
-                const { value, done } = baseIterator.next()
-                if (done) {
-                    return {
-                        value: null,
-                        done
-                    }
-                } else {
-                    return {
-                        value: this.transform(value, index)
-                    }
-                }
             }
-        }
+        }.call(null)
     }
 }
-export function map<T, R>(arr: Iterable<T>, transform: (value: T, index: number) => R): Iterable<R> {
-    return new MappedIterable(arr, transform)
+
+export function* map<T, R>(iterable: Iterable<T>, transform: (value: T, index: number) => R): Iterable<R> {
+    return new MappedIterable(iterable, transform)
 }
 

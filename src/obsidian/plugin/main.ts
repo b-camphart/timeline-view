@@ -71,14 +71,6 @@ export default class ObsidianTimelinePlugin extends Plugin implements Obsidian, 
         await this.saveData(this.saveState)
     }
 
-    async onunload(): Promise<void> {
-        const leaves = this.app.workspace
-            .getLeavesOfType(TimelineItemView.viewType)
-        for (const leaf of leaves) {
-            leaf.detach()
-        }
-    }
-
     async openTimelineView() {
         const leaf = this.app.workspace.getLeaf(true)
         leaf.setViewState({

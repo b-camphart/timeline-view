@@ -5,19 +5,19 @@ import type { FilePropertySelector } from "../properties/NotePropertySelector";
 export class TimelineFileItem implements TimelineItem {
 
     constructor(
-        public file: TFile,
+        public obsidianFile: TFile,
         private propertySelection: FilePropertySelector
     ) {}
     
     id(): string {
-        return this.file.path
+        return this.obsidianFile.path
     }
     
     value(): number {
-        return this.propertySelection.selectProperty(this.file)
+        return this.propertySelection.selectProperty(this.obsidianFile)
     }
 
     name(): string {
-        return this.file.basename;
+        return this.obsidianFile.basename;
     }
 }
