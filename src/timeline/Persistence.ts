@@ -9,7 +9,7 @@ export interface NamespacedWritableFactory {
 
 export function namespacedWritableFactory(
     namespace: string, 
-    parent: Pick<Writable<any | undefined | null>, "update" | "subscribe">
+    writableFactory: <T>(name: string, defaultValue: T) => Writable<T>
 ): NamespacedWritableFactory {
     const children = new Map<string, Writable<any>>();
 
@@ -21,53 +21,13 @@ export function namespacedWritableFactory(
                 return child;
             }
 
-            let firstParentEvent = true
-            let backingWritable = writable<T>(defaultValue)
-            parent.subscribe((newParentValue) => {
-                if (firstParentEvent) {
-                    if (newParentValue == null) {
-                        backingWritable.set(defaultValue)
-                    } else {
-                        backingWritable.set(newParentValue[namespacedKey] ?? defaultValue)
-                    }
-                    firstParentEvent = false;
-                } else {
-                    if (newParentValue == null) {
-                        backingWritable.set(defaultValue);
-                    } else {
-                        backingWritable.set(newParentValue[namespacedKey])
-                    }
-                }
-            })
-            child = {
-                subscribe: backingWritable.subscribe,
-                set(value) {
-                    backingWritable.set(value);
-                    parent.update(oldParentValue => {
-                        if (oldParentValue == null) {
-                            return oldParentValue
-                        }
-                        oldParentValue[namespacedKey] = value;
-                        return oldParentValue
-                    })
-                },
-                update(updater) {
-                    backingWritable.update(updater);
-                    parent.update(oldParentValue => {
-                        if (oldParentValue == null) {
-                            return oldParentValue
-                        }
-                        oldParentValue[namespacedKey] = updater(oldParentValue[namespacedKey]);
-                        return oldParentValue
-                    })
-                }
-            };
-            children.set(namespacedKey, child);
-            return child;
+            child = writableFactory(namespacedKey, defaultValue)
+            children.set(namespacedKey, child)
+            return child
         },
         namespace(name: string) {
             const namespacedKey = `${namespace}${name}`
-            return namespacedWritableFactory(`${namespacedKey}.`, parent);
+            return namespacedWritableFactory(`${namespacedKey}.`, writableFactory);
         },
     };
 }

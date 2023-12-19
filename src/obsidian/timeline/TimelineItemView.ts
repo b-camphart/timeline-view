@@ -3,7 +3,7 @@ import ObsidianTimeline from "./ObsidianTimeline.svelte"
 import type { Obsidian } from "../Obsidian";
 import type { PropertyType } from "../properties/Properties"; 
 import type { Unsubscribe } from "../Events"
-import type { Writable } from "svelte/store";
+import { writable, type Writable } from "svelte/store";
 import { namespacedWritableFactory } from "../../timeline/Persistence";
 
 export type TimelineItemViewState = {
@@ -63,31 +63,28 @@ export class TimelineItemView extends ItemView {
 
         this.state = await this.stateLoader;
 
-        const writableState: Writable<TimelineItemViewState> = {
-            set: (value) => {
-                this.state = value;
-                if (this.leafId != null) {
-                    this.guiStore.saveLeafState(this.leafId, value)
+        const leafView = this
+        function writableFactory<T>(name: string, value: T): Writable<T> {
+            const backingWritable = writable(leafView.state != null ? (leafView.state[name] ?? value) : value);
+            backingWritable.subscribe(newValue => {
+                const state = leafView.state == null ? {} : leafView.state
+                if (leafView.state == null) {
+                    leafView.state = state
                 }
-            },
-            subscribe: (run, invalidate) => {
-                run(this.state ?? {})
-                return () => {
-                    if (invalidate != null) {
-                        invalidate(this.state ?? undefined)
-                    }
+                state[name] = newValue
+                if (leafView.leafId != null) {
+                    leafView.guiStore.saveLeafState(leafView.leafId, state)
                 }
-            },
-            update: (updater) => {
-                writableState.set(updater(this.state ?? {}))
-            },
+            })
+
+            return backingWritable
         }
 
         this.component = new ObsidianTimeline({
             target: container,
             props: {
                 app: this.app,
-                namespacedWritable: namespacedWritableFactory("", writableState),
+                namespacedWritable: namespacedWritableFactory("", writableFactory),
                 properties: this.obsidian.vault.properties,
 
             },
