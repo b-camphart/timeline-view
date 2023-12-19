@@ -6,6 +6,7 @@ import versions from './src/obsidian/plugin/versions';
 import { existsSync, mkdirSync, renameSync, writeFileSync } from 'fs';
 import { initializeTestVault } from './e2e/obsidian/runner';
 import { exec } from 'child_process';
+import { resolve } from 'path'
 
 function config(buildOverrides: Partial<BuildOptions> & { outDir: string }, additionalPlugins: PluginOption[] = []): UserConfig {
   return {
@@ -18,7 +19,10 @@ function config(buildOverrides: Partial<BuildOptions> & { outDir: string }, addi
       {
         name: "obsidianNamingConventions",
         closeBundle() {
-          renameSync(`${buildOverrides.outDir}/style.css`, `${buildOverrides.outDir}/styles.css`);
+          const stylePath = `${buildOverrides.outDir}/style.css`
+          if (existsSync(stylePath)) {
+            renameSync(stylePath, `${buildOverrides.outDir}/styles.css`);
+          }
         }
       },
       ...additionalPlugins,
@@ -56,10 +60,16 @@ function config(buildOverrides: Partial<BuildOptions> & { outDir: string }, addi
           globals: {
             "obsidian": "obsidian"
           }
-        }
+        },  
       },
+      
       ...buildOverrides
     },
+    resolve: {
+      alias: {
+        "src": resolve("./src")
+      },
+    }
   }
 }
 
@@ -84,7 +94,7 @@ function productionBuild() {
 function developmentBuild() {
   const testVaultDir = "./testVault"
   const testVaultObsidianDir = `${testVaultDir}/.obsidian`
-  const outDir = `${testVaultObsidianDir}/plugins/${manifest.id}/`;
+  const outDir = `${testVaultObsidianDir}/plugins/${manifest.id}`;
   initializeTestVault(testVaultObsidianDir);
   generatePluginJson(outDir);
 
