@@ -125,6 +125,7 @@ class NegatedParser implements Parser {
     }
 
     end(filters: FileFilter[]) {
+        this.internalParser.end(this.negatedFilters)
         filters.push(negated(this.negatedFilters));
     }
 
