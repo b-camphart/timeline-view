@@ -18,9 +18,10 @@
 	import { parseFileSearchQuery } from "./filter/parser";
 	import { onMount } from "svelte";
 	import { writable, type Writable } from "svelte/store";
-	import Groups from "./settings/Groups.svelte";
-	import { getColorSelector, type ItemGroup } from "./settings/ItemGroup";
-	import { matchAllFilters, type FileFilter } from "./filter/FileFilter";
+	import Groups from "./settings/groups/Groups.svelte";
+	import { getColorSelector, type ColorSelector, type ItemGroup } from "./settings/groups/FileGroup";
+	import { groupFilter } from "./settings/groups/grouping";
+	import { persistedGroupSection } from "./settings/groups/persistence";
 
 	export let namespacedWritable: NamespacedWritableFactory;
 	export let app: App;
@@ -52,72 +53,6 @@
 		.namespace("controls")
 		.namespace("settings")
 
-	const groupSection = settingsNamespace
-		.namespace("groups")
-
-	const storedGroups = groupSection.make("groups", [] as Omit<ItemGroup, 'filter'>[]);
-	function defaultGroupFilter(filters: FileFilter[]): FileFilter {
-		if (filters.length === 0) {
-			return {
-				appliesTo(file) {
-					return false
-				},
-			}
-		}
-		return matchAllFilters(filters)
-	}
-	function completeItemGroups(partialGroups: Omit<ItemGroup, 'filter'>[]) {
-		return partialGroups.map(group => {
-			let query = group.query
-			let filter = parseFileSearchQuery(group.query, defaultGroupFilter)
-			return {
-				get query() {
-					return query;
-				},
-				set query(newQuery) {
-					query = newQuery
-					filter = parseFileSearchQuery(group.query, defaultGroupFilter)
-				},
-				get filter() {
-					return filter;
-				},
-				color: group.color
-			} satisfies ItemGroup;
-		})
-	}
-	const groups: Writable<ItemGroup[]> = (() => {
-		const backingWritable = writable(completeItemGroups($storedGroups))
-		return {
-			set(value) {
-				backingWritable.set(completeItemGroups(value))
-			},
-			update(updater) {
-				backingWritable.update(currentGroups => {
-					const newGroups = completeItemGroups(updater(currentGroups))
-					backingWritable.set(newGroups)
-					return newGroups
-				})
-			},
-			subscribe: backingWritable.subscribe,
-		} satisfies Writable<ItemGroup[]>
-	})()
-	groups.subscribe(newGroups => {
-		storedGroups.set(newGroups.map(group => ({ query: group.query, color: group.color })))
-	})
-
-	const fileColorCache = new Map<string, string | null>();
-	const colorSelection = {
-		selector: getColorSelector($groups),
-		selectColor(file: TFile) {
-			if (fileColorCache.has(file.path)) {
-				return fileColorCache.get(file.path) ?? undefined
-			}
-			const color = this.selector.selectColor(file) ?? null
-			fileColorCache.set(file.path, color)
-			return color ?? undefined
-		}
-	}
-
 	let displayNoteNames = namespacedWritable.make("displayNoteNames", false);
 
 	function getPropertyDisplayType(
@@ -148,6 +83,8 @@
 	const filterText = filterSection.make("query", "")
 	const activeFilter = writable(parseFileSearchQuery($filterText))
 	filterText.subscribe(newFilterText => activeFilter.set(parseFileSearchQuery(newFilterText)))
+
+	let colorSelection: ColorSelector;
 
 	function openFile(event: Event | undefined, item: TimelineItem) {
 		const file = app.vault.getAbstractFileByPath(item.id());
@@ -191,12 +128,6 @@
 			timelineView.replaceItems(items)
 		})
 
-		groups.subscribe(newGroups => {
-			fileColorCache.clear();
-			colorSelection.selector = getColorSelector(newGroups)
-			timelineView.modifyItemColors()
-		})
-
 	})
 
 	export function addFile(file: TFile) {
@@ -210,7 +141,7 @@
 
 	export function deleteFile(file: TFile) {
 		if (timelineView == null) return
-		fileColorCache.delete(file.path)
+		colorSelection.invalidate(file.path)
 		const item = files.get(file.path)
 		if (item == null) return
 		if (files.delete(file.path)) {
@@ -220,14 +151,14 @@
 
 	export function modifyFile(file: TFile) {
 		if (timelineView == null) return
-		fileColorCache.delete(file.path)
+		colorSelection.invalidate(file.path)
 		timelineView.modifyItemValue(file.path, propertySelection.selectProperty(file))
 		timelineView.modifyItemColor(file.path, colorSelection.selectColor(file))
 	}
 
 	export function renameFile(file: TFile, oldPath: string) {
 		if (timelineView == null) return
-		fileColorCache.delete(oldPath)
+		colorSelection.invalidate(oldPath)
 		timelineView.renameItem(oldPath, file.name)
 		timelineView.modifyItemColor(oldPath, colorSelection.selectColor(file))
 	}
@@ -285,7 +216,9 @@
 	let filterSectionCollapsed = filterSection
 		.make("collapsed", true);
 
-	let groupSectionCollapsed = groupSection.make("collapsed", true);
+	function itemColorsInvalidated() {
+		timelineView?.modifyItemColors?.call(timelineView)
+	}
 
 </script>
 
@@ -312,9 +245,12 @@
 		<CollapsableSection name="Filter" bind:collapsed={$filterSectionCollapsed}>
 			<input type="search" placeholder="Search files..." bind:value={$filterText} />
 		</CollapsableSection>
-		<CollapsableSection name="Groups" bind:collapsed={$groupSectionCollapsed}>
-			<Groups bind:groups={$groups}/>
-		</CollapsableSection>
+		<Groups 
+			name="Groups" 
+			namespace={settingsNamespace.namespace("groups")} 
+			bind:colorSelection={colorSelection} 
+			on:invalidated={itemColorsInvalidated}
+		/>
 	</svelte:fragment>
 </TimelineView>
 

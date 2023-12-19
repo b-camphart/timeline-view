@@ -1,6 +1,5 @@
 import type { TFile } from "obsidian";
-import type { FileFilter } from "../filter/FileFilter";
-import type { Writable } from "svelte/store";
+import type { FileFilter } from "../../filter/FileFilter";
 
 export interface ItemGroup {
     query: string
@@ -8,9 +7,14 @@ export interface ItemGroup {
     color: string
 }
 
+export interface ColorSelector {
+    selectColor(file: TFile): string | undefined;
+    invalidate(path: string): void;
+}
+
 export function getColorSelector(
     groups: ItemGroup[]
-): { selectColor(file: TFile): string | undefined } {
+): ColorSelector {
     return {
         selectColor(file) {
             const group = groups.find(group => group.filter.appliesTo(file))
@@ -19,6 +23,9 @@ export function getColorSelector(
                 return group.color
             }
             return undefined;
+        },
+        invalidate(path) {
+            
         },
     }
 }
