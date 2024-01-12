@@ -17,7 +17,8 @@
     "strictNullChecks": true,
     "paths": {
       "src/*": ["./src/*"]
-    }
+    },
+    "moduleResolution": "Node"
   },
   "include": ["src/**/*.d.ts", "src/**/*.ts", "src/**/*.js", "src/**/*.svelte"],
   "exclude": [
