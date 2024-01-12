@@ -15,6 +15,9 @@
 	"keywords": [],
 	"author": "",
 	"license": "MIT",
+	"dependencies": {
+		"obsidian-search": "0.1.1"
+	},
 	"devDependencies": {
 		"@sveltejs/vite-plugin-svelte": "^2.4.2",
 		"@tsconfig/svelte": "^5.0.0",
