@@ -7,21 +7,28 @@
 		type Properties,
 		type PropertyType,
 	} from "../properties/Properties";
-	import type {
-		TimelineItem,
-	} from "../../timeline/Timeline";
+	import type { TimelineItem } from "../../timeline/Timeline";
 	import CollapsableSection from "../../view/CollapsableSection.svelte";
 	import Row from "../../view/layouts/Row.svelte";
 	import PropertySelection from "../properties/PropertySelection.svelte";
 	import { getPropertySelector } from "../properties/NotePropertySelector";
 	import { type NamespacedWritableFactory } from "../../timeline/Persistence";
-	import { parseFileSearchQuery } from "./filter/parser";
 	import { onMount } from "svelte";
-	import { writable, type Writable } from "svelte/store";
+	import { writable } from "svelte/store";
 	import Groups from "./settings/groups/Groups.svelte";
-	import { getColorSelector, type ColorSelector, type ItemGroup } from "./settings/groups/FileGroup";
-	import { groupFilter } from "./settings/groups/grouping";
-	import { persistedGroupSection } from "./settings/groups/persistence";
+	import {
+		type ColorSelector,
+		type ItemGroup,
+	} from "./settings/groups/FileGroup";
+	import { parse } from "obsidian-search";
+	import { MatchAllEmptyQuery } from "./settings/filter";
+	import {
+		makeTimelineItemGroups,
+		type TimelineItemGroups,
+	} from "./settings/groups/Groups";
+	import { applyFileToGroup } from "./settings/groups/applyFilesToGroup";
+	import { GroupRepository } from "./settings/groups/persistence";
+	import { selectGroupForFile } from "./settings/groups/selectGroupForFile";
 
 	export let namespacedWritable: NamespacedWritableFactory;
 	export let app: App;
@@ -42,21 +49,21 @@
 		selector: getPropertySelector(
 			$orderProperty,
 			availableProperties,
-			app.metadataCache
+			app.metadataCache,
 		),
 		selectProperty(file: TFile) {
-			return this.selector.selectProperty(file)
+			return this.selector.selectProperty(file);
 		},
-	}
+	};
 
 	const settingsNamespace = namespacedWritable
 		.namespace("controls")
-		.namespace("settings")
+		.namespace("settings");
 
 	let displayNoteNames = namespacedWritable.make("displayNoteNames", false);
 
 	function getPropertyDisplayType(
-		prop: string | undefined
+		prop: string | undefined,
 	): "numeric" | "date" {
 		if (prop === undefined) {
 			return "numeric";
@@ -77,14 +84,58 @@
 		}
 	}
 
-	let filterSection = settingsNamespace
-		.namespace("filter")
+	let filterSection = settingsNamespace.namespace("filter");
 
-	const filterText = filterSection.make("query", "")
-	const activeFilter = writable(parseFileSearchQuery($filterText))
-	filterText.subscribe(newFilterText => activeFilter.set(parseFileSearchQuery(newFilterText)))
+	const filterText = filterSection.make("query", "");
+	const activeFilter = writable(
+		parse($filterText, app.metadataCache, MatchAllEmptyQuery),
+	);
+	filterText.subscribe((newFilterText) =>
+		activeFilter.set(
+			parse(newFilterText, app.metadataCache, MatchAllEmptyQuery),
+		),
+	);
 
-	let colorSelection: ColorSelector;
+	let items: TimelineFileItem[] = [];
+
+	const groupsNamespace = settingsNamespace.namespace("groups")
+	const groupsRepo = new GroupRepository(groupsNamespace.make("groups", []), app.metadataCache)
+	let groupsView: Groups | undefined;
+
+	const timelineItemGroups: TimelineItemGroups = makeTimelineItemGroups(
+		{
+			groups: groupsRepo,
+			items: {
+				list() {
+					return items;
+				}
+			},
+			recolorProcess: undefined,
+		},
+		{
+			presentNewGroup(group) {
+				groupsView?.addGroup(group)
+			},
+			presentReorderedGroups(groups) {
+				groupsView?.newOrder(groups)
+			},
+			presentRecoloredGroup(group) {
+				groupsView?.recolorGroup(group)
+			},
+			presentRecoloredItem(item) {
+				timelineView?.modifyItemColor(item.id(), item.color());
+			},
+			presentRecoloredItems(items) {
+				timelineView?.modifyItemColors();
+			},
+			presentRequeriedGroup(group) {
+				groupsView?.changeGroupQuery(group)
+			},
+			hideGroup(groupId) {
+				groupsView?.removeGroup(groupId)
+			},
+		},
+	);
 
 	function openFile(event: Event | undefined, item: TimelineItem) {
 		const file = app.vault.getAbstractFileByPath(item.id());
@@ -102,76 +153,105 @@
 	}
 
 	const files: Map<string, TimelineFileItem> = new Map();
-	let items: TimelineFileItem[] = []
 
 	let timelineView: TimelineView;
-	onMount(() => {
-		if (timelineView == null) return
+	onMount(async () => {
+		if (timelineView == null) return;
 		for (const file of app.vault.getMarkdownFiles()) {
-			files.set(file.path, new TimelineFileItem(file, propertySelection, colorSelection))
+			files.set(file.path, new TimelineFileItem(file, propertySelection));
 		}
-		items = Array.from(files.values())
-			.filter(file => $activeFilter.appliesTo(file.obsidianFile))
-		timelineView.replaceItems(items)
+
+		items = [];
+		for (const item of files.values()) {
+			if (await $activeFilter.appliesTo(item.obsidianFile)) {
+				items.push(item);
+			}
+		}
+		timelineView.replaceItems(items);
 		if (items.length === 1) {
-			timelineView.$set({ focalValue: items[0].value() })
+			timelineView.$set({ focalValue: items[0].value() });
 		}
 		if (items.length > 1) {
-			const firstValue = items[0].value()
-			const diff = items.last()!.value() - firstValue
-			timelineView.$set({ focalValue: (diff / 2) + firstValue })
+			const firstValue = items[0].value();
+			const diff = items.last()!.value() - firstValue;
+			timelineView.$set({ focalValue: diff / 2 + firstValue });
 		}
 
-		activeFilter.subscribe(newFilter => {
-			items = Array.from(files.values())
-				.filter(file => newFilter.appliesTo(file.obsidianFile))
-			timelineView.replaceItems(items)
-		})
+		let currentFilteringId = 0;
 
-	})
+		activeFilter.subscribe(async (newFilter) => {
+			const filteringId = currentFilteringId + 1;
+			currentFilteringId = filteringId;
+			timelineView.replaceItems([]);
+			for (const file of Array.from(files.values())) {
+				if (currentFilteringId !== filteringId) break;
+				if (await newFilter.appliesTo(file.obsidianFile)) {
+					timelineView.addItem(file);
+				}
+			}
+		});
+	});
 
-	export function addFile(file: TFile) {
-		if (timelineView == null) return
-		const item = new TimelineFileItem(file, propertySelection, colorSelection)
-		files.set(file.path, item)
-		if ($activeFilter.appliesTo(file)) {
-			timelineView.addItem(item)
-		}
+	export async function addFile(file: TFile) {
+		if (timelineView == null) return;
+		const item = new TimelineFileItem(file, propertySelection);
+		files.set(file.path, item);
+		$activeFilter.appliesTo(file).then((isApplicable) => {
+			if (isApplicable) {
+				timelineView.addItem(item);
+			}
+		});
 	}
 
 	export function deleteFile(file: TFile) {
-		if (timelineView == null) return
-		colorSelection.invalidate(file.path)
-		const item = files.get(file.path)
-		if (item == null) return
+		if (timelineView == null) return;
+		const item = files.get(file.path);
+		if (item == null) return;
 		if (files.delete(file.path)) {
-			timelineView.removeItem(item)
+			timelineView.removeItem(item);
 		}
 	}
 
-	export function modifyFile(file: TFile) {
-		if (timelineView == null) return
-		colorSelection.invalidate(file.path)
-		timelineView.modifyItemValue(file.path, propertySelection.selectProperty(file))
-		timelineView.modifyItemColor(file.path, colorSelection.selectColor(file))
+	export async function modifyFile(file: TFile) {
+		if (timelineView == null) return;
+		timelineView.modifyItemValue(
+			file.path,
+			propertySelection.selectProperty(file),
+		);
+		const item = files.get(file.path);
+		if (item == null) return;
+		const group = await selectGroupForFile(groupsRepo.list(), file)
+		item.applyGroup(group)
+
+		timelineView.modifyItemColor(
+			file.path,
+			group?.color,
+		);
 	}
 
-	export function renameFile(file: TFile, oldPath: string) {
-		if (timelineView == null) return
-		colorSelection.invalidate(oldPath)
-		timelineView.renameItem(oldPath, file.name)
-		timelineView.modifyItemColor(oldPath, colorSelection.selectColor(file))
+	export async function renameFile(file: TFile, oldPath: string) {
+		if (timelineView == null) return;
+		timelineView.renameItem(oldPath, file.name);
+		const item = files.get(file.path);
+		if (item == null) return;
+		const group = await selectGroupForFile(groupsRepo.list(), file)
+		item.applyGroup(group)
+		
+		timelineView.modifyItemColor(
+			file.path,
+			group?.color,
+		);
 	}
 
-	orderProperty.subscribe(newOrderProperty => {
+	orderProperty.subscribe((newOrderProperty) => {
 		propertySelection.selector = getPropertySelector(
 			newOrderProperty,
 			availableProperties,
-			app.metadataCache
+			app.metadataCache,
 		);
-		if (timelineView == null) return
-		timelineView.replaceItems(items)
-	})
+		if (timelineView == null) return;
+		timelineView.replaceItems(items);
+	});
 
 	let orderPropertyOptions: string[] = Object.keys(availableProperties);
 
@@ -213,13 +293,7 @@
 		.namespace("property")
 		.make("collapsed", true);
 
-	let filterSectionCollapsed = filterSection
-		.make("collapsed", true);
-
-	function itemColorsInvalidated() {
-		timelineView?.modifyItemColors?.call(timelineView)
-	}
-
+	let filterSectionCollapsed = filterSection.make("collapsed", true);
 </script>
 
 <TimelineView
@@ -242,14 +316,21 @@
 				/>
 			</Row>
 		</CollapsableSection>
-		<CollapsableSection name="Filter" bind:collapsed={$filterSectionCollapsed}>
-			<input type="search" placeholder="Search files..." bind:value={$filterText} />
+		<CollapsableSection
+			name="Filter"
+			bind:collapsed={$filterSectionCollapsed}
+		>
+			<input
+				type="search"
+				placeholder="Search files..."
+				bind:value={$filterText}
+			/>
 		</CollapsableSection>
-		<Groups 
-			name="Groups" 
-			namespace={settingsNamespace.namespace("groups")} 
-			bind:colorSelection={colorSelection} 
-			on:invalidated={itemColorsInvalidated}
+		<Groups
+			bind:this={groupsView}
+			{timelineItemGroups}
+			name="Groups"
+			namespace={groupsNamespace}
 		/>
 	</svelte:fragment>
 </TimelineView>
@@ -275,10 +356,10 @@
 		cursor: pointer;
 		width: var(--point-diameter);
 		height: var(--point-diameter);
-        margin: var(--margin-between-points);
+		margin: var(--margin-between-points);
 		border-radius: 100%;
-        display: flex;
-        justify-content: center;
+		display: flex;
+		justify-content: center;
 	}
 
 	:global(.timeline-point.hover) {
@@ -292,9 +373,7 @@
 		background-color: var(--background-primary);
 		white-space: nowrap;
 		position: relative;
-		top: calc(
-			var(--point-diameter) + 8px
-		);
+		top: calc(var(--point-diameter) + 8px);
 		pointer-events: none;
 	}
 
@@ -501,10 +580,14 @@
 		--timeline-toggle-box-width: var(--toggle-s-width) !important;
 
 		background-color: var(--background-modifier-border-hover);
-		box-shadow: inset 0 4px 10px rgba(0, 0, 0, 0.07),
+		box-shadow:
+			inset 0 4px 10px rgba(0, 0, 0, 0.07),
 			inset 0 0 1px rgba(0, 0, 0, 0.21);
-		transition: box-shadow 0.15s ease-in-out, outline 0.15s ease-in-out,
-			border 0.15s ease-in-out, opacity 0.15s ease-in-out;
+		transition:
+			box-shadow 0.15s ease-in-out,
+			outline 0.15s ease-in-out,
+			border 0.15s ease-in-out,
+			opacity 0.15s ease-in-out;
 		outline: 0 solid var(--background-modifier-border-focus);
 		border-radius: var(--toggle-radius);
 	}
@@ -518,7 +601,9 @@
 	:global(.timeline) :global(.toggle-input) :global(.thumb) {
 		background-color: var(--toggle-thumb-color);
 		border-radius: var(--toggle-thumb-radius);
-		transition: transform 0.15s ease-in-out, width 0.1s ease-in-out,
+		transition:
+			transform 0.15s ease-in-out,
+			width 0.1s ease-in-out,
 			left 0.1s ease-in-out;
 		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 		margin-top: var(--toggle-s-border-width);

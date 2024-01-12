@@ -1,17 +1,11 @@
 <script lang="ts">
 	import CollapsableSection from "src/view/CollapsableSection.svelte";
 	import ActionButton from "../../../../view/inputs/ActionButton.svelte";
-	import {
-		getColorSelector,
-		type ColorSelector,
-		type ItemGroup,
-	} from "./FileGroup";
 	import GroupForm from "./GroupForm.svelte";
 	import type { NamespacedWritableFactory } from "src/timeline/Persistence";
 	import { persistedGroupSection } from "./persistence";
-	import { writable } from "svelte/store";
-	import { groupFilter } from "./grouping";
-	import { createEventDispatcher } from "svelte";
+	import type { TimelineItemGroups } from "./Groups";
+	import type { ItemGroup } from "./FileGroup";
 
 	const defaultGroupColors = [
 		"#e05252",
@@ -25,90 +19,42 @@
 		"#e052b1",
 	];
 
-	const dispatch = createEventDispatcher<{ invalidated: null }>();
+	export let timelineItemGroups: TimelineItemGroups;
 
 	export let name: string;
 	export let namespace: NamespacedWritableFactory;
 
 	const section = persistedGroupSection(namespace);
 	const collapsed = section.collapsed;
-	const storedGroups = section.groups;
+	const groupById = new Map<string, ItemGroup>();
+	let groups = [...timelineItemGroups.listGroups()];
+	groups.forEach(group => groupById.set(group.id, group))
 
-	function completeItemGroups(partialGroups: Omit<ItemGroup, "filter">[]) {
-		return partialGroups.map((group) => {
-			let query = group.query;
-			let filter = groupFilter(group.query);
-			return {
-				get query() {
-					return query;
-				},
-				set query(newQuery) {
-					query = newQuery;
-					filter = groupFilter(group.query);
-				},
-				get filter() {
-					return filter;
-				},
-				color: group.color,
-			} satisfies ItemGroup;
-		});
+	export function addGroup(group: ItemGroup) {
+		groupById.set(group.id, group)
+		groups.push(group)
+		groups = groups;
 	}
 
-	const groups = writable(completeItemGroups($storedGroups));
-	storedGroups.subscribe((storedGroups) => {
-		groups.set(completeItemGroups(storedGroups));
-		dispatch("invalidated");
-	});
-
-	const fileColorCache = new Map<string, string | undefined>();
-	$: selector = getColorSelector($groups);
-	export const colorSelection: ColorSelector = {
-		selectColor(file) {
-			let color: string | undefined;
-			if (fileColorCache.has(file.path)) {
-				color = fileColorCache.get(file.path);
-			} else {
-				color = selector.selectColor(file);
-			}
-			fileColorCache.set(file.path, color);
-			return color;
-		},
-		invalidate(path) {
-			fileColorCache.delete(path);
-		},
-	};
-
-	function addGroup() {
-		const color =
-			defaultGroupColors[
-				$storedGroups.length % defaultGroupColors.length
-			];
-
-		const storedGroup = {
-			query: "",
-			color,
-		};
-
-		storedGroups.update((storedGroups) => {
-			fileColorCache.clear();
-			storedGroups.push(storedGroup);
-			return storedGroups;
-		});
+	export function recolorGroup(group: ItemGroup) {
+		groupById.set(group.id, group)
+		groups = groups.map(({id}) => groupById.get(id)!)
 	}
 
-	function groupChanged() {
-		storedGroups.update((storedGroups) => {
-			fileColorCache.clear();
-			return storedGroups;
-		});
+	export function changeGroupQuery(group: ItemGroup) {
+		groupById.set(group.id, group)
+		groups = groups.map(({id}) => groupById.get(id)!)
 	}
 
-	function removeGroup(index: number) {
-		storedGroups.update((storedGroups) => {
-			fileColorCache.clear();
-			storedGroups.splice(index, 1);
-			return storedGroups;
-		});
+	export function removeGroup(groupId: string) {
+		groupById.delete(groupId)
+		groups = groups.filter(({id}) => id !== groupId).map(({id}) => groupById.get(id)!)
+	}
+
+	export function newOrder(newGroups: readonly ItemGroup[]) {
+		groupById.clear()
+		newGroups.forEach(group => groupById.set(group.id, group))
+		groups = [...newGroups]
 	}
 
 	let groupFormWidth = 0;
@@ -136,14 +82,16 @@
         window.removeEventListener("mousemove", mousemove)
         window.removeEventListener("mouseup", endDrag)
 
-        storedGroups.update(storedGroups => {
-            const [group] = storedGroups.splice(dragIndex, 1)
-            storedGroups.splice(dragOverIndex, 0, group)
+		timelineItemGroups.reorderGroup(groups[dragIndex].id, dragOverIndex)
 
-            fileColorCache.clear()
-            return storedGroups
+        // storedGroups.update(storedGroups => {
+        //     const [group] = storedGroups.splice(dragIndex, 1)
+        //     storedGroups.splice(dragOverIndex, 0, group)
 
-        })
+        //     fileColorCache.clear()
+        //     return storedGroups
+
+        // })
 
 		dragIndex = -1;
         dragOverIndex = -1;
@@ -173,18 +121,18 @@
 		style="--form-height: {groupFormHeight}px;"
 	>
         {#if dragIndex >= 0}
-            {#each $storedGroups.filter((_, index) => index !== dragIndex) as group, index (index)}
+            {#each groups.filter((_, index) => index !== dragIndex) as group, index (index)}
                 <GroupForm
                     {group}
                     pushDown={dragOverIndex >= 0 && index >= dragOverIndex}
                 />
             {/each}
         {:else}
-            {#each $storedGroups as group, index}
+            {#each groups as group, index}
                 <GroupForm
                     {group}
-                    on:change={groupChanged}
-                    on:remove={() => removeGroup(index)}
+					groups={timelineItemGroups}
+                    on:remove={() => timelineItemGroups.removeGroup(group.id)}
                     on:primeDrag={({ detail }) => primeDrag(index, detail)}
                     bind:clientWidth={groupFormWidth}
                     bind:clientHeight={groupFormHeight}
@@ -194,7 +142,7 @@
         {/if}
 	</div>
 	<div class="graph-color-button-container">
-		<ActionButton class="mod-cta" on:action={addGroup}
+		<ActionButton class="mod-cta" on:action={() => timelineItemGroups.createNewGroup()}
 			>New group</ActionButton
 		>
 	</div>
@@ -202,7 +150,7 @@
 {#if dragIndex >= 0}
     <dialog open style="top: {dragImgPos.top}px;left:{dragImgPos.left}px;" bind:this={dragDialog}>
         <GroupForm
-            group={$storedGroups[dragIndex]}
+            group={groups[dragIndex]}
         />
     </dialog>
 {/if}

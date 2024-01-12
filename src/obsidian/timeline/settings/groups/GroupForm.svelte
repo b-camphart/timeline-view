@@ -4,10 +4,12 @@
 	import ActionButton from "src/view/inputs/ActionButton.svelte";
 	import type { ItemGroup } from "./FileGroup";
 	import { createEventDispatcher, onMount } from "svelte";
+	import type { TimelineItemGroups } from "./Groups";
 
 	export let style: string = "";
 
 	export let group: Omit<ItemGroup, "filter">;
+	export let groups: TimelineItemGroups | undefined = undefined;
 	export let dragging: boolean = false;
 	export let pushDown: boolean = false;
 	export let clientWidth: number = 0;
@@ -17,7 +19,6 @@
 
 	const dispatch = createEventDispatcher<{
 		remove: null;
-		change: null;
 		primeDrag: { offsetX: number, offsetY: number };
 	}>();
 
@@ -25,8 +26,7 @@
 	$: query.set(group.query);
 	query.subscribe((newQuery) => {
 		if (newQuery !== group.query) {
-			group.query = newQuery;
-			dispatch("change");
+			groups?.applyFileToGroup(group.id, newQuery)
 		}
 	});
 
@@ -34,8 +34,7 @@
 	$: color.set(group.color);
 	color.subscribe((newColor) => {
 		if (newColor !== group.color) {
-			group.color = newColor;
-			dispatch("change");
+			groups?.recolorGroup(group.id, newColor)
 		}
 	});
 
@@ -79,7 +78,7 @@
 	<ActionButton
 		class="clickable-icon"
 		aria-label="Delete group"
-		on:action={() => dispatch("remove")}
+		on:action={() => groups?.removeGroup(group.id)}
 	>
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
