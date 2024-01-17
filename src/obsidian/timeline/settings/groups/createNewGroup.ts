@@ -2,7 +2,7 @@ import type { TimelineItem } from "src/timeline/Timeline";
 import type { TimelineFileItem } from "../../TimelineFileItem";
 import type { ItemGroup } from "./FileGroup";
 import { selectGroupForFile } from "./selectGroupForFile";
-import { longProcess } from "./longProcess";
+import { longProcess } from "../longProcess";
 
 interface Context {
     groups: {

@@ -1,105 +1,70 @@
 <script lang="ts">
-	import { TFile, type App, Keymap, type UserEvent } from "obsidian";
 	import TimelineView from "../../timeline/Timeline.svelte";
 	import { TimelineFileItem } from "./TimelineFileItem";
-	import {
-		filterByType,
-		type Properties,
-		type PropertyType,
-	} from "../properties/Properties";
 	import type { TimelineItem } from "../../timeline/Timeline";
-	import CollapsableSection from "../../view/CollapsableSection.svelte";
-	import Row from "../../view/layouts/Row.svelte";
-	import PropertySelection from "../properties/PropertySelection.svelte";
-	import { getPropertySelector } from "../properties/NotePropertySelector";
+	import {
+		getPropertySelector,
+		type FilePropertySelector,
+	} from "./settings/property/NotePropertySelector";
 	import { type NamespacedWritableFactory } from "../../timeline/Persistence";
 	import { onMount } from "svelte";
 	import { writable } from "svelte/store";
 	import Groups from "./settings/groups/Groups.svelte";
-	import {
-		type ColorSelector,
-		type ItemGroup,
-	} from "./settings/groups/FileGroup";
-	import { parse } from "obsidian-search";
-	import { MatchAllEmptyQuery } from "./settings/filter";
+	import { MatchAllEmptyQuery } from "./settings/filter/DefaultFileFilter";
 	import {
 		makeTimelineItemGroups,
 		type TimelineItemGroups,
 	} from "./settings/groups/Groups";
-	import { applyFileToGroup } from "./settings/groups/applyFilesToGroup";
 	import { GroupRepository } from "./settings/groups/persistence";
 	import { selectGroupForFile } from "./settings/groups/selectGroupForFile";
+	import TimelinePropertySetting from "./settings/property/TimelinePropertySetting.svelte";
+	import type { ObsidianNoteTimelineViewModel } from "./viewModel";
+	import TimelineFilterSetting from "./settings/filter/TimelineFilterSetting.svelte";
+	import { timelineFileProperties } from "./settings/property/availableProperties";
+	import { getPropertyDisplayType } from "src/obsidian/timeline/settings/property/display";
+	import type { Obsidian } from "src/obsidian/Obsidian";
+	import { type Note } from "src/obsidian/files/Note"
 
-	export let namespacedWritable: NamespacedWritableFactory;
-	export let app: App;
-	export let properties: Properties;
-
-	let orderProperty = namespacedWritable.make("orderProperty", "created");
-	$: displayPropertyAs = getPropertyDisplayType($orderProperty);
-
-	const validPropertyTypes = ["number", "date", "datetime"] as const;
-	let availableProperties: {
-		[propertyName: string]: (typeof validPropertyTypes)[number];
-	} = {
-		created: "datetime",
-		modified: "datetime",
-		...filterByType(properties.listKnownProperties(), validPropertyTypes),
+	export let files: Map<string, TimelineFileItem>;
+	export let propertySelection: FilePropertySelector & {
+		selector: FilePropertySelector;
 	};
-	const propertySelection = {
-		selector: getPropertySelector(
-			$orderProperty,
-			availableProperties,
-			app.metadataCache,
-		),
-		selectProperty(file: TFile) {
-			return this.selector.selectProperty(file);
-		},
-	};
+	export let viewModel: NamespacedWritableFactory<ObsidianNoteTimelineViewModel>;
+	export let isNew: boolean = false;
+	export let obsidian: Obsidian;
 
-	const settingsNamespace = namespacedWritable
-		.namespace("controls")
-		.namespace("settings");
+	const settings = viewModel.namespace("settings");
 
-	let displayNoteNames = namespacedWritable.make("displayNoteNames", false);
+	let orderProperty = viewModel
+		.namespace("settings")
+		.namespace("property")
+		.make("property", "created");
+	const availableProperties = timelineFileProperties(
+		obsidian.vault().properties(),
+	);
 
-	function getPropertyDisplayType(
-		prop: string | undefined,
-	): "numeric" | "date" {
-		if (prop === undefined) {
-			return "numeric";
-		}
-		if (prop.toLocaleLowerCase() === "created") {
-			return "date";
-		} else if (prop.toLocaleLowerCase() === "modified") {
-			return "date";
-		} else {
-			if (prop in availableProperties) {
-				const type = availableProperties[prop];
-				if (type === "date" || type === "datetime") {
-					return "date";
-				}
-				return "numeric";
-			}
-			return "numeric";
-		}
-	}
-
-	let filterSection = settingsNamespace.namespace("filter");
+	let filterSection = settings.namespace("filter");
 
 	const filterText = filterSection.make("query", "");
 	const activeFilter = writable(
-		parse($filterText, app.metadataCache, MatchAllEmptyQuery),
+		obsidian.vault().files().parseFilter($filterText, MatchAllEmptyQuery),
 	);
 	filterText.subscribe((newFilterText) =>
 		activeFilter.set(
-			parse(newFilterText, app.metadataCache, MatchAllEmptyQuery),
+			obsidian
+				.vault()
+				.files()
+				.parseFilter(newFilterText, MatchAllEmptyQuery),
 		),
 	);
 
 	let items: TimelineFileItem[] = [];
 
-	const groupsNamespace = settingsNamespace.namespace("groups")
-	const groupsRepo = new GroupRepository(groupsNamespace.make("groups", []), app.metadataCache)
+	const groupsNamespace = settings.namespace("groups");
+	const groupsRepo = new GroupRepository(
+		groupsNamespace.make("groups", []),
+		obsidian.vault().files(),
+	);
 	let groupsView: Groups | undefined;
 
 	const timelineItemGroups: TimelineItemGroups = makeTimelineItemGroups(
@@ -108,19 +73,19 @@
 			items: {
 				list() {
 					return items;
-				}
+				},
 			},
 			recolorProcess: undefined,
 		},
 		{
 			presentNewGroup(group) {
-				groupsView?.addGroup(group)
+				groupsView?.addGroup(group);
 			},
 			presentReorderedGroups(groups) {
-				groupsView?.newOrder(groups)
+				groupsView?.newOrder(groups);
 			},
 			presentRecoloredGroup(group) {
-				groupsView?.recolorGroup(group)
+				groupsView?.recolorGroup(group);
 			},
 			presentRecoloredItem(item) {
 				timelineView?.modifyItemColor(item.id(), item.color());
@@ -129,208 +94,165 @@
 				timelineView?.modifyItemColors();
 			},
 			presentRequeriedGroup(group) {
-				groupsView?.changeGroupQuery(group)
+				groupsView?.changeGroupQuery(group);
 			},
 			hideGroup(groupId) {
-				groupsView?.removeGroup(groupId)
+				groupsView?.removeGroup(groupId);
 			},
 		},
 	);
 
 	function openFile(event: Event | undefined, item: TimelineItem) {
-		const file = app.vault.getAbstractFileByPath(item.id());
-		if (file == null || !(file instanceof TFile)) {
+		const file = files.get(item.id())?.obsidianFile
+		if (file == null) {
 			return;
 		}
-		const userEvent: UserEvent | null =
-			event instanceof MouseEvent || event instanceof KeyboardEvent
-				? event
-				: null;
 
-		app.workspace
-			.getLeaf(userEvent ? Keymap.isModEvent(userEvent) : "tab")
-			.openFile(file);
+		if (event instanceof MouseEvent || event instanceof KeyboardEvent) {
+			obsidian.workspace().openFile(file, event);
+		} else {
+			obsidian.workspace().openFileInNewTab(file);
+		}
 	}
-
-	const files: Map<string, TimelineFileItem> = new Map();
 
 	let timelineView: TimelineView;
 	onMount(async () => {
 		if (timelineView == null) return;
-		for (const file of app.vault.getMarkdownFiles()) {
-			files.set(file.path, new TimelineFileItem(file, propertySelection));
-		}
 
 		items = [];
 		for (const item of files.values()) {
-			if (await $activeFilter.appliesTo(item.obsidianFile)) {
+			if (await item.obsidianFile.matches($activeFilter)) {
 				items.push(item);
 			}
 		}
-		timelineView.replaceItems(items);
-		if (items.length === 1) {
-			timelineView.$set({ focalValue: items[0].value() });
-		}
-		if (items.length > 1) {
-			const firstValue = items[0].value();
-			const diff = items.last()!.value() - firstValue;
-			timelineView.$set({ focalValue: diff / 2 + firstValue });
-		}
+		items = items;
 
 		let currentFilteringId = 0;
 
 		activeFilter.subscribe(async (newFilter) => {
 			const filteringId = currentFilteringId + 1;
 			currentFilteringId = filteringId;
-			timelineView.replaceItems([]);
-			for (const file of Array.from(files.values())) {
+			const newItems = []
+			for (const item of Array.from(files.values())) {
 				if (currentFilteringId !== filteringId) break;
-				if (await newFilter.appliesTo(file.obsidianFile)) {
-					timelineView.addItem(file);
+				if (await item.obsidianFile.matches(newFilter)) {
+					newItems.push(item);
 				}
 			}
+			items = newItems
 		});
+
+		if (isNew) {
+			timelineView.zoomToFit(items)
+		}
 	});
 
-	export async function addFile(file: TFile) {
+	let previousOrderProperty = $orderProperty
+	onMount(() => {
+		if (timelineView == null) return;
+
+		orderProperty.subscribe(newOrderProperty => {
+			if (newOrderProperty != previousOrderProperty) {
+				timelineView.zoomToFit(items)
+				previousOrderProperty = newOrderProperty
+			}
+		})
+	})
+
+	let groupUpdates: TimelineFileItem[] = [];
+	let itemUpdateTimeout: ReturnType<typeof setTimeout> | undefined;
+	function scheduleItemUpdate() {
+		if (itemUpdateTimeout != null) return;
+
+		itemUpdateTimeout = setTimeout(async () => {
+			itemUpdateTimeout = undefined;
+			if (groupUpdates.length > 0) {
+				const groups = groupsRepo.list();
+				for (const item of groupUpdates) {
+					const group = await selectGroupForFile(
+						groups,
+						item.obsidianFile,
+					);
+					item.applyGroup(group);
+				}
+				groupUpdates = [];
+			}
+			items = items;
+		}, 250);
+	}
+
+	export async function addFile(file: Note) {
 		if (timelineView == null) return;
 		const item = new TimelineFileItem(file, propertySelection);
-		files.set(file.path, item);
-		$activeFilter.appliesTo(file).then((isApplicable) => {
+		files.set(file.path(), item);
+		file.matches($activeFilter).then((isApplicable) => {
 			if (isApplicable) {
-				timelineView.addItem(item);
+				items.push(item);
+				scheduleItemUpdate();
 			}
 		});
 	}
 
-	export function deleteFile(file: TFile) {
+	export function deleteFile(file: Note) {
 		if (timelineView == null) return;
-		const item = files.get(file.path);
+		const item = files.get(file.path());
 		if (item == null) return;
-		if (files.delete(file.path)) {
-			timelineView.removeItem(item);
+		if (files.delete(file.path())) {
+			items.remove(item);
+			scheduleItemUpdate();
 		}
 	}
 
-	export async function modifyFile(file: TFile) {
+	export async function modifyFile(file: Note) {
 		if (timelineView == null) return;
-		timelineView.modifyItemValue(
-			file.path,
-			propertySelection.selectProperty(file),
-		);
-		const item = files.get(file.path);
+		const item = files.get(file.path());
 		if (item == null) return;
-		const group = await selectGroupForFile(groupsRepo.list(), file)
-		item.applyGroup(group)
 
-		timelineView.modifyItemColor(
-			file.path,
-			group?.color,
-		);
+		groupUpdates.push(item);
+		scheduleItemUpdate();
 	}
 
-	export async function renameFile(file: TFile, oldPath: string) {
+	export async function renameFile(file: Note, oldPath: string) {
 		if (timelineView == null) return;
-		timelineView.renameItem(oldPath, file.name);
-		const item = files.get(file.path);
+		const item = files.get(oldPath);
 		if (item == null) return;
-		const group = await selectGroupForFile(groupsRepo.list(), file)
-		item.applyGroup(group)
-		
-		timelineView.modifyItemColor(
-			file.path,
-			group?.color,
-		);
+		files.delete(oldPath);
+		files.set(file.path(), item);
+
+		groupUpdates.push(item);
+		scheduleItemUpdate();
 	}
 
 	orderProperty.subscribe((newOrderProperty) => {
 		propertySelection.selector = getPropertySelector(
 			newOrderProperty,
-			availableProperties,
-			app.metadataCache,
+			$availableProperties,
 		);
-		if (timelineView == null) return;
-		timelineView.replaceItems(items);
+		items = items;
 	});
-
-	let orderPropertyOptions: string[] = Object.keys(availableProperties);
-
-	export function addProperty(name: string, type: PropertyType) {
-		if (type === "number" || type === "date" || type === "datetime") {
-			availableProperties[name] = type;
-			orderPropertyOptions.push(name);
-			availableProperties = availableProperties;
-			orderPropertyOptions = orderPropertyOptions;
-		}
-	}
-
-	export function removeProperty(name: string) {
-		if (name in availableProperties) {
-			delete availableProperties[name];
-			orderPropertyOptions.remove(name);
-			availableProperties = availableProperties;
-			orderPropertyOptions = orderPropertyOptions;
-		}
-	}
-
-	export function changePropertyType(name: string, type: PropertyType) {
-		if (
-			type === "number" ||
-			type === "date" ||
-			(type === "datetime" && name in availableProperties)
-		) {
-			availableProperties[name] = type;
-			availableProperties = availableProperties;
-		}
-	}
-	let previousOrderProperty = $orderProperty;
-	$: if (timelineView && previousOrderProperty != $orderProperty) {
-		timelineView.zoomToFit();
-		previousOrderProperty = $orderProperty;
-	}
-
-	let propertySectionCollapsed = settingsNamespace
-		.namespace("property")
-		.make("collapsed", true);
-
-	let filterSectionCollapsed = filterSection.make("collapsed", true);
 </script>
 
 <TimelineView
-	{namespacedWritable}
-	bind:displayDataPointNames={$displayNoteNames}
-	{displayPropertyAs}
+	{items}
+	namespacedWritable={viewModel}
+	displayPropertyAs={getPropertyDisplayType(
+		$orderProperty,
+		$availableProperties,
+	)}
 	bind:this={timelineView}
 	on:select={(e) => openFile(e.detail.causedBy, e.detail.item)}
 >
 	<svelte:fragment slot="additional-settings">
-		<CollapsableSection
-			name="Property"
-			bind:collapsed={$propertySectionCollapsed}
-		>
-			<Row>
-				<label for="orderPropertySelect">Name</label>
-				<PropertySelection
-					options={availableProperties}
-					bind:selectedProperty={$orderProperty}
-				/>
-			</Row>
-		</CollapsableSection>
-		<CollapsableSection
-			name="Filter"
-			bind:collapsed={$filterSectionCollapsed}
-		>
-			<input
-				type="search"
-				placeholder="Search files..."
-				bind:value={$filterText}
-			/>
-		</CollapsableSection>
+		<TimelinePropertySetting
+			viewModel={settings.namespace("property")}
+			properties={obsidian.vault().properties()}
+		/>
+		<TimelineFilterSetting viewModel={settings.namespace("filter")} />
 		<Groups
 			bind:this={groupsView}
 			{timelineItemGroups}
 			name="Groups"
-			namespace={groupsNamespace}
+			viewModel={groupsNamespace}
 		/>
 	</svelte:fragment>
 </TimelineView>

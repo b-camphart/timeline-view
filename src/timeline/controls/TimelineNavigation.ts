@@ -11,7 +11,7 @@ export interface TimelineNavigation {
 
     zoomIn(constraints?: ZoomConstraints): void;
     zoomOut(constraints?: ZoomConstraints): void;
-    zoomToFit(): void;
+    zoomToFit(items?: Iterable<TimelineItem>, width?: number): void;
     scrollToFirst(): void;
     scrollToValue(value: number): void;
 
@@ -73,19 +73,19 @@ class TimelineNavigationSvelteImpl implements TimelineNavigation {
 		}
 	}
 
-	zoomToFit() {
-        const items = this.items.get()
+	zoomToFit(items: Iterable<TimelineItem> = this.items.get(), width: number = this.availableWidth()) {
 		const minimum = this.minimumValue(items);
 		const maximum = this.maximumValue(items);
 
 		const span = maximum - minimum;
+
 		if (span === 0) {
 			this.valuePerPixelProperty.set(1);
             this.setFocalValue(() => minimum);
 			return;
 		}
 
-		this.valuePerPixelProperty.set(span / this.availableWidth());
+		this.valuePerPixelProperty.set(span / width);
 		const centerValue = this.centerValue();
         this.setFocalValue(() => centerValue)
 	};

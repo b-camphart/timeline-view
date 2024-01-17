@@ -3,7 +3,7 @@ import type { TimelineFileItem } from "../../TimelineFileItem";
 import type { ItemGroup } from "./FileGroup";
 import type { TFile } from "obsidian";
 import { selectGroupForFile } from "./selectGroupForFile";
-import { longProcess } from "./longProcess";
+import { longProcess } from "../longProcess";
 
 /**
  * Context for removing group from list

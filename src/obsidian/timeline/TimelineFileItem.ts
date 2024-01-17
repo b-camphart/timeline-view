@@ -1,20 +1,20 @@
-import type { TFile } from "obsidian";
 import type { TimelineItem } from "../../timeline/Timeline";
-import type { FilePropertySelector } from "../properties/NotePropertySelector";
-import type { ColorSelector, ItemGroup } from "./settings/groups/FileGroup";
+import type { FilePropertySelector } from "./settings/property/NotePropertySelector";
+import type { ItemGroup } from "./settings/groups/FileGroup";
+import type { Note } from "../files/Note";
 
 export class TimelineFileItem implements TimelineItem {
 
     private _group: ItemGroup | undefined;
 
     constructor(
-        public obsidianFile: TFile,
+        public obsidianFile: Note,
         private propertySelection: FilePropertySelector,
     ) {
     }
     
     id(): string {
-        return this.obsidianFile.path
+        return this.obsidianFile.path()
     }
     
     value(): number {
@@ -22,7 +22,7 @@ export class TimelineFileItem implements TimelineItem {
     }
 
     name(): string {
-        return this.obsidianFile.basename;
+        return this.obsidianFile.nameWithoutExtension();
     }
 
     applyGroup(group: ItemGroup | undefined) {

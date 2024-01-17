@@ -1,21 +1,14 @@
-import type { NamespacedWritableFactory } from "src/timeline/Persistence";
 import { get, type Writable } from "svelte/store";
 import type { ItemGroup } from "./FileGroup";
-import { parse, type FileFilter, or } from "obsidian-search";
-import type { MetadataCache } from "obsidian";
+import { type FileFilter } from "obsidian-search";
 import type { TimelineItemGroupsContext } from "./Groups";
+import type { Files } from "src/obsidian/files/Files";
 
 export interface GroupSection {
     readonly collapsed: Writable<boolean>
 }
 
-export function persistedGroupSection(namespace: NamespacedWritableFactory): GroupSection {
-    return {
-        collapsed: namespace.make("collapsed", true),
-    }
-}
-
-type StoredGroup = { query: string, color: string }; 
+type StoredGroup = { query: string, color: string };
 
 type TimelineItemGroupsRepo = TimelineItemGroupsContext["groups"]
 
@@ -27,11 +20,11 @@ export class GroupRepository implements TimelineItemGroupsRepo {
 
     constructor(
         private storedGroups: Writable<StoredGroup[]>,
-        private metadata: MetadataCache,
+        private files: Files
     ) {
         get(storedGroups).forEach((storedGroup, index) => {
             const id = index.toString();
-            const group = new TimelineFileItemGroup(id, metadata, storedGroup)
+            const group = new TimelineFileItemGroup(id, files, storedGroup)
             this.groups.set(id, group)
         })
 
@@ -44,7 +37,7 @@ export class GroupRepository implements TimelineItemGroupsRepo {
 
     addNewGroup(data: StoredGroup): ItemGroup {
         this.nextId++;
-        const group = new TimelineFileItemGroup(this.nextId.toString(), this.metadata, data)
+        const group = new TimelineFileItemGroup(this.nextId.toString(), this.files, data)
         this.groups.set(group.id, group)
         this.order.push(group.id)
         this.storedGroups.update(currentStoredGroups => {
@@ -96,12 +89,12 @@ class TimelineFileItemGroup implements ItemGroup {
 
     constructor(
         public id: string,
-        private metadata: MetadataCache,
+        private files: Files,
         from: StoredGroup,
     ) {
         this.color = from.color
         this._query = from.query
-        this._filter = parse(from.query, metadata)
+        this._filter = files.parseFilter(from.query)
     }
 
     get query() {
@@ -110,7 +103,7 @@ class TimelineFileItemGroup implements ItemGroup {
 
     set query(query: string) {
         this._query = query
-        this._filter = parse(query, this.metadata)
+        this._filter = this.files.parseFilter(query)
     }
 
     get filter() {

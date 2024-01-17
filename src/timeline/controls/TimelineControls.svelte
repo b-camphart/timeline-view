@@ -1,11 +1,11 @@
 <script lang="ts">
-	import TimelineSettings from "./TimelineSettings.svelte";
+	import TimelineSettings from "./settings/TimelineSettings.svelte";
+	import type { TimelineSettingsViewModel } from './settings/viewModel'
 	import TimelineNavigationControls from "./TimelineNavigationControls.svelte";
 	import type { NamespacedWritableFactory } from "../Persistence";
 	import type { TimelineNavigation } from "./TimelineNavigation";
 
-	export let namespacedWritable: NamespacedWritableFactory | undefined = undefined;
-	export let displayDataPointNames: boolean;
+	export let namespacedWritable: NamespacedWritableFactory<TimelineSettingsViewModel> | undefined = undefined;
 	export let navigation: TimelineNavigation;
 </script>
 
@@ -16,8 +16,7 @@
 	/>
 	<TimelineSettings
 		class="control-group"
-		namespacedWritable={namespacedWritable?.namespace("settings")}
-		bind:displayDataPointNames
+		namespacedWritable={namespacedWritable}
 	>
 		<svelte:fragment slot="additional-settings">
 			<slot name="additional-settings"></slot>

@@ -6,8 +6,8 @@ export interface Process {
 const processLog = console.log
 
 let latestProcessId = 0;
-export function longProcess<T>(items: readonly T[], process: (item: T) => Promise<void>): Process {
-    const processInstance = new LongProcess<T>(++latestProcessId, process)
+export function longProcess<T>(items: readonly T[], processItem: (item: T) => Promise<void>): Process {
+    const processInstance = new LongProcess<T>(++latestProcessId, processItem)
 
     processLog(`[${latestProcessId}] starting...`)
     processInstance.processBatch(0, items)    
@@ -21,7 +21,7 @@ class LongProcess<T> implements Process {
 
     constructor(
         private id: number,
-        private process: (item: T) => Promise<any>
+        private processItem: (item: T) => Promise<any>
     ) {}
 
     stop(): void {
@@ -57,7 +57,7 @@ class LongProcess<T> implements Process {
             if (i % 1000 === 0) {
                 processLog(`  [${this.id}] Processed`, i, "items")
             }
-            await this.process(items[i])
+            await this.processItem(items[i])
 
             const elapsedTime = performance.now() - start
             if (elapsedTime > 16.67 /* 1/60 */) {

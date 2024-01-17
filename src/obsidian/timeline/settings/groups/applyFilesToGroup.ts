@@ -3,7 +3,7 @@ import type { TimelineItem } from "src/timeline/Timeline";
 import type { TimelineFileItem } from "../../TimelineFileItem";
 import type { TFile } from "obsidian";
 import { selectGroupForFile } from "./selectGroupForFile";
-import { longProcess } from "./longProcess";
+import { longProcess } from "../longProcess";
 
 /**
  * Context for applying files to a group

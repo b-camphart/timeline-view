@@ -1,14 +1,17 @@
+import { parse, type FileFilter } from "obsidian-search";
 import type { Unsubscribe } from "../Events";
-import { TFile, type TAbstractFile, type Vault } from 'obsidian';
+import { TFile, type TAbstractFile, type Vault, MetadataCache } from 'obsidian';
+import { Note } from './Note'
 
 export interface Files {
 
-    list(): Promise<TFile[]>
+    list(): Promise<Note[]>
+    parseFilter(query: string, defaultFilter?: FileFilter): FileFilter;
 
-    on(eventType: "created", listener: (file: TFile) => void): Unsubscribe;
-    on(eventType: "deleted", listener: (file: TFile) => void): Unsubscribe;
-    on(eventType: "modified", listener: (file: TFile) => void): Unsubscribe;
-    on(eventType: "renamed", listener: (file: TFile, oldFile: string) => void): Unsubscribe;
+    on(eventType: "created", listener: (file: Note) => void): Unsubscribe;
+    on(eventType: "deleted", listener: (file: Note) => void): Unsubscribe;
+    on(eventType: "modified", listener: (file: Note) => void): Unsubscribe;
+    on(eventType: "renamed", listener: (file: Note, oldFile: string) => void): Unsubscribe;
 
 }
 
@@ -21,8 +24,8 @@ export interface ObsidianFileListener {
 
 }
 
-export function files(vault: Vault): ObsidianFileListener & Files {
-    return new ObsidianFiles(vault);
+export function files(vault: Vault, metadata: MetadataCache): ObsidianFileListener & Files {
+    return new ObsidianFiles(vault, metadata);
 }
 
 
@@ -30,23 +33,27 @@ type FileEvent = 'created' | 'deleted' | 'modified' | 'renamed';
 
 class ObsidianFiles implements Files, ObsidianFileListener {
 
-    constructor(private vault: Vault) {}
+    constructor(private vault: Vault, private metadata: MetadataCache) {}
 
-    async list(): Promise<TFile[]> {
-        return this.vault.getMarkdownFiles();
+    async list(): Promise<Note[]> {
+        return this.vault.getMarkdownFiles().map(tFile => new Note(tFile, this.metadata));
+    }
+
+    parseFilter(query: string, defaultFilter: FileFilter<TFile>): FileFilter<TFile> {
+        return parse(query, this.metadata, defaultFilter)
     }
 
     private subscriptions = {
-        "created": [] as ((file: TFile) => void)[],
-        "renamed": [] as ((file: TFile, oldPath: string) => void)[],
-        "modified": [] as ((file: TFile) => void)[],
-        "deleted": [] as ((file: TFile) => void)[]
+        "created": [] as ((file: Note) => void)[],
+        "renamed": [] as ((file: Note, oldPath: string) => void)[],
+        "modified": [] as ((file: Note) => void)[],
+        "deleted": [] as ((file: Note) => void)[]
     } as const
 
-    on(eventType: "created", listener: (file: TFile) => void): () => void;
-    on(eventType: "deleted", listener: (file: TFile) => void): () => void;
-    on(eventType: "modified", listener: (file: TFile) => void): () => void;
-    on(eventType: "renamed", listener: (file: TFile, oldFile: string) => void): () => void;
+    on(eventType: "created", listener: (file: Note) => void): () => void;
+    on(eventType: "deleted", listener: (file: Note) => void): () => void;
+    on(eventType: "modified", listener: (file: Note) => void): () => void;
+    on(eventType: "renamed", listener: (file: Note, oldFile: string) => void): () => void;
     on(eventType: FileEvent, listener: any): () => void {
         const subscriptions = this.subscriptions[eventType];
         subscriptions.push(listener);
@@ -61,7 +68,7 @@ class ObsidianFiles implements Files, ObsidianFileListener {
         }
         const listeners = this.subscriptions["created"]
         for (const listener of listeners) {
-            listener(file)
+            listener(new Note(file, this.metadata))
         }
     }
 
@@ -71,7 +78,7 @@ class ObsidianFiles implements Files, ObsidianFileListener {
         }
         const listeners = this.subscriptions["renamed"]
         for (const listener of listeners) {
-            listener(file, oldPath)
+            listener(new Note(file, this.metadata), oldPath)
         }
     }
 
@@ -81,7 +88,7 @@ class ObsidianFiles implements Files, ObsidianFileListener {
         }
         const listeners = this.subscriptions["modified"];
         for (const listener of listeners) {
-            listener(file)
+            listener(new Note(file, this.metadata))
         }
     }
 
@@ -91,7 +98,7 @@ class ObsidianFiles implements Files, ObsidianFileListener {
         }
         const listeners = this.subscriptions["deleted"]
         for (const listener of listeners) {
-            listener(file)
+            listener(new Note(file, this.metadata))
         }
     }
 

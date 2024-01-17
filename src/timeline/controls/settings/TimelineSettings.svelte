@@ -1,18 +1,18 @@
 <script lang="ts">
-	import { type NamespacedWritableFactory } from "../Persistence";
-	import CollapsableSection from "../../view/CollapsableSection.svelte";
-	import SvgIcon from "../../view/SvgIcon.svelte";
-	import ActionButton from "../../view/inputs/ActionButton.svelte";
-	import TimelineDisplaySettings from "./TimelineDisplaySettings.svelte";
+	import { type NamespacedWritableFactory } from "../../Persistence";
+	import CollapsableSection from "../../../view/CollapsableSection.svelte";
+	import SvgIcon from "../../../view/SvgIcon.svelte";
+	import ActionButton from "../../../view/inputs/ActionButton.svelte";
+	import TimelineDisplaySettings from "./display/TimelineDisplaySettings.svelte";
 	import { writable } from "svelte/store";
+	import type { TimelineSettingsViewModel } from "./viewModel";
 
-	export let namespacedWritable: NamespacedWritableFactory | undefined = undefined;
+	export let namespacedWritable: NamespacedWritableFactory<TimelineSettingsViewModel> | undefined = undefined;
 	let className: string = "";
 	export { className as class };
 
-	export let displayDataPointNames: boolean;
 
-	const isOpen = namespacedWritable?.make("isOpen", false) ?? writable(false);
+	const isOpen = namespacedWritable?.make('isOpen', false) ?? writable(false);
 
 	function close() {
 		$isOpen = false;
@@ -45,7 +45,7 @@
 		</ActionButton>
 	{/if}
 	<slot name="additional-settings"></slot>
-	<TimelineDisplaySettings namespacedWritable={namespacedWritable?.namespace("display")} bind:displayDataPointNames={displayDataPointNames} />
+	<TimelineDisplaySettings namespacedWritable={namespacedWritable?.namespace("display")} />
 	<CollapsableSection name="Layout">
 		<span>Coming Soon!</span>
 	</CollapsableSection>

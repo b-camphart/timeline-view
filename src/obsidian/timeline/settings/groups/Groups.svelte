@@ -3,29 +3,16 @@
 	import ActionButton from "../../../../view/inputs/ActionButton.svelte";
 	import GroupForm from "./GroupForm.svelte";
 	import type { NamespacedWritableFactory } from "src/timeline/Persistence";
-	import { persistedGroupSection } from "./persistence";
+	import type { TimelineGroupsSettingViewModel } from './viewModel'
 	import type { TimelineItemGroups } from "./Groups";
 	import type { ItemGroup } from "./FileGroup";
-
-	const defaultGroupColors = [
-		"#e05252",
-		"#e0b152",
-		"#b1e052",
-		"#52e052",
-		"#52e0b1",
-		"#52b1e0",
-		"#5252e0",
-		"#b152e0",
-		"#e052b1",
-	];
 
 	export let timelineItemGroups: TimelineItemGroups;
 
 	export let name: string;
-	export let namespace: NamespacedWritableFactory;
+	export let viewModel: NamespacedWritableFactory<TimelineGroupsSettingViewModel>;
 
-	const section = persistedGroupSection(namespace);
-	const collapsed = section.collapsed;
+	const collapsed = viewModel.make('collapsed', true);
 	const groupById = new Map<string, ItemGroup>();
 	let groups = [...timelineItemGroups.listGroups()];
 	groups.forEach(group => groupById.set(group.id, group))

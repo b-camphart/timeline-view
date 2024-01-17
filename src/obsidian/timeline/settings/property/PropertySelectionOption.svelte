@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { createEventDispatcher } from "svelte";
 	import type { TimelinePropertyType } from "./TimelineProperties";
-	import DateTimeIcon from "./icons/DateTimeIcon.svelte";
-	import DateIcon from "./icons/DateIcon.svelte";
+	import DateTimeIcon from "src/obsidian/timeline/settings/property/icons/DateTimeIcon.svelte";
+	import DateIcon from "src/obsidian/timeline/settings/property/icons/DateIcon.svelte";
 	import NumberIcon from "./icons/NumberIcon.svelte";
 
     const dispatch = createEventDispatcher<{ select: number, consider: number }>();

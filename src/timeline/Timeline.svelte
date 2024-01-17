@@ -6,66 +6,27 @@
 		type TimelineItem,
 		timelineNumericValueDisplay,
 	} from "./Timeline";
-	import { writable as makeWritable, readonly } from "svelte/store";
+	import { writable as makeWritable, writable } from "svelte/store";
 	import { timelineNavigation } from "./controls/TimelineNavigation";
 	import TimelineRuler from "./layout/ruler/TimelineRuler.svelte";
 	import type { NamespacedWritableFactory } from "./Persistence";
 	import CanvasStage from "./layout/stage/CanvasStage.svelte";
-	import { setTimeout } from "timers";
+	import type { TimelineViewModel } from "./viewModel";
 
-	export let namespacedWritable: NamespacedWritableFactory | undefined = undefined;
-	export let displayDataPointNames: boolean;
+	export let namespacedWritable:
+		| NamespacedWritableFactory<TimelineViewModel>
+		| undefined = undefined;
 	export let displayPropertyAs: "numeric" | "date";
-	export let focalValue: number = 0
-	export let scale: number = 1;
 
-	let stage: CanvasStage | undefined;
+	const focalValue =
+		namespacedWritable?.make("focalValue", 0) ?? makeWritable(0);
+	const scale = namespacedWritable?.make("scale", 1) ?? makeWritable(1);
 
-	let sortedItems: TimelineItem[] = []
-	let unsortedItems: TimelineItem[] = []
-	function sortItems() {
-		return unsortedItems.toSorted((a, b) => a.value() - b.value())
-	}
-	let sortTimeout: ReturnType<typeof setTimeout> | undefined;
-	function scheduleSortUpdate() {
-		if (sortTimeout != null) return;
+	let unsortedItems: TimelineItem[] = [];
+	export { unsortedItems as items };
 
-		sortTimeout = setTimeout(() => {
-			sortTimeout = undefined
-			sortedItems = sortItems()
-		}, 250)
-	}
-
-	export function addItem(item: TimelineItem) {
-		unsortedItems.push(item)
-		scheduleSortUpdate()
-	}
-
-	export function removeItem(item: TimelineItem) {
-		unsortedItems.remove(item)
-		scheduleSortUpdate()
-	}
-
-	export function modifyItemColor(id: string, color: string | undefined) {
-		stage?.invalidateColors();
-	}
-
-	export function modifyItemColors() {
-		stage?.invalidateColors();
-	}
-	
-	export function modifyItemValue(id: string, value: number) {
-		scheduleSortUpdate()
-	}
-
-	export function replaceItems(replacements: TimelineItem[]) {
-		unsortedItems = replacements
-		sortedItems = sortItems()
-	}
-
-	export function renameItem(id: string, name: string) {
-		// no op
-	}
+	let sortedItems: TimelineItem[] = [];
+	$: sortedItems = unsortedItems.toSorted((a, b) => a.value() - b.value());
 
 	function valuePerPixelStore(initialValue: number = 1) {
 		function atLeastMinimum(value: number) {
@@ -83,38 +44,49 @@
 			set: (newValue: number) => {
 				const validated = atLeastMinimum(newValue);
 				set(validated);
-				scale = validated;
+				$scale = validated;
 				return validated;
 			},
 		};
 	}
 
-	const valuePerPixel = valuePerPixelStore(scale);
-	$: $valuePerPixel = scale;
+	const valuePerPixel = valuePerPixelStore($scale);
+	$: $valuePerPixel = $scale;
 
-	let stageWidth: number;
-	
+	const stageWidth = writable(0);
 
 	const navigation: TimelineNavigation = timelineNavigation(
-		valuePerPixel, 
-		{ get() { return sortedItems } },
+		valuePerPixel,
+		{
+			get() {
+				return sortedItems;
+			},
+		},
 		(updater) => {
-			const newFocalValue = updater(focalValue)
-			if (newFocalValue != focalValue) {
-				focalValue = newFocalValue
+			const newFocalValue = updater($focalValue);
+			if (newFocalValue != $focalValue) {
+				$focalValue = newFocalValue;
 			}
-		}, 
-		() => stageWidth
+		},
+		() => $stageWidth,
 	);
 
-	export function zoomToFit() {
-		navigation.zoomToFit();
+	export function zoomToFit(items?: readonly TimelineItem[]) {
+		if (initialized) {
+			navigation.zoomToFit(items, $stageWidth);
+		} else {
+			const unsubscribe = stageWidth.subscribe(newStageWidth => {
+				if (newStageWidth > 0) {
+					navigation.zoomToFit(items, newStageWidth)
+					unsubscribe()
+				}
+			})
+		}
 	}
 
 	let initialized = false;
 	$: if (!initialized) {
-		if (stageWidth > 0) {
-			navigation.zoomToFit();
+		if ($stageWidth > 0) {
 			initialized = true;
 		}
 	}
@@ -129,30 +101,29 @@
 	<TimelineRuler
 		{display}
 		valuePerPixel={$valuePerPixel}
-		{focalValue}
+		focalValue={$focalValue}
 	/>
 	<CanvasStage
 		{display}
 		{sortedItems}
 		scale={{
 			toPixels(value) {
-				return Math.floor(value / $valuePerPixel)
+				return Math.floor(value / $valuePerPixel);
 			},
 			toValue(pixels) {
-				return $valuePerPixel * pixels
-			}
+				return $valuePerPixel * pixels;
+			},
 		}}
-		{focalValue}
-		bind:this={stage}
-		bind:width={stageWidth}
-		on:scrollX={({ detail }) => navigation.scrollToValue(focalValue + detail)}
+		focalValue={$focalValue}
+		bind:width={$stageWidth}
+		on:scrollX={({ detail }) =>
+			navigation.scrollToValue($focalValue + detail)}
 		on:zoomIn={({ detail }) => navigation.zoomIn(detail)}
 		on:zoomOut={({ detail }) => navigation.zoomOut(detail)}
 		on:select
 	/>
 	<TimelineControls
-		namespacedWritable={namespacedWritable?.namespace("controls")}
-		bind:displayDataPointNames
+		namespacedWritable={namespacedWritable?.namespace("settings")}
 		{navigation}
 	>
 		<svelte:fragment slot="additional-settings">
