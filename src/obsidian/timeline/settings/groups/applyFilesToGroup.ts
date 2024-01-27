@@ -1,7 +1,6 @@
-import type { ColorSelector, ItemGroup } from "./FileGroup";
+import type { ItemGroup } from "./FileGroup";
 import type { TimelineItem } from "src/timeline/Timeline";
 import type { TimelineFileItem } from "../../TimelineFileItem";
-import type { TFile } from "obsidian";
 import { selectGroupForFile } from "./selectGroupForFile";
 import { longProcess } from "../longProcess";
 
@@ -12,6 +11,7 @@ interface Context {
     readonly groups: {
         getGroup(groupId: string): ItemGroup | undefined;
         saveGroup(group: ItemGroup): void;
+        getOrder(): readonly string[];
         list(): readonly ItemGroup[];
     }
 
@@ -33,6 +33,12 @@ export async function applyFileToGroup(this: Context, groupId: string, query: st
     const group = this.groups.getGroup(groupId)
     if (group == null) return;
 
+    const order = this.groups.getOrder()
+    const groupIndex = order.indexOf(groupId);
+    if (groupIndex < 0) return;
+
+    let dependentGroups = order.slice(groupIndex)
+
     this.recolorProcess?.stop();
     this.recolorProcess = undefined;
 
@@ -45,11 +51,16 @@ export async function applyFileToGroup(this: Context, groupId: string, query: st
     const groups = this.groups.list();
     const selectGroup = selectGroupForFile.bind(null, groups)
 
-    for (const item of this.items.list()) {
+    const affectedItems = this.items.list().filter(item => {
+        const itemGroup = item.group();
+        return itemGroup == null || dependentGroups.includes(itemGroup);
+    })
+
+    for (const item of affectedItems) {
         item.forgetGroup()
     }
 
-    const process = longProcess(this.items.list(), async (item) => {
+    const process = longProcess(affectedItems, async (item) => {
         const group = await selectGroup(item.obsidianFile)
         item.applyGroup(group)
         output.presentRecoloredItem(item)
