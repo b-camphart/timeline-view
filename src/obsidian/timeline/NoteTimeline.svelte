@@ -67,6 +67,16 @@
 	);
 	let groupsView: Groups | undefined;
 
+	let refreshTimeout: ReturnType<typeof setTimeout> | undefined;
+	function scheduleRefresh() {
+		if (refreshTimeout) return;
+
+		refreshTimeout = setTimeout(() => {
+			refreshTimeout = undefined
+			timelineView?.refresh();
+		}, 250)
+	}
+
 	const timelineItemGroups: TimelineItemGroups = makeTimelineItemGroups(
 		{
 			groups: groupsRepo,
@@ -88,10 +98,10 @@
 				groupsView?.recolorGroup(group);
 			},
 			presentRecoloredItem(item) {
-				timelineView?.modifyItemColor(item.id(), item.color());
+				scheduleRefresh();
 			},
 			presentRecoloredItems(items) {
-				timelineView?.modifyItemColors();
+				scheduleRefresh();
 			},
 			presentRequeriedGroup(group) {
 				groupsView?.changeGroupQuery(group);
@@ -177,7 +187,7 @@
 				}
 				groupUpdates = [];
 			}
-			items = items;
+			timelineView?.refresh();
 		}, 250);
 	}
 

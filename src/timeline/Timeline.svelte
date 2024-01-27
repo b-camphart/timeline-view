@@ -84,6 +84,10 @@
 		}
 	}
 
+	export function refresh() {
+		sortedItems = sortedItems
+	}
+
 	let initialized = false;
 	$: if (!initialized) {
 		if ($stageWidth > 0) {
