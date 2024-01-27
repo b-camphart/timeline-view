@@ -130,8 +130,11 @@
 		if (timelineView == null) return;
 
 		items = [];
+		const groups = timelineItemGroups.listGroups()
 		for (const item of files.values()) {
 			if (await item.obsidianFile.matches($activeFilter)) {
+				const applicableGroup = await selectGroupForFile(groups, item.obsidianFile)
+				item.applyGroup(applicableGroup)
 				items.push(item);
 			}
 		}

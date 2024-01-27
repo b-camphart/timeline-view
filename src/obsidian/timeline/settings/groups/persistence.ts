@@ -25,6 +25,7 @@ export class GroupRepository implements TimelineItemGroupsRepo {
         get(storedGroups).forEach((storedGroup, index) => {
             const id = index.toString();
             const group = new TimelineFileItemGroup(id, files, storedGroup)
+            this.order.push(id);
             this.groups.set(id, group)
         })
 
