@@ -104,7 +104,6 @@ export class TimelineTab {
 					viewModel: writableProperties(
 						this.state,
 						(key, newValue) => {
-							console.log("timeline tab state key:", key, "updated", newValue);
 							this.state[key] = newValue;
 							this.obsidian.workspace().saveState();
 						},

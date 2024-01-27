@@ -3,7 +3,7 @@ export interface Process {
     completion(): Promise<any>
 }
 
-const processLog = console.log
+const processLog = import.meta.env.MODE === "development" ? console.log : () => {};
 
 let latestProcessId = 0;
 export function longProcess<T>(items: readonly T[], processItem: (item: T) => Promise<void>): Process {
