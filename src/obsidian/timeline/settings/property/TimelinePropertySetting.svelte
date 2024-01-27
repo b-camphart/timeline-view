@@ -18,7 +18,7 @@
 
 </script>
 
-<CollapsableSection name="Property" collapsed={$collapsed}>
+<CollapsableSection name="Property" bind:collapsed={$collapsed}>
 	<Row>
 		<label for="orderPropertySelect">Name</label>
 		<PropertySelection

@@ -58,7 +58,7 @@ export class TimelineTab {
 
 	private stateSubscribers = [] as (() => void)[]
 	getState() {
-		this.stateSubscribers.forEach(listener => listener())
+		this.stateSubscribers.forEach(listener => listener());
 		return this.state;
 	}
 
@@ -104,6 +104,7 @@ export class TimelineTab {
 					viewModel: writableProperties(
 						this.state,
 						(key, newValue) => {
+							console.log("timeline tab state key:", key, "updated", newValue);
 							this.state[key] = newValue;
 							this.obsidian.workspace().saveState();
 						},

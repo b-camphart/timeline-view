@@ -54,7 +54,7 @@ export class GroupRepository implements TimelineItemGroupsRepo {
     saveGroup(groupToSave: ItemGroup): void {
         if (this.groups.has(groupToSave.id)) {
             this.storedGroups.update(() => {
-                return this.order.map(id => this.groups.get(id)!)
+                return this.order.map(id => this.groups.get(id)!).map(storedGroup)
             })
         }
     }
@@ -64,7 +64,7 @@ export class GroupRepository implements TimelineItemGroupsRepo {
             this.groups.delete(groupId)
             this.order.splice(this.order.indexOf(groupId), 1)
             this.storedGroups.update(() => {
-                return this.order.map(id => this.groups.get(id)!)
+                return this.order.map(id => this.groups.get(id)!).map(storedGroup)
             })
             return true;
         }
@@ -79,6 +79,13 @@ export class GroupRepository implements TimelineItemGroupsRepo {
         return this.order.map(id => this.groups.get(id)!)
     }
 
+}
+
+function storedGroup(group: ItemGroup): StoredGroup {
+    return {
+        color: group.color,
+        query: group.query,
+    }
 }
 
 class TimelineFileItemGroup implements ItemGroup {
