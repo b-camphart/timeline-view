@@ -19,6 +19,22 @@ Timeline view will automatically detect all the properties you have defined in y
 
 When a property is selected, the notes will automatically be re-arranged, and the appropriate type of measurement will appear at the top of the timeline.
 
+### Filter
+Don't want to see *every* note in your vault?  Use a filter!  This allows you to only focus on the notes you currently care about (maybe for a subproject?).
+
+The filter (mostly) follows the same query syntax as the built-in obsidian search feature, but has some limitations (see [obsidian search](https://github.com/b-camphart/obsidian-search) for the latest query syntax supported).
+
+![Filter Property](docs/resources/filter-property.PNG)
+
+This will also change the name of the tab to match the provided filter, allowing you to differentiate two or more timeline tabs you may have open.
+
+![Filtered tab names](docs/resources/filtered-tab-name.PNG)
+
+### Groups
+In conjunction with the filtering feature above, you can use the same query syntax to apply colors to the notes in the timeline - just like the built-in graph view.
+
+![Groups](docs/resources/groups.PNG)
+
 ### Names below points
 Toggle if you'd like to see the names of notes below their point on the timeline.  
 
@@ -28,8 +44,8 @@ This is off by default, as any notes that are close together may overlap.  Howev
 
 # Roadmap
 
-- [ ] Filter based on obsidian query
-- [ ] Color groups based on obsidian query
+- [x] Filter based on obsidian query
+- [x] Color groups based on obsidian query
 - [ ] [Manual Vertical Positioning of Notes](https://github.com/b-camphart/plot-point-timeline/issues/1)
 - [ ] [Vertical Layout](https://github.com/b-camphart/plot-point-timeline/issues/2)
 - [ ] [Create new note with property based on filter and position in timeline](https://github.com/b-camphart/plot-point-timeline/issues/4)
