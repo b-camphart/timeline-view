@@ -7,6 +7,8 @@
 		"check": "svelte-check",
 		"dev": "vite build --mode development --watch",
 		"test:unit": "vitest --config ./test/vitest.config.ts",
+		"test:view": "node component_tests",
+		"dev:component": "vite -c component_tests/vite.config.js",
 		"build": "npm run obsidian:version && vite build && git add styles.css versions.json manifest.json",
 		"obsidian:version": "tsx src/obsidian/plugin/version-bump.ts && git add src/obsidian/plugin/versions.ts"
 	},
