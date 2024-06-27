@@ -1,4 +1,4 @@
-import type { MetadataCache, TFile, Vault } from "obsidian";
+import { normalizePath, type MetadataCache, type TFile, type Vault } from "obsidian";
 import type { Unsubscribe } from "../Events";
 import { isTypeOfProperty, type PropertyType } from "./types";
 
@@ -221,8 +221,14 @@ export async function loadRegisteredTypes(
 			created: "datetime",
 			modified: "datetime",
 		});
-	const rawText = await vault.adapter.read(`.obsidian/types.json`);
-	const json: object = JSON.parse(rawText);
+	let json: object;
+	try {
+		const rawText = await vault.adapter.read(normalizePath(`.obsidian/types.json`));
+		json = JSON.parse(rawText);
+	} catch (err) {
+		console.error(`[Timeline Plugin]`, err);
+		json = {};
+	}
 	if (!("types" in json)) {
 		return registeredTypes;
 	}
