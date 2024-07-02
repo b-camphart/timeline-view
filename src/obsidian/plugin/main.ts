@@ -6,8 +6,8 @@ import { type PresentNewTimelineLeafContext } from "src/usecases/timeline/create
 import { Workspace } from "../workspace";
 import { registerTimelineTab } from "../workspace/TimelineLeafView";
 import { openTimelineView } from "src/usecases/timeline/create/openTimelineView";
-import { ObsidianNotePropertyRepository } from "src/note/property/repository";
 import { getMetadataTypeManager } from "../MetadataTypeManager";
+import { ObsidianNotePropertyRepository } from "src/note/property/obsidian-repository";
 
 export default class ObsidianTimelinePlugin
 	extends Plugin

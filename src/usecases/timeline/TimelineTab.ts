@@ -70,6 +70,7 @@ export class TimelineTab {
 
 	async render(header: Element, content: Element) {
 		const container = content;
+		
 		container.createEl("progress");
 
 		const propertySelection = {
