@@ -1,5 +1,4 @@
 import type { Files } from "./files/Files";
-import type { Properties } from "./properties/Properties"
 import type { Workspace } from "./workspace";
 
 /**
@@ -15,7 +14,6 @@ export interface Obsidian {
 
 export interface ObsidianVault {
 
-    properties(): Properties;
     files(): Files;
 
 }

@@ -1,6 +1,5 @@
 /// <reference types="vite/client" />
 import { Plugin } from "obsidian";
-import { properties } from "../properties/Properties";
 import type { Obsidian, ObsidianVault } from "../Obsidian";
 import { files } from "../files/Files";
 import { type PresentNewTimelineLeafContext } from "src/usecases/timeline/create/presentNewTimeline";
@@ -14,7 +13,6 @@ export default class ObsidianTimelinePlugin
 	extends Plugin
 	implements Obsidian, PresentNewTimelineLeafContext
 {
-	private properties = properties(this.app.vault, this.app.metadataCache);
 	private files = files(this.app.vault, this.app.metadataCache);
 
 	async onload(): Promise<void> {
@@ -35,12 +33,6 @@ export default class ObsidianTimelinePlugin
 			callback: () => openTimelineView(this),
 		});
 
-		this.registerEvent(
-			this.app.metadataCache.on(
-				"changed",
-				this.properties.metadataChanged.bind(this.properties),
-			),
-		);
 		this.registerEvent(
 			this.app.metadataCache.on(
 				"changed",
@@ -91,8 +83,6 @@ export default class ObsidianTimelinePlugin
 
 	vault(): ObsidianVault {
 		return {
-			properties: () => this.properties,
-
 			files: () => this.files,
 		};
 	}

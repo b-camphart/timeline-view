@@ -1,7 +1,6 @@
 import type { NoteProperty } from "src/note/property";
 import type { Files } from "src/obsidian/files/Files";
 import type { Note } from "src/obsidian/files/Note";
-import type { Properties } from "src/obsidian/properties/Properties";
 import {
 	getPropertySelector,
 	type FilePropertySelector,
@@ -10,7 +9,6 @@ import type { TimelinePropertyType } from "src/obsidian/timeline/settings/proper
 
 interface Context {
 	files(): Files;
-	properties(): Properties;
 }
 
 interface Output {

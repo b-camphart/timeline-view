@@ -9,7 +9,6 @@ export function writableProperties<T extends { [key: string]: any }>(
 	object: Partial<T>,
 	onChildModified: <K extends keyof T>(key: K, newValue: T[K]) => void,
 ): NamespacedWritableFactory<T> {
-
 	const children = new Map<string, Writable<any>>();
 	const childNamespaces = new Map<string, NamespacedWritableFactory<any>>();
 
@@ -45,6 +44,7 @@ export function writableProperties<T extends { [key: string]: any }>(
 				childObj,
 				(key, newObj) => {
 					childObj[key] = newObj;
+					// @ts-ignore
 					object[name] = childObj;
 					onChildModified(name, childObj as any);
 				},
