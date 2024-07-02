@@ -1,21 +1,12 @@
-import type { TimelinePropertyCollection } from "./TimelineProperties";
+import type { NoteProperty } from "src/note/property";
+import type { TimelinePropertyType } from "./TimelineProperties";
 
 export function getPropertyDisplayType(
-	prop: string | undefined,
-	availableProperties: TimelinePropertyCollection
+	property: NoteProperty<TimelinePropertyType>
 ): "numeric" | "date" {
-	if (prop === undefined) {
-		return "numeric";
-	}
-	if (prop.toLocaleLowerCase() === "created") {
+	const type = property.type().toLocaleLowerCase();
+	if (type === "date" || type === "datetime") {
 		return "date";
-	} else if (prop.toLocaleLowerCase() === "modified") {
-		return "date";
-	} else {
-		const type = availableProperties.typeOf(prop);
-		if (type === "date" || type === "datetime") {
-			return "date";
-		}
-		return "numeric";
 	}
+	return "numeric"
 }

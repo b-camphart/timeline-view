@@ -7,6 +7,7 @@ import { TimelineFileItem } from "src/obsidian/timeline/TimelineFileItem";
 import { NoPropertySelector } from "src/obsidian/timeline/settings/property/NotePropertySelector";
 import { type Note } from "src/obsidian/files/Note";
 import type { Subscriber } from "svelte/store";
+import { type NotePropertyRepository } from "src/note/property/repository";
 
 export const OBSIDIAN_LEAF_VIEW_TYPE: string = "VIEW_TYPE_TIMELINE_VIEW";
 
@@ -18,7 +19,7 @@ export class TimelineTab {
 	private initialization?: Promise<void>;
 	private completeInitialization: () => void;
 
-	constructor(private obsidian: Obsidian) {
+	constructor(private obsidian: Obsidian, private notePropertyRepository: NotePropertyRepository) {
 		this.component = null;
 		this.subscriptions = null;
 		this.completeInitialization = () => {};
@@ -100,6 +101,7 @@ export class TimelineTab {
 					files,
 					propertySelection,
 					obsidian: this.obsidian,
+					notePropertyRepository: this.notePropertyRepository,
 					isNew: this._transientState.isNew,
 					viewModel: writableProperties(
 						this.state,

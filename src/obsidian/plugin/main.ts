@@ -7,6 +7,8 @@ import { type PresentNewTimelineLeafContext } from "src/usecases/timeline/create
 import { Workspace } from "../workspace";
 import { registerTimelineTab } from "../workspace/TimelineLeafView";
 import { openTimelineView } from "src/usecases/timeline/create/openTimelineView";
+import { ObsidianNotePropertyRepository } from "src/note/property/repository";
+import { getMetadataTypeManager } from "../MetadataTypeManager";
 
 export default class ObsidianTimelinePlugin
 	extends Plugin
@@ -16,7 +18,13 @@ export default class ObsidianTimelinePlugin
 	private files = files(this.app.vault, this.app.metadataCache);
 
 	async onload(): Promise<void> {
-		registerTimelineTab(this, this);
+		registerTimelineTab(
+			this,
+			this,
+			new ObsidianNotePropertyRepository(this.app.vault.adapter, () =>
+				getMetadataTypeManager(this.app),
+			),
+		);
 
 		this.addRibbonIcon("waypoints", "Open timeline view", () =>
 			openTimelineView(this),

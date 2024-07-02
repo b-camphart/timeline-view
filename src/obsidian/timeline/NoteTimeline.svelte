@@ -8,7 +8,7 @@
 	} from "./settings/property/NotePropertySelector";
 	import { type NamespacedWritableFactory } from "../../timeline/Persistence";
 	import { onMount } from "svelte";
-	import { writable } from "svelte/store";
+	import { get, writable } from "svelte/store";
 	import Groups from "./settings/groups/Groups.svelte";
 	import { MatchAllEmptyQuery } from "./settings/filter/DefaultFileFilter";
 	import {
@@ -20,10 +20,15 @@
 	import TimelinePropertySetting from "./settings/property/TimelinePropertySetting.svelte";
 	import type { ObsidianNoteTimelineViewModel } from "./viewModel";
 	import TimelineFilterSetting from "./settings/filter/TimelineFilterSetting.svelte";
-	import { timelineFileProperties } from "./settings/property/availableProperties";
 	import { getPropertyDisplayType } from "src/obsidian/timeline/settings/property/display";
 	import type { Obsidian } from "src/obsidian/Obsidian";
-	import { type Note } from "src/obsidian/files/Note"
+	import { type Note } from "src/obsidian/files/Note";
+	import type { NotePropertyRepository } from "src/note/property/repository";
+	import { NoteProperty } from "src/note/property";
+	import {
+		isTimelinePropertyType,
+		type TimelinePropertyType,
+	} from "./settings/property/TimelineProperties";
 
 	export let files: Map<string, TimelineFileItem>;
 	export let propertySelection: FilePropertySelector & {
@@ -32,16 +37,9 @@
 	export let viewModel: NamespacedWritableFactory<ObsidianNoteTimelineViewModel>;
 	export let isNew: boolean = false;
 	export let obsidian: Obsidian;
+	export let notePropertyRepository: NotePropertyRepository;
 
 	const settings = viewModel.namespace("settings");
-
-	let orderProperty = viewModel
-		.namespace("settings")
-		.namespace("property")
-		.make("property", "created");
-	const availableProperties = timelineFileProperties(
-		obsidian.vault().properties(),
-	);
 
 	let filterSection = settings.namespace("filter");
 
@@ -72,9 +70,9 @@
 		if (refreshTimeout) return;
 
 		refreshTimeout = setTimeout(() => {
-			refreshTimeout = undefined
+			refreshTimeout = undefined;
 			timelineView?.refresh();
-		}, 250)
+		}, 250);
 	}
 
 	const timelineItemGroups: TimelineItemGroups = makeTimelineItemGroups(
@@ -113,7 +111,7 @@
 	);
 
 	function openFile(event: Event | undefined, item: TimelineItem) {
-		const file = files.get(item.id())?.obsidianFile
+		const file = files.get(item.id())?.obsidianFile;
 		if (file == null) {
 			return;
 		}
@@ -130,11 +128,14 @@
 		if (timelineView == null) return;
 
 		items = [];
-		const groups = timelineItemGroups.listGroups()
+		const groups = timelineItemGroups.listGroups();
 		for (const item of files.values()) {
 			if (await item.obsidianFile.matches($activeFilter)) {
-				const applicableGroup = await selectGroupForFile(groups, item.obsidianFile)
-				item.applyGroup(applicableGroup)
+				const applicableGroup = await selectGroupForFile(
+					groups,
+					item.obsidianFile,
+				);
+				item.applyGroup(applicableGroup);
 				items.push(item);
 			}
 		}
@@ -145,32 +146,20 @@
 		activeFilter.subscribe(async (newFilter) => {
 			const filteringId = currentFilteringId + 1;
 			currentFilteringId = filteringId;
-			const newItems = []
+			const newItems = [];
 			for (const item of Array.from(files.values())) {
 				if (currentFilteringId !== filteringId) break;
 				if (await item.obsidianFile.matches(newFilter)) {
 					newItems.push(item);
 				}
 			}
-			items = newItems
+			items = newItems;
 		});
 
 		if (isNew) {
-			timelineView.zoomToFit(items)
+			timelineView.zoomToFit(items);
 		}
 	});
-
-	let previousOrderProperty = $orderProperty
-	onMount(() => {
-		if (timelineView == null) return;
-
-		orderProperty.subscribe(newOrderProperty => {
-			if (newOrderProperty != previousOrderProperty) {
-				timelineView.zoomToFit(items)
-				previousOrderProperty = newOrderProperty
-			}
-		})
-	})
 
 	let groupUpdates: TimelineFileItem[] = [];
 	let itemUpdateTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -236,29 +225,54 @@
 		scheduleItemUpdate();
 	}
 
-	orderProperty.subscribe((newOrderProperty) => {
+	let displayItemsAs: "numeric" | "date" = "date";
+	onMount(async () => {
+		const orderPropertyName = get(
+			viewModel
+				.namespace("settings")
+				.namespace("property")
+				.make("property", "created"),
+		);
+
+		let orderProperty: NoteProperty<string> | null =
+			await notePropertyRepository.getPropertyByName(orderPropertyName);
+
+		if (!orderProperty || !isTimelinePropertyType(orderProperty.type())) {
+			orderProperty = NoteProperty.Created;
+		}
+
 		propertySelection.selector = getPropertySelector(
-			newOrderProperty,
-			$availableProperties,
+			orderProperty as NoteProperty<TimelinePropertyType>,
+		);
+		displayItemsAs = getPropertyDisplayType(
+			orderProperty as NoteProperty<TimelinePropertyType>,
 		);
 		items = items;
 	});
+
+	function onPropertySelected(property: NoteProperty<TimelinePropertyType>) {
+		if (timelineView == null) return;
+
+		propertySelection.selector = getPropertySelector(property);
+		items.sort((a, b) => a.value() - b.value());
+		items = items;
+		timelineView.zoomToFit(items);
+		displayItemsAs = getPropertyDisplayType(property);
+	}
 </script>
 
 <TimelineView
 	{items}
 	namespacedWritable={viewModel}
-	displayPropertyAs={getPropertyDisplayType(
-		$orderProperty,
-		$availableProperties,
-	)}
+	displayPropertyAs={displayItemsAs}
 	bind:this={timelineView}
 	on:select={(e) => openFile(e.detail.causedBy, e.detail.item)}
 >
 	<svelte:fragment slot="additional-settings">
 		<TimelinePropertySetting
 			viewModel={settings.namespace("property")}
-			properties={obsidian.vault().properties()}
+			properties={notePropertyRepository}
+			on:propertySelected={(event) => onPropertySelected(event.detail)}
 		/>
 		<TimelineFilterSetting viewModel={settings.namespace("filter")} />
 		<Groups

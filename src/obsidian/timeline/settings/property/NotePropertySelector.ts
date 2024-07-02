@@ -1,28 +1,25 @@
-import type { PropertyCollection } from "src/obsidian/properties/Properties";
 import type { Note } from "src/obsidian/files/Note";
+import { NoteProperty } from "src/note/property";
+import type { TimelinePropertyType } from "./TimelineProperties";
 
 export interface FilePropertySelector {
 	selectProperty(file: Note): number;
 }
 
 export function getPropertySelector(
-	prop: string | undefined,
-	availableProperties: PropertyCollection,
+	property: NoteProperty<TimelinePropertyType>,
 ): FilePropertySelector {
-	if (prop === undefined) {
-		return NoPropertySelector;
-	}
-	if (prop.toLocaleLowerCase() === "created") {
+	if (property.name() === NoteProperty.Created.name()) {
 		return FileCreationSelector;
 	}
-	if (prop.toLocaleLowerCase() === "modified") {
+	if (property.name() === NoteProperty.Modified.name()) {
 		return FileModificationSelector;
 	}
-	const type = availableProperties.typeOf(prop);
+	const type = property.type().toLocaleLowerCase();
 	if (type === "date" || type === "datetime") {
-		return new DatePropertySelector(prop);
+		return new DatePropertySelector(property.name());
 	}
-	return new NumberPropertySelector(prop);
+	return new NumberPropertySelector(property.name());
 }
 
 export const NoPropertySelector: FilePropertySelector = {
@@ -70,7 +67,7 @@ class NumberPropertySelector implements FilePropertySelector {
 		const value = metadata[this.property];
 		if (value == null) return 0;
 		if (typeof value === "string") {
-			return parseInt(value);
+			return parseFloat(value);
 		}
 		return value;
 	}

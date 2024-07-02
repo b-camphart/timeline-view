@@ -11,12 +11,17 @@ import {
 import type { Obsidian } from "../Obsidian";
 import type { Workspace } from ".";
 import type { ObsidianNoteTimelineViewModel } from "../timeline/viewModel";
+import type { NotePropertyRepository } from "src/note/property/repository";
 
 let creationCallback: ((tab: TimelineTab) => void) | undefined;
 
-export function registerTimelineTab(plugin: Plugin, obsidian: Obsidian) {
+export function registerTimelineTab(
+	plugin: Plugin,
+	obsidian: Obsidian,
+	notePropertyRepository: NotePropertyRepository,
+) {
 	plugin.registerView(OBSIDIAN_LEAF_VIEW_TYPE, leaf => {
-		const tab = new TimelineTab(obsidian);
+		const tab = new TimelineTab(obsidian, notePropertyRepository);
 		if (creationCallback) {
 			creationCallback(tab);
 		}
@@ -39,10 +44,10 @@ class TimelineLeafView extends ItemView {
 	constructor(leaf: WorkspaceLeaf, private tab: TimelineTab) {
 		super(leaf);
 
-        tab.onTabNameChange(newName => {
-            (this as any).titleEl.setText(newName);
-            (leaf as any).updateHeader();
-        })
+		tab.onTabNameChange(newName => {
+			(this as any).titleEl.setText(newName);
+			(leaf as any).updateHeader();
+		});
 	}
 
 	getIcon(): string {
