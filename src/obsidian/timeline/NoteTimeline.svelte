@@ -124,22 +124,47 @@
 	}
 
 	let timelineView: TimelineView;
+	let displayItemsAs: "numeric" | "date" = "date";
 	onMount(async () => {
-		if (timelineView == null) return;
+		items = (
+			await Promise.all(
+				Array.from(files.values()).map(async (item) => {
+					if (await item.obsidianFile.matches($activeFilter)) {
+						return item;
+					}
+				}),
+			)
+		).filter((item) => !!item);
 
-		items = [];
-		const groups = timelineItemGroups.listGroups();
-		for (const item of files.values()) {
-			if (await item.obsidianFile.matches($activeFilter)) {
-				const applicableGroup = await selectGroupForFile(
-					groups,
-					item.obsidianFile,
-				);
-				item.applyGroup(applicableGroup);
-				items.push(item);
-			}
+		const orderPropertyName = get(
+			viewModel
+				.namespace("settings")
+				.namespace("property")
+				.make("property", "created"),
+		);
+
+		let orderProperty: NoteProperty<string> | null =
+			await notePropertyRepository.getPropertyByName(orderPropertyName);
+
+		if (!orderProperty || !isTimelinePropertyType(orderProperty.type())) {
+			orderProperty = NoteProperty.Created;
+		}
+
+		propertySelection.selector = getPropertySelector(
+			orderProperty as NoteProperty<TimelinePropertyType>,
+		);
+		displayItemsAs = getPropertyDisplayType(
+			orderProperty as NoteProperty<TimelinePropertyType>,
+		);
+		for (const item of items) {
+			item._invalidateValueCache();
 		}
 		items = items;
+
+		const groups = timelineItemGroups.listGroups();
+		if (groups.length > 0) {
+			timelineItemGroups.applyFileToGroup(groups[0].id, groups[0].query);
+		}
 
 		let currentFilteringId = 0;
 
@@ -171,6 +196,7 @@
 			if (groupUpdates.length > 0) {
 				const groups = groupsRepo.list();
 				for (const item of groupUpdates) {
+					item._invalidateValueCache();
 					const group = await selectGroupForFile(
 						groups,
 						item.obsidianFile,
@@ -225,36 +251,13 @@
 		scheduleItemUpdate();
 	}
 
-	let displayItemsAs: "numeric" | "date" = "date";
-	onMount(async () => {
-		const orderPropertyName = get(
-			viewModel
-				.namespace("settings")
-				.namespace("property")
-				.make("property", "created"),
-		);
-
-		let orderProperty: NoteProperty<string> | null =
-			await notePropertyRepository.getPropertyByName(orderPropertyName);
-
-		if (!orderProperty || !isTimelinePropertyType(orderProperty.type())) {
-			orderProperty = NoteProperty.Created;
-		}
-
-		propertySelection.selector = getPropertySelector(
-			orderProperty as NoteProperty<TimelinePropertyType>,
-		);
-		displayItemsAs = getPropertyDisplayType(
-			orderProperty as NoteProperty<TimelinePropertyType>,
-		);
-		items = items;
-	});
-
 	function onPropertySelected(property: NoteProperty<TimelinePropertyType>) {
 		if (timelineView == null) return;
 
 		propertySelection.selector = getPropertySelector(property);
-		items.sort((a, b) => a.value() - b.value());
+		for (const item of items) {
+			item._invalidateValueCache();
+		}
 		items = items;
 		timelineView.zoomToFit(items);
 		displayItemsAs = getPropertyDisplayType(property);
