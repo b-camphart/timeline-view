@@ -93,7 +93,7 @@ export class TimelineTab {
 			container.empty();
 			container.setAttribute(
 				"style",
-				"padding:0;position: relative;overflow-x:hidden;",
+				"padding:0;position: relative;overflow-x:hidden;overflow-y:hidden",
 			);
 
 			this.component = new ObsidianTimeline({
