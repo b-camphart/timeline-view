@@ -30,7 +30,7 @@
 
 	function valuePerPixelStore(initialValue: number = 1) {
 		function atLeastMinimum(value: number) {
-			const minimum = 1 / 64;
+			const minimum = 1 / 100;
 			if (Number.isNaN(value)) {
 				return minimum;
 			}
