@@ -1,68 +1,39 @@
 /// <reference types="vite/client" />
 import { Plugin } from "obsidian";
-import type { Obsidian, ObsidianVault } from "../Obsidian";
-import { files } from "../files/Files";
-import { type PresentNewTimelineLeafContext } from "src/usecases/timeline/create/presentNewTimeline";
+import type { Obsidian } from "../Obsidian";
 import { Workspace } from "../workspace";
 import { registerTimelineTab } from "../workspace/TimelineLeafView";
 import { openTimelineView } from "src/usecases/timeline/create/openTimelineView";
 import { getMetadataTypeManager } from "../MetadataTypeManager";
 import { ObsidianNotePropertyRepository } from "src/note/property/obsidian-repository";
+import { ObsidianNoteRepository } from "src/note/obsidian-repository";
 
-export default class ObsidianTimelinePlugin
-	extends Plugin
-	implements Obsidian, PresentNewTimelineLeafContext
-{
-	private files = files(this.app.vault, this.app.metadataCache);
-
+export default class ObsidianTimelinePlugin extends Plugin implements Obsidian {
 	async onload(): Promise<void> {
+		const notes = new ObsidianNoteRepository(
+			this.app.vault,
+			this.app.metadataCache,
+		);
+
 		registerTimelineTab(
 			this,
-			this,
+			this._workspace,
+			this.app.vault,
+			this.app.metadataCache,
+			notes,
 			new ObsidianNotePropertyRepository(this.app.vault.adapter, () =>
 				getMetadataTypeManager(this.app),
 			),
 		);
 
 		this.addRibbonIcon("waypoints", "Open timeline view", () =>
-			openTimelineView(this),
+			openTimelineView(notes, this._workspace),
 		);
 		this.addCommand({
 			id: "open-timeline-view",
 			name: "Open timeline view",
-			callback: () => openTimelineView(this),
+			callback: () => openTimelineView(notes, this._workspace),
 		});
-
-		this.registerEvent(
-			this.app.metadataCache.on(
-				"changed",
-				this.files.fileModified.bind(this.files),
-			),
-		);
-		this.registerEvent(
-			this.app.vault.on(
-				"create",
-				this.files.fileCreated.bind(this.files),
-			),
-		);
-		this.registerEvent(
-			this.app.vault.on(
-				"rename",
-				this.files.fileRenamed.bind(this.files),
-			),
-		);
-		this.registerEvent(
-			this.app.vault.on(
-				"modify",
-				this.files.fileModified.bind(this.files),
-			),
-		);
-		this.registerEvent(
-			this.app.vault.on(
-				"delete",
-				this.files.fileDeleted.bind(this.files),
-			),
-		);
 
 		if (import.meta.env.MODE === "development") {
 			if (await this.app.vault.adapter.exists("___reload.md")) {
@@ -79,12 +50,6 @@ export default class ObsidianTimelinePlugin
 				}),
 			);
 		}
-	}
-
-	vault(): ObsidianVault {
-		return {
-			files: () => this.files,
-		};
 	}
 
 	private _workspace = new Workspace(this.app);

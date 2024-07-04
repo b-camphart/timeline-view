@@ -1,4 +1,4 @@
-import type { Note } from "src/obsidian/files/Note";
+import type { Note } from "src/note";
 import { NoteProperty } from "src/note/property";
 import type { TimelinePropertyType } from "./TimelineProperties";
 
@@ -30,13 +30,13 @@ export const NoPropertySelector: FilePropertySelector = {
 
 export const FileCreationSelector: FilePropertySelector = {
 	selectProperty(file: Note): number {
-		return file.createdAt();
+		return file.created();
 	},
 };
 
 export const FileModificationSelector: FilePropertySelector = {
 	selectProperty(file: Note): number {
-		return file.modifiedAt();
+		return file.modified();
 	},
 };
 
@@ -44,7 +44,7 @@ class DatePropertySelector implements FilePropertySelector {
 	constructor(private property: string) {}
 
 	selectProperty(file: Note): number {
-		const metadata = file.metadata();
+		const metadata = file.properties();
 		if (metadata == null) {
 			return 0;
 		}
@@ -60,7 +60,7 @@ class NumberPropertySelector implements FilePropertySelector {
 	constructor(private property: string) {}
 
 	selectProperty(file: Note): number {
-		const metadata = file.metadata();
+		const metadata = file.properties();
 		if (metadata == null) {
 			return 0;
 		}

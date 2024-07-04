@@ -7,10 +7,9 @@
 		type FilePropertySelector,
 	} from "./settings/property/NotePropertySelector";
 	import { type NamespacedWritableFactory } from "../../timeline/Persistence";
-	import { onMount } from "svelte";
+	import { createEventDispatcher, onMount } from "svelte";
 	import { get, writable } from "svelte/store";
 	import Groups from "./settings/groups/Groups.svelte";
-	import { MatchAllEmptyQuery } from "./settings/filter/DefaultFileFilter";
 	import {
 		makeTimelineItemGroups,
 		type TimelineItemGroups,
@@ -21,23 +20,27 @@
 	import type { ObsidianNoteTimelineViewModel } from "./viewModel";
 	import TimelineFilterSetting from "./settings/filter/TimelineFilterSetting.svelte";
 	import { getPropertyDisplayType } from "src/obsidian/timeline/settings/property/display";
-	import type { Obsidian } from "src/obsidian/Obsidian";
-	import { type Note } from "src/obsidian/files/Note";
 	import type { NotePropertyRepository } from "src/note/property/repository";
 	import { NoteProperty } from "src/note/property";
 	import {
 		isTimelinePropertyType,
 		type TimelinePropertyType,
 	} from "./settings/property/TimelineProperties";
+	import type { NoteRepository } from "src/note/repository";
+	import type { Note } from "src/note";
 
-	export let files: Map<string, TimelineFileItem>;
+	export let notes: Map<string, TimelineFileItem>;
+	export let noteRepository: NoteRepository;
 	export let propertySelection: FilePropertySelector & {
 		selector: FilePropertySelector;
 	};
 	export let viewModel: NamespacedWritableFactory<ObsidianNoteTimelineViewModel>;
 	export let isNew: boolean = false;
-	export let obsidian: Obsidian;
 	export let notePropertyRepository: NotePropertyRepository;
+
+	const dispatch = createEventDispatcher<{
+		noteSelected: { note: Note; event?: Event };
+	}>();
 
 	const settings = viewModel.namespace("settings");
 
@@ -45,14 +48,11 @@
 
 	const filterText = filterSection.make("query", "");
 	const activeFilter = writable(
-		obsidian.vault().files().parseFilter($filterText, MatchAllEmptyQuery),
+		noteRepository.getInclusiveNoteFilterForQuery($filterText),
 	);
 	filterText.subscribe((newFilterText) =>
 		activeFilter.set(
-			obsidian
-				.vault()
-				.files()
-				.parseFilter(newFilterText, MatchAllEmptyQuery),
+			noteRepository.getInclusiveNoteFilterForQuery(newFilterText),
 		),
 	);
 
@@ -61,7 +61,7 @@
 	const groupsNamespace = settings.namespace("groups");
 	const groupsRepo = new GroupRepository(
 		groupsNamespace.make("groups", []),
-		obsidian.vault().files(),
+		noteRepository,
 	);
 	let groupsView: Groups | undefined;
 
@@ -111,16 +111,12 @@
 	);
 
 	function openFile(event: Event | undefined, item: TimelineItem) {
-		const file = files.get(item.id())?.obsidianFile;
-		if (file == null) {
+		const note = notes.get(item.id())?.obsidianFile;
+		if (note == null) {
 			return;
 		}
 
-		if (event instanceof MouseEvent || event instanceof KeyboardEvent) {
-			obsidian.workspace().openFile(file, event);
-		} else {
-			obsidian.workspace().openFileInNewTab(file);
-		}
+		dispatch("noteSelected", { note, event });
 	}
 
 	let timelineView: TimelineView;
@@ -128,8 +124,8 @@
 	onMount(async () => {
 		items = (
 			await Promise.all(
-				Array.from(files.values()).map(async (item) => {
-					if (await item.obsidianFile.matches($activeFilter)) {
+				Array.from(notes.values()).map(async (item) => {
+					if (await $activeFilter.matches(item.obsidianFile)) {
 						return item;
 					}
 				}),
@@ -172,9 +168,9 @@
 			const filteringId = currentFilteringId + 1;
 			currentFilteringId = filteringId;
 			const newItems = [];
-			for (const item of Array.from(files.values())) {
+			for (const item of Array.from(notes.values())) {
 				if (currentFilteringId !== filteringId) break;
-				if (await item.obsidianFile.matches(newFilter)) {
+				if (await newFilter.matches(item.obsidianFile)) {
 					newItems.push(item);
 				}
 			}
@@ -212,20 +208,18 @@
 	export async function addFile(file: Note) {
 		if (timelineView == null) return;
 		const item = new TimelineFileItem(file, propertySelection);
-		files.set(file.path(), item);
-		file.matches($activeFilter).then((isApplicable) => {
-			if (isApplicable) {
-				items.push(item);
-				scheduleItemUpdate();
-			}
-		});
+		notes.set(file.id(), item);
+		if (await $activeFilter.matches(file)) {
+			items.push(item);
+			scheduleItemUpdate();
+		}
 	}
 
 	export function deleteFile(file: Note) {
 		if (timelineView == null) return;
-		const item = files.get(file.path());
+		const item = notes.get(file.id());
 		if (item == null) return;
-		if (files.delete(file.path())) {
+		if (notes.delete(file.id())) {
 			items.remove(item);
 			scheduleItemUpdate();
 		}
@@ -233,7 +227,7 @@
 
 	export async function modifyFile(file: Note) {
 		if (timelineView == null) return;
-		const item = files.get(file.path());
+		const item = notes.get(file.id());
 		if (item == null) return;
 
 		groupUpdates.push(item);
@@ -242,10 +236,10 @@
 
 	export async function renameFile(file: Note, oldPath: string) {
 		if (timelineView == null) return;
-		const item = files.get(oldPath);
+		const item = notes.get(oldPath);
 		if (item == null) return;
-		files.delete(oldPath);
-		files.set(file.path(), item);
+		notes.delete(oldPath);
+		notes.set(file.id(), item);
 
 		groupUpdates.push(item);
 		scheduleItemUpdate();

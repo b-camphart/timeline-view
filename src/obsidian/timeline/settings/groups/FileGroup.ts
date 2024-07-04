@@ -1,33 +1,32 @@
-import type { MetadataCache, TFile } from "obsidian";
-import { parse, type FileFilter } from 'obsidian-search';
+import type { TFile } from "obsidian";
+import type { Note } from "src/note";
+import type { NoteFilter } from "src/note/filter";
 
 export interface ItemGroup {
-    id: string
-    query: string
-    readonly filter: FileFilter
-    color: string
+	id: string;
+	query: string;
+	readonly filter: NoteFilter;
+	color: string;
 }
 
 export interface ColorSelector {
-    selectColor(file: TFile): Promise<string | undefined>;
+	selectColor(note: Note): Promise<string | undefined>;
 }
 
-export function getColorSelector(
-    groups: ItemGroup[]
-): ColorSelector {
-    return {
-        async selectColor(file) {
-            let color: string | undefined;
-            for await (const group of groups) {
-                if (await group.filter.appliesTo(file)) {
-                    color = group.color
-                }
-            }
+export function getColorSelector(groups: ItemGroup[]): ColorSelector {
+	return {
+		async selectColor(note) {
+			let color: string | undefined;
+			for await (const group of groups) {
+				if (await group.filter.matches(note)) {
+					color = group.color;
+				}
+			}
 
-            if (color != null) {
-                return color
-            }
-            return undefined;
-        }
-    }
+			if (color != null) {
+				return color;
+			}
+			return undefined;
+		},
+	};
 }

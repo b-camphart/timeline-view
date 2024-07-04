@@ -11,4 +11,14 @@ export interface NoteRepository {
 		filter: NoteFilter;
 	}>;
 	getNoteFilterForQuery(query: string): NoteFilter;
+	
+	/**
+	 * Returns a filter that matches everything if the query is blank
+	 */
+	getInclusiveNoteFilterForQuery(query: string): NoteFilter;
+
+	/**
+	 * Returns a filter that matches nothing if the query is blank
+	 */
+	getExclusiveNoteFilterForQuery(query: string): NoteFilter;
 }

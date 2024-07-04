@@ -1,7 +1,12 @@
 import type { MetadataCache, TFile, Vault } from "obsidian";
 import type { Note } from "src/note";
 import type { NoteRepository } from "src/note/repository";
-import { parse, type FileFilter } from "obsidian-search";
+import {
+	EmtpyFilter,
+	MatchNone,
+	parse,
+	type FileFilter,
+} from "obsidian-search";
 import { MatchAllEmptyQuery } from "src/obsidian/timeline/settings/filter/DefaultFileFilter";
 import type { NoteFilter } from "src/note/filter";
 
@@ -60,6 +65,20 @@ export class ObsidianNoteRepository implements NoteRepository {
 			query,
 		);
 	}
+
+	getInclusiveNoteFilterForQuery(query: string): NoteFilter {
+		return new ObsidianNoteFilter(
+			parse(query, this.#metadata, MatchAllEmptyQuery),
+			query,
+		);
+	}
+
+	getExclusiveNoteFilterForQuery(query: string): NoteFilter {
+		return new ObsidianNoteFilter(
+			parse(query, this.#metadata, EmtpyFilter),
+			query,
+		);
+	}
 }
 
 class ObsidianNoteFilter implements NoteFilter {
@@ -77,19 +96,23 @@ class ObsidianNoteFilter implements NoteFilter {
 
 	async matches(note: Note): Promise<boolean> {
 		if (note instanceof ObsidianNote) {
-			return this.#filter.appliesTo(note.file());
+			return await this.#filter.appliesTo(note.file());
 		}
 		return false;
 	}
 }
 
-class ObsidianNote implements Note {
+export class ObsidianNote implements Note {
 	#tFile;
 	#metadata;
 
 	constructor(tFile: TFile, metadata: MetadataCache) {
 		this.#tFile = tFile;
 		this.#metadata = metadata;
+	}
+
+	id(): string {
+		return this.#tFile.path;
 	}
 
 	file(): TFile {

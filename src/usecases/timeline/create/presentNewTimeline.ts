@@ -1,18 +1,11 @@
 import type { Workspace } from "src/obsidian/workspace";
-import { OBSIDIAN_LEAF_VIEW_TYPE } from "../TimelineTab";
-import type { Note } from "src/obsidian/files/Note";
 import type { FilePropertySelector } from "src/obsidian/timeline/settings/property/NotePropertySelector";
 import { TimelineFileItem } from "src/obsidian/timeline/TimelineFileItem";
 import { createTimelineTab } from "src/obsidian/workspace/TimelineLeafView";
-
-interface Context {
-	workspace(): Workspace;
-}
-
-export { type Context as PresentNewTimelineLeafContext };
+import type { Note } from "src/note";
 
 export async function presentNewTimelineLeaf(
-	ctx: Context,
+	workspace: Workspace,
 	notes: Note[],
 	propertySelector: FilePropertySelector,
 ): Promise<void> {
@@ -26,5 +19,5 @@ export async function presentNewTimelineLeaf(
 
 	const focalValue = minValue + range / 2;
 
-	createTimelineTab(ctx.workspace(), { focalValue });
+	createTimelineTab(workspace, { focalValue });
 }

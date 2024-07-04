@@ -1,15 +1,11 @@
+import type { Note } from "src/note";
 import type { NoteProperty } from "src/note/property";
-import type { Files } from "src/obsidian/files/Files";
-import type { Note } from "src/obsidian/files/Note";
+import type { NoteRepository } from "src/note/repository";
 import {
 	getPropertySelector,
 	type FilePropertySelector,
 } from "src/obsidian/timeline/settings/property/NotePropertySelector";
 import type { TimelinePropertyType } from "src/obsidian/timeline/settings/property/TimelineProperties";
-
-interface Context {
-	files(): Files;
-}
 
 interface Output {
 	presentOrderedNotes(
@@ -19,17 +15,17 @@ interface Output {
 }
 
 export async function listNotesInOrder(
-	ctx: Context,
+	notes: NoteRepository,
 	property: NoteProperty<TimelinePropertyType>,
 	output: Output,
 ) {
 	const propertySelector = getPropertySelector(property);
 
-	const notes = (await ctx.files().list()).toSorted(
+	const allNotes = (await notes.listAll()).toSorted(
 		(a, b) =>
 			propertySelector.selectProperty(a) -
 			propertySelector.selectProperty(b),
 	);
 
-	output.presentOrderedNotes(notes, propertySelector);
+	output.presentOrderedNotes(allNotes, propertySelector);
 }

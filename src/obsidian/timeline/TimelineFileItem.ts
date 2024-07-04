@@ -1,7 +1,7 @@
 import type { TimelineItem } from "../../timeline/Timeline";
 import type { FilePropertySelector } from "./settings/property/NotePropertySelector";
 import type { ItemGroup } from "./settings/groups/FileGroup";
-import type { Note } from "../files/Note";
+import type { Note } from "src/note";
 
 export class TimelineFileItem implements TimelineItem {
 	private _group: ItemGroup | undefined;
@@ -14,7 +14,7 @@ export class TimelineFileItem implements TimelineItem {
 	}
 
 	id(): string {
-		return this.obsidianFile.path();
+		return this.obsidianFile.id();
 	}
 
 	#value: number | undefined;
@@ -37,7 +37,7 @@ export class TimelineFileItem implements TimelineItem {
 	}
 
 	name(): string {
-		return this.obsidianFile.nameWithoutExtension();
+		return this.obsidianFile.name();
 	}
 
 	applyGroup(group: ItemGroup | undefined) {

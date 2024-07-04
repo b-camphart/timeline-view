@@ -1,25 +1,36 @@
-import { Keymap, type App, type TFile, type UserEvent, WorkspaceLeaf } from "obsidian";
-import type { Note } from "../files/Note";
+import { Keymap, type App, type UserEvent, WorkspaceLeaf } from "obsidian";
+import type { Note } from "src/note";
+import { ObsidianNote } from "src/note/obsidian-repository";
 
 export class Workspace {
 	constructor(private app: App) {}
 
-	async createNewLeaf<State>(type: string, active: boolean, state?: State): Promise<void> {
+	async createNewLeaf<State>(
+		type: string,
+		active: boolean,
+		state?: State,
+	): Promise<void> {
 		const leaf = this.app.workspace.getLeaf(true);
 		await leaf.setViewState({
 			type,
 			active,
-			state
+			state,
 		});
 		this.app.workspace.revealLeaf(leaf);
 	}
 
 	openFile(file: Note, fromEvent: UserEvent) {
-		file.openIn(this.app.workspace.getLeaf(Keymap.isModEvent(fromEvent)));
+		if (file instanceof ObsidianNote) {
+			this.app.workspace
+				.getLeaf(Keymap.isModEvent(fromEvent))
+				.openFile(file.file());
+		}
 	}
 
 	openFileInNewTab(file: Note) {
-		file.openIn(this.app.workspace.getLeaf("tab"));
+		if (file instanceof ObsidianNote) {
+			this.app.workspace.getLeaf(true).openFile(file.file());
+		}
 	}
 
 	saveState() {
@@ -28,11 +39,5 @@ export class Workspace {
 }
 
 export class TabPresenter {
-
-	constructor(
-		private leaf: WorkspaceLeaf
-	) {
-
-	}
-
+	constructor(private leaf: WorkspaceLeaf) {}
 }
