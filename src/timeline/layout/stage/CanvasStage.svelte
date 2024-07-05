@@ -175,10 +175,18 @@
 		redrawNeeded = true;
 	}
 
+	let scrollbarMeasurerFullWidth: number = 0;
+	let scrollbarMeasurerInnerWidth: number = 0;
+	$: scrollbarWidth =
+		scrollbarMeasurerFullWidth - scrollbarMeasurerInnerWidth;
 	let vScrollbarNeeded = false;
 	let vPercent = 1;
 	let vScrollValue = 0;
 
+	let scrollbarMeasurerFullHeight: number = 0;
+	let scrollbarMeasurerInnerHeight: number = 0;
+	$: scrollbarHeight =
+		scrollbarMeasurerFullHeight - scrollbarMeasurerInnerHeight;
 	let hScrollbarNeeded = false;
 	let hPercent = 1;
 	let hScrollValue = 0;
@@ -239,14 +247,6 @@
 					vScrollValue = viewport.scrollTop / maxScroll;
 				}
 
-				// min point x -> -3000
-				// viewport width -> 1000
-				// max point x -> -2000
-				// minX -> -3000
-				// maxX -> 1000
-				// totalDisplayWidth -> 4000
-				// maxScrollX = 4000 - 1000 = 3000
-				// abs(minX) = 3000 / 3000 = 1
 				const totalDisplayWidth = maxX - minX;
 				if (
 					viewport.width >= totalDisplayWidth &&
@@ -285,17 +285,19 @@
 
 		requestAnimationFrame(draw);
 	});
-
-	$: if (stageCSSTarget) {
-		const scrollbarWidth = getComputedStyle(stageCSSTarget).scrollbarWidth;
-		stageCSSTarget.style.setProperty(
-			"--scrollbar-width",
-			scrollbarWidth === "auto" ? "" : scrollbarWidth,
-		);
-	}
 </script>
 
-<div class="stage" bind:this={stageCSSTarget}>
+<canvas bind:this={canvas} style={`top: ${canvasTop}px;`} />
+<div
+	class="stage"
+	role="presentation"
+	bind:this={stageCSSTarget}
+	class:has-hover={hover != null}
+	on:wheel|stopPropagation|capture={handleScroll}
+	on:mousemove={detectHover}
+	on:click={handleClick}
+	on:keypress={() => {}}
+>
 	<div
 		class="timeline-point"
 		bind:this={pointElements[0]}
@@ -309,6 +311,7 @@
 	<div class="timeline-point" bind:this={pointElements[2]}></div>
 	<div
 		role="scrollbar"
+		style:height={scrollbarHeight + "px"}
 		class:unneeded={!hScrollbarNeeded}
 		aria-orientation="horizontal"
 		aria-controls={canvas?.className ?? ""}
@@ -321,6 +324,7 @@
 	</div>
 	<div
 		role="scrollbar"
+		style:width={scrollbarWidth + "px"}
 		class:unneeded={!vScrollbarNeeded}
 		aria-orientation="vertical"
 		aria-controls={canvas?.className ?? ""}
@@ -332,14 +336,15 @@
 		/>
 	</div>
 </div>
-<canvas
-	bind:this={canvas}
-	style={`top: ${canvasTop}px;`}
-	class:has-hover={hover != null}
-	on:wheel|stopPropagation|capture={handleScroll}
-	on:mousemove={detectHover}
-	on:click={handleClick}
-/>
+<div
+	bind:clientHeight={scrollbarMeasurerInnerHeight}
+	bind:clientWidth={scrollbarMeasurerInnerWidth}
+	bind:offsetHeight={scrollbarMeasurerFullHeight}
+	bind:offsetWidth={scrollbarMeasurerFullWidth}
+	class="scrollbar-style-meausurer"
+	style="position: absolute; top: 0; left: 0; width: 100px; height: 100px;overflow: scroll;visibility: hidden;"
+></div>
+
 {#if hover != null}
 	<div
 		class="timeline-point hover"
@@ -357,7 +362,7 @@
 	canvas {
 		position: absolute;
 	}
-	canvas.has-hover {
+	.stage.has-hover {
 		cursor: pointer;
 	}
 	.stage {
@@ -391,17 +396,30 @@
 	}
 	div[role="scrollbar"] .thumb {
 		position: absolute;
-		background-color: var(--scrollbar-thumb-bg, rbga(256, 256, 256, 0.2));
-		border-radius: var(--scrollbar-width, var(--size-4-1));
+
+		background-color: var(
+			--scrollbar-thumb-bg,
+			var(--ui1, rbga(256, 256, 256, 0.2))
+		);
+
+		background-clip: padding-box;
+		border-radius: 20px;
+		border: 3px solid transparent;
+		border-width: 3px 3px 3px 3px;
+	}
+	div[role="scrollbar"] .thumb:hover {
+		background-color: var(
+			--scrollbar-active-thumb-bg,
+			var(--ui3, rbga(256, 256, 256, 0.4))
+		);
 	}
 	div[role="scrollbar"][aria-orientation="horizontal"] {
 		width: 100%;
-		bottom: var(--size-2-1);
+		bottom: 0;
 		left: 0;
-		height: var(--scrollbar-width, var(--size-4-1));
 	}
 	div[role="scrollbar"][aria-orientation="horizontal"] .thumb {
-		min-width: 16px;
+		min-width: 45px;
 		height: 100%;
 		--thumb-width: calc(100% * var(--percent, 1));
 		width: var(--thumb-width);
@@ -410,11 +428,10 @@
 	div[role="scrollbar"][aria-orientation="vertical"] {
 		height: 100%;
 		top: 0;
-		right: var(--size-2-1);
-		width: var(--scrollbar-width, var(--size-4-1));
+		right: 0;
 	}
 	div[role="scrollbar"][aria-orientation="vertical"] .thumb {
-		min-height: 16px;
+		min-height: 45px;
 		width: 100%;
 		--thumb-height: calc(100% * var(--percent, 1));
 		height: var(--thumb-height);
