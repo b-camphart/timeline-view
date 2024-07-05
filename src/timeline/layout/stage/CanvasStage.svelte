@@ -175,6 +175,14 @@
 		redrawNeeded = true;
 	}
 
+	let vScrollbarNeeded = false;
+	let vPercent = 1;
+	let vScrollValue = 0;
+
+	let hScrollbarNeeded = false;
+	let hPercent = 1;
+	let hScrollValue = 0;
+
 	onMount(() => {
 		if (
 			canvas == null ||
@@ -203,8 +211,12 @@
 					layoutPoints(viewport, pointDimentions, scale, sortedItems),
 				);
 
+				let minX = 0;
+				let maxX = viewport.width;
 				let maxY = 0;
 				for (const bounds of pointBounds) {
+					if (bounds.left < minX) minX = bounds.left;
+					if (bounds.right > maxX) maxX = bounds.right;
 					if (bounds.bottom > maxY) maxY = bounds.bottom;
 				}
 				const maxScroll = Math.max(
@@ -216,6 +228,37 @@
 
 				for (const bounds of pointBounds) {
 					bounds.centerY = bounds.centerY - viewport.scrollTop;
+				}
+
+				// set scrollbar thumb size
+				if (viewport.height >= maxY) {
+					vScrollbarNeeded = false;
+				} else {
+					vScrollbarNeeded = true;
+					vPercent = viewport.height / maxY;
+					vScrollValue = viewport.scrollTop / maxScroll;
+				}
+
+				// min point x -> -3000
+				// viewport width -> 1000
+				// max point x -> -2000
+				// minX -> -3000
+				// maxX -> 1000
+				// totalDisplayWidth -> 4000
+				// maxScrollX = 4000 - 1000 = 3000
+				// abs(minX) = 3000 / 3000 = 1
+				const totalDisplayWidth = maxX - minX;
+				if (
+					viewport.width >= totalDisplayWidth &&
+					minX >= 0 &&
+					maxX <= viewport.width
+				) {
+					hScrollbarNeeded = false;
+				} else {
+					hScrollbarNeeded = true;
+					hPercent = viewport.width / totalDisplayWidth;
+					hScrollValue =
+						Math.abs(minX) / (totalDisplayWidth - viewport.width);
 				}
 			}
 
@@ -242,8 +285,53 @@
 
 		requestAnimationFrame(draw);
 	});
+
+	$: if (stageCSSTarget) {
+		const scrollbarWidth = getComputedStyle(stageCSSTarget).scrollbarWidth;
+		stageCSSTarget.style.setProperty(
+			"--scrollbar-width",
+			scrollbarWidth === "auto" ? "" : scrollbarWidth,
+		);
+	}
 </script>
 
+<div class="stage" bind:this={stageCSSTarget}>
+	<div
+		class="timeline-point"
+		bind:this={pointElements[0]}
+		style="float: left;"
+	></div>
+	<div
+		class="timeline-point"
+		bind:this={pointElements[1]}
+		style="clear: right;"
+	></div>
+	<div class="timeline-point" bind:this={pointElements[2]}></div>
+	<div
+		role="scrollbar"
+		class:unneeded={!hScrollbarNeeded}
+		aria-orientation="horizontal"
+		aria-controls={canvas?.className ?? ""}
+		aria-valuenow={focalValue}
+	>
+		<div
+			class="thumb"
+			style="--percent: {hPercent}; --value: {hScrollValue};"
+		/>
+	</div>
+	<div
+		role="scrollbar"
+		class:unneeded={!vScrollbarNeeded}
+		aria-orientation="vertical"
+		aria-controls={canvas?.className ?? ""}
+		aria-valuenow={viewport.scrollTop}
+	>
+		<div
+			class="thumb"
+			style="--percent: {vPercent}; --value: {vScrollValue};"
+		/>
+	</div>
+</div>
 <canvas
 	bind:this={canvas}
 	style={`top: ${canvasTop}px;`}
@@ -264,19 +352,6 @@
 		</div>
 	</div>
 {/if}
-<div class="stage" bind:this={stageCSSTarget}>
-	<div
-		class="timeline-point"
-		bind:this={pointElements[0]}
-		style="float: left;"
-	></div>
-	<div
-		class="timeline-point"
-		bind:this={pointElements[1]}
-		style="clear: right;"
-	></div>
-	<div class="timeline-point" bind:this={pointElements[2]}></div>
-</div>
 
 <style>
 	canvas {
@@ -286,8 +361,12 @@
 		cursor: pointer;
 	}
 	.stage {
-		visibility: hidden;
+		position: relative;
 		padding: var(--timeline-stage-side-padding);
+		--scrollbar-width: var(--size-4-1);
+	}
+	.stage .timeline-point {
+		visibility: hidden !important;
 	}
 
 	.timeline-point {
@@ -301,5 +380,44 @@
 		position: absolute;
 		margin: 0;
 		pointer-events: none;
+	}
+
+	div[role="scrollbar"] {
+		position: absolute;
+		background-color: var(--scrollbar-bg, transparent);
+	}
+	div[role="scrollbar"].unneeded {
+		visibility: hidden;
+	}
+	div[role="scrollbar"] .thumb {
+		position: absolute;
+		background-color: var(--scrollbar-thumb-bg, rbga(256, 256, 256, 0.2));
+		border-radius: var(--scrollbar-width, var(--size-4-1));
+	}
+	div[role="scrollbar"][aria-orientation="horizontal"] {
+		width: 100%;
+		bottom: var(--size-2-1);
+		left: 0;
+		height: var(--scrollbar-width, var(--size-4-1));
+	}
+	div[role="scrollbar"][aria-orientation="horizontal"] .thumb {
+		min-width: 16px;
+		height: 100%;
+		--thumb-width: calc(100% * var(--percent, 1));
+		width: var(--thumb-width);
+		left: calc(calc(100% - var(--thumb-width)) * var(--value, 0));
+	}
+	div[role="scrollbar"][aria-orientation="vertical"] {
+		height: 100%;
+		top: 0;
+		right: var(--size-2-1);
+		width: var(--scrollbar-width, var(--size-4-1));
+	}
+	div[role="scrollbar"][aria-orientation="vertical"] .thumb {
+		min-height: 16px;
+		width: 100%;
+		--thumb-height: calc(100% * var(--percent, 1));
+		height: var(--thumb-height);
+		top: calc(calc(100% - var(--thumb-height)) * var(--value, 0));
 	}
 </style>

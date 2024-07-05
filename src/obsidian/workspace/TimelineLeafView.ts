@@ -57,6 +57,8 @@ class TimelineLeafView extends ItemView {
 	) {
 		super(leaf);
 
+		this.navigation = true; // hide status bar 
+
 		tab.onTabNameChange(newName => {
 			(this as any).titleEl.setText(newName);
 			(leaf as any).updateHeader();

@@ -140,8 +140,6 @@ export function* layoutPoints(
 		| undefined;
 
 	for (const item of sortedItems) {
-		if (item.value() > visibleRange[1]) continue;
-
 		const absolutePixelCenter = scale.toPixels(item.value());
 		const relativePixelCenter = absolutePixelCenter + leftOffset;
 		const relativeLeftMargin =
