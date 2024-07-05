@@ -1,7 +1,16 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from "svelte";
-	import { PointBounds, renderStage } from "./CanvasStage";
+	import {
+		PointBounds,
+		renderStage,
+		layoutPoints,
+		renderLayout,
+	} from "./CanvasStage";
 	import type { TimelineItem, ValueDisplay } from "../../Timeline";
+
+	// initially get created with nothing loaded yet
+	// get populated with sorted items, the scale, focal value, and a value display
+	//
 
 	interface Scale {
 		toPixels(value: number): number;
@@ -31,7 +40,7 @@
 		undefined,
 		undefined,
 		undefined,
-	]
+	];
 	let stageCSSTarget: HTMLDivElement | undefined;
 	let canvasTop = 0;
 
@@ -40,11 +49,11 @@
 		height: 0,
 		centerValue: 0,
 		padding: 0,
-		scrollTop: 0
+		scrollTop: 0,
 	};
 
 	$: if (viewport.centerValue != focalValue) {
-		changesNeeded = true;
+		layoutNeeded = true;
 		viewport.centerValue = focalValue;
 	}
 
@@ -55,12 +64,13 @@
 		marginY: 0,
 	};
 
-	let changesNeeded = true;
+	let layoutNeeded = true;
+	let redrawNeeded = true;
 
 	const resizeObserver = new ResizeObserver(() => {
 		if (
 			canvas == null ||
-			pointElements.some(el => el == null) ||
+			pointElements.some((el) => el == null) ||
 			stageCSSTarget == null
 		) {
 			return;
@@ -70,8 +80,8 @@
 			canvasTop = stageCSSTarget.offsetTop;
 		}
 
-		changesNeeded =
-			changesNeeded ||
+		layoutNeeded =
+			layoutNeeded ||
 			viewport.width != stageCSSTarget.clientWidth ||
 			viewport.height != stageCSSTarget.clientHeight ||
 			viewport.padding !=
@@ -87,11 +97,13 @@
 		pointDimentions.width = pointElements[0]!.clientWidth;
 		pointDimentions.marginX = Math.max(
 			0,
-			pointElements[1]!.offsetLeft - (pointElements[0]!.offsetLeft + pointElements[0]!.clientWidth),
+			pointElements[1]!.offsetLeft -
+				(pointElements[0]!.offsetLeft + pointElements[0]!.clientWidth),
 		);
 		pointDimentions.marginY = Math.max(
 			0,
-			pointElements[2]!.offsetTop - (pointElements[0]!.offsetTop + pointElements[0]!.clientHeight),
+			pointElements[2]!.offsetTop -
+				(pointElements[0]!.offsetTop + pointElements[0]!.clientHeight),
 		);
 
 		const reportedWidth = viewport.width - viewport.padding;
@@ -123,10 +135,10 @@
 				});
 			}
 		} else {
-			const newScroll = Math.max(0, viewport.scrollTop + event.deltaY)
+			const newScroll = Math.max(0, viewport.scrollTop + event.deltaY);
 			if (viewport.scrollTop != newScroll) {
-				viewport.scrollTop = newScroll
-				changesNeeded = true
+				viewport.scrollTop = newScroll;
+				layoutNeeded = true;
 			}
 		}
 	}
@@ -137,12 +149,12 @@
 	}
 
 	let pointBounds: PointBounds[] = [];
-	let hover: { bounds: PointBounds, pos: [number, number ]} | null = null;
+	let hover: { bounds: PointBounds; pos: [number, number] } | null = null;
 
-	function detectHover(event: { offsetX: number, offsetY: number }) {
+	function detectHover(event: { offsetX: number; offsetY: number }) {
 		for (const bounds of pointBounds) {
 			if (bounds.contains(event.offsetX, event.offsetY)) {
-				hover = {bounds, pos: [event.offsetX, event.offsetY]};
+				hover = { bounds, pos: [event.offsetX, event.offsetY] };
 				return;
 			}
 		}
@@ -150,16 +162,25 @@
 	}
 
 	function onPointsOrScaleChanged(points: TimelineItem[], scale: Scale) {
-		changesNeeded = true;
+		layoutNeeded = true;
 	}
 	$: onPointsOrScaleChanged(sortedItems, scale);
 
+	function onFocalValueChanged(_: number) {
+		redrawNeeded = true;
+	}
+	$: onFocalValueChanged(focalValue);
+
 	export function invalidateColors() {
-		changesNeeded = true
+		redrawNeeded = true;
 	}
 
 	onMount(() => {
-		if (canvas == null || pointElements.some(el => el == null) || stageCSSTarget == null) {
+		if (
+			canvas == null ||
+			pointElements.some((el) => el == null) ||
+			stageCSSTarget == null
+		) {
 			return;
 		}
 
@@ -176,24 +197,46 @@
 				canvas.height = viewport.height;
 			const renderContext = canvas.getContext("2d");
 			if (renderContext == null) return;
-			if (changesNeeded) {
-				renderContext.fillStyle = pointStyle!.backgroundColor;
-				pointBounds = [];
+
+			if (layoutNeeded) {
+				pointBounds = Array.from(
+					layoutPoints(viewport, pointDimentions, scale, sortedItems),
+				);
+
 				let maxY = 0;
-				for (const pointBound of renderStage.call(
+				for (const bounds of pointBounds) {
+					if (bounds.bottom > maxY) maxY = bounds.bottom;
+				}
+				const maxScroll = Math.max(
+					0,
+					maxY + pointDimentions.marginY - viewport.height,
+				);
+				if (viewport.scrollTop > maxScroll)
+					viewport.scrollTop = maxScroll;
+
+				for (const bounds of pointBounds) {
+					bounds.centerY = bounds.centerY - viewport.scrollTop;
+				}
+			}
+
+			if (redrawNeeded || layoutNeeded) {
+				renderContext.fillStyle = pointStyle!.backgroundColor;
+				renderLayout(
 					renderContext,
 					viewport,
 					pointDimentions,
-					scale,
-					sortedItems,
-				)) {
-					pointBounds.push(pointBound);
-					if (pointBound.bottom > maxY) maxY = pointBound.bottom
+					pointBounds,
+				);
+				if (hover != null) {
+					detectHover({
+						offsetX: hover.pos[0],
+						offsetY: hover.pos[1],
+					});
 				}
-
-				if (hover != null) detectHover({ offsetX: hover.pos[0], offsetY: hover.pos[1] })
-				changesNeeded = false;
 			}
+			layoutNeeded = false;
+			redrawNeeded = false;
+
 			requestAnimationFrame(draw);
 		}
 
@@ -204,7 +247,7 @@
 <canvas
 	bind:this={canvas}
 	style={`top: ${canvasTop}px;`}
-    class:has-hover={hover != null}
+	class:has-hover={hover != null}
 	on:wheel|stopPropagation|capture={handleScroll}
 	on:mousemove={detectHover}
 	on:click={handleClick}
@@ -214,12 +257,24 @@
 		class="timeline-point hover"
 		style="top: {hover.bounds.y + canvasTop}px; left: {hover.bounds.x}px;"
 	>
-		<div class="display-name">{hover.bounds.item.name()}: {display.displayValue(hover.bounds.item.value())}</div>
+		<div class="display-name">
+			{hover.bounds.item.name()}: {display.displayValue(
+				hover.bounds.item.value(),
+			)}
+		</div>
 	</div>
 {/if}
 <div class="stage" bind:this={stageCSSTarget}>
-	<div class="timeline-point" bind:this={pointElements[0]} style="float: left;"></div>
-	<div class="timeline-point" bind:this={pointElements[1]} style="clear: right;"></div>
+	<div
+		class="timeline-point"
+		bind:this={pointElements[0]}
+		style="float: left;"
+	></div>
+	<div
+		class="timeline-point"
+		bind:this={pointElements[1]}
+		style="clear: right;"
+	></div>
 	<div class="timeline-point" bind:this={pointElements[2]}></div>
 </div>
 
@@ -227,9 +282,9 @@
 	canvas {
 		position: absolute;
 	}
-    canvas.has-hover {
-        cursor: pointer;
-    }
+	canvas.has-hover {
+		cursor: pointer;
+	}
 	.stage {
 		visibility: hidden;
 		padding: var(--timeline-stage-side-padding);
@@ -245,6 +300,6 @@
 	.timeline-point.hover {
 		position: absolute;
 		margin: 0;
-        pointer-events: none;
+		pointer-events: none;
 	}
 </style>

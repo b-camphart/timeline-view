@@ -75,17 +75,22 @@
 		if (initialized) {
 			navigation.zoomToFit(items, $stageWidth);
 		} else {
-			const unsubscribe = stageWidth.subscribe(newStageWidth => {
+			const unsubscribe = stageWidth.subscribe((newStageWidth) => {
 				if (newStageWidth > 0) {
-					navigation.zoomToFit(items, newStageWidth)
-					unsubscribe()
+					navigation.zoomToFit(items, newStageWidth);
+					unsubscribe();
 				}
-			})
+			});
 		}
 	}
 
 	export function refresh() {
-		sortedItems = sortedItems
+		sortedItems = sortedItems;
+	}
+
+	let canvasStage: CanvasStage;
+	export function invalidateColors() {
+		canvasStage.invalidateColors();
 	}
 
 	let initialized = false;
@@ -108,6 +113,7 @@
 		focalValue={$focalValue}
 	/>
 	<CanvasStage
+		bind:this={canvasStage}
 		{display}
 		{sortedItems}
 		scale={{

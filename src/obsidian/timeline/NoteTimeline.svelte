@@ -63,17 +63,7 @@
 		groupsNamespace.make("groups", []),
 		noteRepository,
 	);
-	let groupsView: Groups | undefined;
-
-	let refreshTimeout: ReturnType<typeof setTimeout> | undefined;
-	function scheduleRefresh() {
-		if (refreshTimeout) return;
-
-		refreshTimeout = setTimeout(() => {
-			refreshTimeout = undefined;
-			timelineView?.refresh();
-		}, 250);
-	}
+	let groupsView: Groups | undefined;	
 
 	const timelineItemGroups: TimelineItemGroups = makeTimelineItemGroups(
 		{
@@ -96,10 +86,10 @@
 				groupsView?.recolorGroup(group);
 			},
 			presentRecoloredItem(item) {
-				scheduleRefresh();
+				timelineView?.invalidateColors();
 			},
 			presentRecoloredItems(items) {
-				scheduleRefresh();
+				timelineView?.invalidateColors();
 			},
 			presentRequeriedGroup(group) {
 				groupsView?.changeGroupQuery(group);
