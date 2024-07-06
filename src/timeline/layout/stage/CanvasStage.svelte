@@ -314,12 +314,23 @@
 			if (renderContext == null) return;
 
 			if (layoutNeeded) {
-				layout = layoutPoints(item, scale, sortedItems, layout);
+				layout = layoutPoints(
+					viewport,
+					item,
+					scale,
+					sortedItems,
+					layout,
+				);
 
 				if (layout.length > 0) {
 					scrollHeight = 0;
-					for (const item of layout) {
-						scrollHeight = Math.max(scrollHeight, item.bottom());
+					for (const bounds of layout) {
+						scrollHeight = Math.max(
+							scrollHeight,
+							bounds.bottom() +
+								item.margin.vertical +
+								viewport.padding.bottom,
+						);
 					}
 				} else {
 					scrollHeight = 0;

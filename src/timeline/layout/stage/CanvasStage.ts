@@ -110,6 +110,11 @@ export function renderLayout(
 }
 
 export function layoutPoints(
+	viewport: {
+		padding: {
+			top: number;
+		}
+	},
 	point: {
 		width: number;
 		margin: {
@@ -158,9 +163,10 @@ export function layoutPoints(
 		layoutItem.item = item;
 		layoutItem.centerX = relativePixelCenter;
 		layoutItem.centerY =
-			row * (point.width + point.margin.vertical) +
+			viewport.padding.top +
+			point.margin.vertical +
 			pointRadius +
-			point.margin.horizontal;
+			row * (point.width + point.margin.vertical);
 		layoutItem.radius = point.width / 2;
 
 		lastXByRow[row] = layoutItem.centerX + layoutItem.radius;
