@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from "svelte";
-	import {
-		PointBounds,
-		renderStage,
-		layoutPoints,
-		renderLayout,
-	} from "./CanvasStage";
+	import { layoutPoints, renderLayout } from "./CanvasStage";
 	import type { TimelineItem, ValueDisplay } from "../../Timeline";
+	import {
+		TimelineItemElement,
+		TimelineLayoutItem,
+	} from "src/timeline/layout/stage/TimelineItemElement";
 
 	// initially get created with nothing loaded yet
 	// get populated with sorted items, the scale, focal value, and a value display
@@ -47,27 +46,30 @@
 	const viewport = {
 		width: 0,
 		height: 0,
-		centerValue: 0,
-		padding: 0,
+		padding: {
+			top: 0,
+			right: 0,
+			bottom: 0,
+			left: 0,
+		},
 		scrollTop: 0,
 	};
 
-	$: if (viewport.centerValue != focalValue) {
-		layoutNeeded = true;
-		viewport.centerValue = focalValue;
-	}
-
 	let pointStyle: CSSStyleDeclaration | undefined;
-	const pointDimentions = {
+	const item = {
 		width: 0,
-		marginX: 0,
-		marginY: 0,
+		height: 0,
+		margin: {
+			horizontal: 0,
+			vertical: 0,
+		},
 	};
 
 	let layoutNeeded = true;
+	let scrollNeeded = true;
 	let redrawNeeded = true;
 
-	const resizeObserver = new ResizeObserver(() => {
+	const resizeObserver = new ResizeObserver((a) => {
 		if (
 			canvas == null ||
 			pointElements.some((el) => el == null) ||
@@ -80,42 +82,51 @@
 			canvasTop = stageCSSTarget.offsetTop;
 		}
 
-		layoutNeeded =
-			layoutNeeded ||
-			viewport.width != stageCSSTarget.clientWidth ||
-			viewport.height != stageCSSTarget.clientHeight ||
-			viewport.padding !=
-				stageCSSTarget.clientWidth - stageCSSTarget.innerWidth ||
-			pointDimentions.width != pointElements[0]!.clientWidth;
+		item.width = pointElements[0]!.clientWidth;
+		item.height = pointElements[0]!.clientHeight;
+		item.margin.horizontal = Math.max(
+			0,
+			pointElements[1]!.offsetLeft -
+				(pointElements[0]!.offsetLeft + item.width),
+		);
+		item.margin.vertical = Math.max(
+			0,
+			pointElements[2]!.offsetTop -
+				(pointElements[0]!.offsetTop + item.height),
+		);
+
+		viewport.padding.top = Math.max(
+			0,
+			pointElements[0]!.offsetTop - item.margin.vertical,
+		);
+		viewport.padding.left = Math.max(
+			0,
+			pointElements[0]!.offsetLeft - item.margin.horizontal,
+		);
+		// need additional elements to measure these correctly
+		viewport.padding.right = viewport.padding.left;
+		viewport.padding.bottom = viewport.padding.top;
 
 		viewport.width = stageCSSTarget.clientWidth;
 		viewport.height = stageCSSTarget.clientHeight;
-		viewport.padding =
-			stageCSSTarget.clientWidth -
-			stageCSSTarget.innerWidth +
-			pointElements[0]!.clientWidth;
-		pointDimentions.width = pointElements[0]!.clientWidth;
-		pointDimentions.marginX = Math.max(
-			0,
-			pointElements[1]!.offsetLeft -
-				(pointElements[0]!.offsetLeft + pointElements[0]!.clientWidth),
-		);
-		pointDimentions.marginY = Math.max(
-			0,
-			pointElements[2]!.offsetTop -
-				(pointElements[0]!.offsetTop + pointElements[0]!.clientHeight),
-		);
 
-		const reportedWidth = viewport.width - viewport.padding;
+		const reportedWidth =
+			viewport.width -
+			viewport.padding.left -
+			viewport.padding.right -
+			item.width -
+			item.margin.horizontal;
 
 		if (width != reportedWidth) {
 			width = reportedWidth;
 		}
+
+		layoutNeeded = true;
 	});
 
 	function handleScroll(event: WheelEvent) {
 		if (event.shiftKey) {
-			dispatch(`scrollX`, scale.toValue(event.deltaY));
+			focalValue = focalValue + scale.toValue(event.deltaY);
 		} else if (event.ctrlKey) {
 			const xRelativeToMiddle = event.offsetX - viewport.width / 2;
 			const zoomFocusValue =
@@ -135,27 +146,39 @@
 				});
 			}
 		} else {
-			const newScroll = Math.max(0, viewport.scrollTop + event.deltaY);
-			if (viewport.scrollTop != newScroll) {
-				viewport.scrollTop = newScroll;
-				layoutNeeded = true;
+			const newScroll = Math.max(0, scrollTop + event.deltaY);
+			if (scrollTop != newScroll) {
+				scrollTop = newScroll;
+				scrollNeeded = true;
 			}
 		}
 	}
 
 	function handleClick(event: MouseEvent) {
-		if (hover == null) return;
-		dispatch("select", { item: hover.bounds.item, causedBy: event });
+		if (hover == null || hover.element == null) return;
+		dispatch("select", {
+			item: hover.element.layoutItem.item,
+			causedBy: event,
+		});
 	}
 
-	let pointBounds: PointBounds[] = [];
-	let hover: { bounds: PointBounds; pos: [number, number] } | null = null;
+	let elements: TimelineItemElement[] = [];
+	let hover: {
+		element: TimelineItemElement;
+		pos: [number, number];
+	} | null = null;
 
 	function detectHover(event: { offsetX: number; offsetY: number }) {
-		for (const bounds of pointBounds) {
-			if (bounds.contains(event.offsetX, event.offsetY)) {
-				hover = { bounds, pos: [event.offsetX, event.offsetY] };
-				return;
+		if (!vScrollDrag && !hScrollDrag) {
+			for (let i = 0; i < elements.length; i++) {
+				const element = elements[i];
+				if (element.contains(event.offsetX, event.offsetY)) {
+					hover = {
+						element: element,
+						pos: [event.offsetX, event.offsetY],
+					};
+					return;
+				}
 			}
 		}
 		hover = null;
@@ -167,7 +190,7 @@
 	$: onPointsOrScaleChanged(sortedItems, scale);
 
 	function onFocalValueChanged(_: number) {
-		redrawNeeded = true;
+		scrollNeeded = true;
 	}
 	$: onFocalValueChanged(focalValue);
 
@@ -175,14 +198,52 @@
 		redrawNeeded = true;
 	}
 
+	let scrollTop = 0;
+	function onScrollTopChanged(_: number) {
+		scrollNeeded = true;
+	}
+	$: onScrollTopChanged(scrollTop);
+
+	let scrollHeight = 0;
 	let scrollbarMeasurerFullWidth: number = 0;
 	let scrollbarMeasurerInnerWidth: number = 0;
 	$: scrollbarWidth =
 		scrollbarMeasurerFullWidth - scrollbarMeasurerInnerWidth;
 	let vScrollbarNeeded = false;
 	let vPercent = 1;
+	/**
+	 * a percentage between 0 and 1, representing how far down the user has scrolled of the maximum scroll height
+	 */
 	let vScrollValue = 0;
+	let vScrollDrag = false;
+	let hScrollDrag = false;
+	function onVScrollThumbMouseDown(
+		event: MouseEvent & { currentTarget: HTMLDivElement },
+	) {
+		vScrollDrag = true;
+		const xStart = event.screenX;
+		const yStart = event.screenY;
+		const scrollTopStart = scrollTop;
+		const mouseMoveListener = (event: MouseEvent) => {
+			if (Math.abs(event.screenX - xStart) > 150) {
+				scrollTop = 0;
+				return;
+			}
 
+			scrollTop = scrollTopStart + (event.screenY - yStart) / vPercent;
+		};
+		window.addEventListener("mousemove", mouseMoveListener);
+		const mouseUpListener = () => {
+			vScrollDrag = false;
+			window.removeEventListener("mousemove", mouseMoveListener);
+			window.removeEventListener("mouseup", mouseUpListener);
+		};
+		window.addEventListener("mouseup", mouseUpListener);
+	}
+
+	let minScrollValue = 0;
+	let maxScrollValue = 0;
+	let scrollValueSpan = 0;
 	let scrollbarMeasurerFullHeight: number = 0;
 	let scrollbarMeasurerInnerHeight: number = 0;
 	$: scrollbarHeight =
@@ -190,6 +251,44 @@
 	let hScrollbarNeeded = false;
 	let hPercent = 1;
 	let hScrollValue = 0;
+	function onHScrollThumbMouseDown(
+		event: MouseEvent & { currentTarget: HTMLDivElement },
+	) {
+		hScrollDrag = true;
+		const xStart = event.screenX;
+		const yStart = event.screenY;
+		const focalValueStart = focalValue;
+
+		const limits = {
+			min: minScrollValue,
+			max: maxScrollValue,
+		};
+
+		const hPercentStart = hPercent;
+
+		const mouseMoveListener = (event: MouseEvent) => {
+			if (Math.abs(event.screenY - yStart) > 150) {
+				focalValue = focalValueStart;
+				return;
+			}
+			focalValue = Math.max(
+				limits.min,
+				Math.min(
+					limits.max,
+					focalValueStart +
+						scale.toValue(event.screenX - xStart) / hPercentStart,
+				),
+			);
+		};
+		window.addEventListener("mousemove", mouseMoveListener);
+		const mouseUpListener = () => {
+			hScrollDrag = false;
+			scrollNeeded = true;
+			window.removeEventListener("mousemove", mouseMoveListener);
+			window.removeEventListener("mouseup", mouseUpListener);
+		};
+		window.addEventListener("mouseup", mouseUpListener);
+	}
 
 	onMount(() => {
 		if (
@@ -206,7 +305,7 @@
 
 		pointStyle = getComputedStyle(pointElements[0]!);
 
-		function draw() {
+		function draw(layout: TimelineLayoutItem[] = []) {
 			if (canvas == null) return;
 			if (canvas.width != viewport.width) canvas.width = viewport.width;
 			if (canvas.height != viewport.height)
@@ -215,61 +314,119 @@
 			if (renderContext == null) return;
 
 			if (layoutNeeded) {
-				pointBounds = Array.from(
-					layoutPoints(viewport, pointDimentions, scale, sortedItems),
-				);
+				layout = layoutPoints(item, scale, sortedItems, layout);
 
-				let minX = 0;
-				let maxX = viewport.width;
-				let maxY = 0;
-				for (const bounds of pointBounds) {
-					if (bounds.left < minX) minX = bounds.left;
-					if (bounds.right > maxX) maxX = bounds.right;
-					if (bounds.bottom > maxY) maxY = bounds.bottom;
-				}
-				const maxScroll = Math.max(
-					0,
-					maxY + pointDimentions.marginY - viewport.height,
-				);
-				if (viewport.scrollTop > maxScroll)
-					viewport.scrollTop = maxScroll;
-
-				for (const bounds of pointBounds) {
-					bounds.centerY = bounds.centerY - viewport.scrollTop;
-				}
-
-				// set scrollbar thumb size
-				if (viewport.height >= maxY) {
-					vScrollbarNeeded = false;
+				if (layout.length > 0) {
+					scrollHeight = 0;
+					for (const item of layout) {
+						scrollHeight = Math.max(scrollHeight, item.bottom());
+					}
 				} else {
-					vScrollbarNeeded = true;
-					vPercent = viewport.height / maxY;
-					vScrollValue = viewport.scrollTop / maxScroll;
-				}
-
-				const totalDisplayWidth = maxX - minX;
-				if (
-					viewport.width >= totalDisplayWidth &&
-					minX >= 0 &&
-					maxX <= viewport.width
-				) {
-					hScrollbarNeeded = false;
-				} else {
-					hScrollbarNeeded = true;
-					hPercent = viewport.width / totalDisplayWidth;
-					hScrollValue =
-						Math.abs(minX) / (totalDisplayWidth - viewport.width);
+					scrollHeight = 0;
 				}
 			}
 
-			if (redrawNeeded || layoutNeeded) {
-				renderContext.fillStyle = pointStyle!.backgroundColor;
-				renderLayout(
-					renderContext,
-					viewport,
-					pointDimentions,
-					pointBounds,
+			if (scrollNeeded || layoutNeeded) {
+				if (elements.length > layout.length) {
+					elements = elements.slice(0, layout.length);
+				}
+
+				const scrollLeft =
+					scale.toPixels(focalValue) - viewport.width / 2;
+
+				const maxScrollY = scrollHeight - viewport.height;
+				scrollTop = Math.max(
+					0,
+					Math.min(scrollTop, scrollHeight - viewport.height),
 				);
+
+				for (let i = 0; i < layout.length; i++) {
+					const item = layout[i];
+
+					const element =
+						elements[i] ?? new TimelineItemElement(item);
+					element.layoutItem = item;
+					element.offsetCenterX = item.centerX - scrollLeft;
+					element.offsetCenterY = item.centerY - scrollTop;
+					element.offsetLeft = element.offsetCenterX - item.radius;
+					element.offsetTop = element.offsetCenterY - item.radius;
+					element.offsetWidth = item.radius * 2;
+					element.offsetHeight = item.radius * 2;
+					element.offsetRight =
+						element.offsetLeft + element.offsetWidth;
+					element.offsetBottom =
+						element.offsetTop + element.offsetHeight;
+
+					elements[i] = element;
+				}
+
+				if (viewport.height >= scrollHeight) {
+					vScrollbarNeeded = false;
+				} else {
+					vScrollbarNeeded = true;
+					vPercent = viewport.height / scrollHeight;
+					vScrollValue = scrollTop / maxScrollY;
+				}
+
+				const viewportWidthValue = scale.toValue(viewport.width);
+				const halfViewportWidthValue = viewportWidthValue / 2;
+				const leftValue = focalValue - halfViewportWidthValue;
+				const rightValue = focalValue + halfViewportWidthValue;
+
+				const leftMostValue =
+					(sortedItems[0]?.value() ?? 0) -
+					scale.toValue(viewport.padding.left + item.width / 2);
+
+				const rightMostValue =
+					(sortedItems[sortedItems.length - 1]?.value() ?? 0) +
+					scale.toValue(viewport.padding.right + item.width / 2);
+
+				console.log({
+					padding: viewport.padding,
+					focalValue,
+					leftValue,
+					rightValue,
+					leftMostValue,
+					rightMostValue,
+				});
+
+				if (leftValue < leftMostValue && rightValue > rightMostValue) {
+					hScrollbarNeeded = false;
+				} else {
+					hScrollbarNeeded = true;
+
+					/*
+					 Now, we need to define the range that the h scrollbar can move between
+					 Think of this as the value ranget that the focalValue (center of the viewport) can move between
+					 
+					 the furthest left the focalValue can be scrolled BY THE SROLLBAR is the first value minus the pointRadius and padding, plus the value of half the viewport width.
+
+					 the furthest right the focalValue can be scrolled BY THE SROLLBAR is the last value plus the pointRadius and padding, minus the value of half the viewport width.
+
+					 However, if the focalValue is already beyond those points, then the scrollbar can be scrolled to the current focalValue.
+					*/
+
+					minScrollValue = Math.min(
+						focalValue,
+						leftMostValue + halfViewportWidthValue,
+					);
+
+					maxScrollValue = Math.max(
+						focalValue,
+						rightMostValue - halfViewportWidthValue,
+					);
+
+					scrollValueSpan = maxScrollValue - minScrollValue;
+
+					/** How much does the value span within the viewport cover the total amount of scrollable space? */
+					hPercent =
+						viewportWidthValue /
+						(scrollValueSpan + viewportWidthValue);
+
+					/** What percent is the focalValue along the available scrollable space? */
+					hScrollValue =
+						(focalValue - minScrollValue) / scrollValueSpan;
+				}
 				if (hover != null) {
 					detectHover({
 						offsetX: hover.pos[0],
@@ -277,18 +434,25 @@
 					});
 				}
 			}
+
+			if (redrawNeeded || scrollNeeded || layoutNeeded) {
+				renderContext.fillStyle = pointStyle!.backgroundColor;
+				renderLayout(renderContext, viewport, item, elements);
+			}
 			layoutNeeded = false;
+			scrollNeeded = false;
 			redrawNeeded = false;
 
-			requestAnimationFrame(draw);
+			requestAnimationFrame(() => draw(layout));
 		}
 
-		requestAnimationFrame(draw);
+		requestAnimationFrame(() => draw());
 	});
 </script>
 
 <canvas bind:this={canvas} style={`top: ${canvasTop}px;`} />
 <div
+	id="stage"
 	class="stage"
 	role="presentation"
 	bind:this={stageCSSTarget}
@@ -314,11 +478,16 @@
 		style:height={scrollbarHeight + "px"}
 		class:unneeded={!hScrollbarNeeded}
 		aria-orientation="horizontal"
-		aria-controls={canvas?.className ?? ""}
+		aria-controls={"stage"}
 		aria-valuenow={focalValue}
+		aria-valuemin={Number.MIN_VALUE}
+		aria-valuemax={Number.MAX_VALUE}
 	>
 		<div
+			role="presentation"
+			on:mousedown={onHScrollThumbMouseDown}
 			class="thumb"
+			class:dragging={hScrollDrag}
 			style="--percent: {hPercent}; --value: {hScrollValue};"
 		/>
 	</div>
@@ -327,11 +496,15 @@
 		style:width={scrollbarWidth + "px"}
 		class:unneeded={!vScrollbarNeeded}
 		aria-orientation="vertical"
-		aria-controls={canvas?.className ?? ""}
+		aria-controls={"stage"}
 		aria-valuenow={viewport.scrollTop}
+		aria-valuemax={scrollHeight - viewport.height}
 	>
 		<div
+			role="presentation"
+			on:mousedown={onVScrollThumbMouseDown}
 			class="thumb"
+			class:dragging={vScrollDrag}
 			style="--percent: {vPercent}; --value: {vScrollValue};"
 		/>
 	</div>
@@ -348,11 +521,12 @@
 {#if hover != null}
 	<div
 		class="timeline-point hover"
-		style="top: {hover.bounds.y + canvasTop}px; left: {hover.bounds.x}px;"
+		style="top: {hover.element.offsetTop + canvasTop}px; left: {hover
+			.element.offsetLeft}px;"
 	>
 		<div class="display-name">
-			{hover.bounds.item.name()}: {display.displayValue(
-				hover.bounds.item.value(),
+			{hover.element.layoutItem.item.name()}: {display.displayValue(
+				hover.element.layoutItem.item.value(),
 			)}
 		</div>
 	</div>
@@ -407,11 +581,13 @@
 		border: 3px solid transparent;
 		border-width: 3px 3px 3px 3px;
 	}
-	div[role="scrollbar"] .thumb:hover {
+	div[role="scrollbar"] .thumb:hover,
+	div[role="scrollbar"] .thumb.dragging {
 		background-color: var(
 			--scrollbar-active-thumb-bg,
 			var(--ui3, rbga(256, 256, 256, 0.4))
 		);
+		/* background-color: white; */
 	}
 	div[role="scrollbar"][aria-orientation="horizontal"] {
 		width: 100%;
