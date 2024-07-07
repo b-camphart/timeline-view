@@ -2,11 +2,18 @@
 import { Plugin } from "obsidian";
 import type { Obsidian } from "../Obsidian";
 import { Workspace } from "../workspace";
-import { registerTimelineTab } from "../workspace/TimelineLeafView";
-import { openTimelineView } from "src/usecases/timeline/create/openTimelineView";
+import { TimelineLeafView } from "../workspace/TimelineLeafView";
 import { getMetadataTypeManager } from "../MetadataTypeManager";
 import { ObsidianNotePropertyRepository } from "src/note/property/obsidian-repository";
 import { ObsidianNoteRepository } from "src/note/obsidian-repository";
+import {
+	OBSIDIAN_LEAF_VIEW_TYPE,
+	TimelineTab,
+} from "src/usecases/timeline/TimelineTab";
+import { NoteProperty } from "src/note/property";
+import { createNewTimeline } from "src/timeline/create";
+
+let creationCallback: undefined | ((tab: TimelineTab) => void);
 
 export default class ObsidianTimelinePlugin extends Plugin implements Obsidian {
 	async onload(): Promise<void> {
@@ -14,25 +21,52 @@ export default class ObsidianTimelinePlugin extends Plugin implements Obsidian {
 			this.app.vault,
 			this.app.metadataCache,
 		);
-
-		registerTimelineTab(
-			this,
-			this._workspace,
-			this.app.vault,
-			this.app.metadataCache,
-			notes,
-			new ObsidianNotePropertyRepository(this.app.vault.adapter, () =>
-				getMetadataTypeManager(this.app),
-			),
+		const properties = new ObsidianNotePropertyRepository(
+			this.app.vault.adapter,
+			() => getMetadataTypeManager(this.app),
 		);
 
+		const openTimelineView = async () => {
+			const timeline = await createNewTimeline(
+				notes,
+				NoteProperty.Created,
+			)
+			creationCallback = tab => {
+				creationCallback = undefined;
+				tab.transientState = { isNew: true };
+			};
+			const leaf = this.app.workspace.getLeaf(true);
+			leaf.setViewState({
+				type: OBSIDIAN_LEAF_VIEW_TYPE,
+				active: true,
+				state: {
+					focalValue: timeline.focalValue,
+				},
+			});
+		};
+
+		this.registerView(OBSIDIAN_LEAF_VIEW_TYPE, leaf => {
+			const tab = new TimelineTab(notes, properties);
+			if (creationCallback) {
+				creationCallback(tab);
+			}
+			const view = new TimelineLeafView(
+				leaf,
+				tab,
+				this.workspace(),
+				this.app.vault,
+				this.app.metadataCache,
+			);
+			return view;
+		});
+
 		this.addRibbonIcon("waypoints", "Open timeline view", () =>
-			openTimelineView(notes, this._workspace),
+			openTimelineView(),
 		);
 		this.addCommand({
 			id: "open-timeline-view",
 			name: "Open timeline view",
-			callback: () => openTimelineView(notes, this._workspace),
+			callback: () => openTimelineView(),
 		});
 
 		if (import.meta.env.MODE === "development") {

@@ -9,14 +9,16 @@ export class Workspace {
 		type: string,
 		active: boolean,
 		state?: State,
-	): Promise<void> {
+		transientState?: any,
+	): Promise<WorkspaceLeaf> {
 		const leaf = this.app.workspace.getLeaf(true);
 		await leaf.setViewState({
 			type,
 			active,
 			state,
-		});
+		}, transientState);
 		this.app.workspace.revealLeaf(leaf);
+		return leaf;
 	}
 
 	openFile(file: Note, fromEvent: UserEvent) {

@@ -4,7 +4,6 @@ import {
 	TFile,
 	Vault,
 	WorkspaceLeaf,
-	type Plugin,
 	type ViewStateResult,
 } from "obsidian";
 import {
@@ -12,42 +11,9 @@ import {
 	OBSIDIAN_LEAF_VIEW_TYPE,
 } from "src/usecases/timeline/TimelineTab";
 import type { Workspace } from ".";
-import type { ObsidianNoteTimelineViewModel } from "../timeline/viewModel";
-import type { NotePropertyRepository } from "src/note/property/repository";
-import type { NoteRepository } from "src/note/repository";
 import { ObsidianNote } from "src/note/obsidian-repository";
 
-let creationCallback: ((tab: TimelineTab) => void) | undefined;
-
-export function registerTimelineTab(
-	plugin: Plugin,
-	workspace: Workspace,
-	vault: Vault,
-	metadata: MetadataCache,
-	notes: NoteRepository,
-	notePropertyRepository: NotePropertyRepository,
-) {
-	plugin.registerView(OBSIDIAN_LEAF_VIEW_TYPE, leaf => {
-		const tab = new TimelineTab(notes, notePropertyRepository);
-		if (creationCallback) {
-			creationCallback(tab);
-		}
-		return new TimelineLeafView(leaf, tab, workspace, vault, metadata);
-	});
-}
-
-export function createTimelineTab(
-	workspace: Workspace,
-	initialState?: Partial<ObsidianNoteTimelineViewModel>,
-) {
-	creationCallback = tab => {
-		creationCallback = undefined;
-		tab.transientState = { isNew: true };
-	};
-	workspace.createNewLeaf(OBSIDIAN_LEAF_VIEW_TYPE, true, initialState);
-}
-
-class TimelineLeafView extends ItemView {
+export class TimelineLeafView extends ItemView {
 	constructor(
 		leaf: WorkspaceLeaf,
 		private tab: TimelineTab,
@@ -57,7 +23,7 @@ class TimelineLeafView extends ItemView {
 	) {
 		super(leaf);
 
-		this.navigation = true; // hide status bar 
+		this.navigation = true; // hide status bar
 
 		tab.onTabNameChange(newName => {
 			(this as any).titleEl.setText(newName);
