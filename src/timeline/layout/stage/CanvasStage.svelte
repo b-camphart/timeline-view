@@ -43,6 +43,8 @@
 	let stageCSSTarget: HTMLDivElement | undefined;
 	let canvasTop = 0;
 
+	let innerWidth = 0;
+	let innerHeight = 0;
 	const viewport = {
 		width: 0,
 		height: 0,
@@ -103,9 +105,8 @@
 			0,
 			pointElements[0]!.offsetLeft - item.margin.horizontal,
 		);
-		// need additional elements to measure these correctly
-		viewport.padding.right = viewport.padding.left;
-		viewport.padding.bottom = viewport.padding.top;
+		viewport.padding.right = stageCSSTarget.clientWidth - viewport.padding.left - innerWidth;
+		viewport.padding.bottom = stageCSSTarget.clientHeight - viewport.padding.top - innerHeight;
 
 		viewport.width = stageCSSTarget.clientWidth;
 		viewport.height = stageCSSTarget.clientHeight;
@@ -485,6 +486,11 @@
 	></div>
 	<div class="timeline-point" bind:this={pointElements[2]}></div>
 	<div
+		class="bottom-right-padding-measure"
+		bind:offsetWidth={innerWidth}
+		bind:offsetHeight={innerHeight}
+	></div>
+	<div
 		role="scrollbar"
 		style:height={scrollbarHeight + "px"}
 		class:unneeded={!hScrollbarNeeded}
@@ -564,6 +570,14 @@
 		width: var(--point-diameter);
 		height: var(--point-diameter);
 		margin: var(--margin-between-points, 4px);
+	}
+	.stage .bottom-right-padding-measure {
+		width: 1005;
+		height: 100%;
+		visibility: hidden !important;
+		pointer-events: none;
+		bottom: 0;
+		right: 0;
 	}
 
 	.timeline-point.hover {

@@ -273,7 +273,7 @@
 
 <style>
 	:global(.timeline) {
-		--timeline-stage-side-padding: 48px !important;
+		--timeline-stage-side-padding: 8px 48px 48px 48px !important;
 	}
 	:global(.mouse-position-tooltip) {
 		background-color: var(--background-primary);
