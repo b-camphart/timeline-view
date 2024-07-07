@@ -393,15 +393,6 @@
 					(sortedItems[sortedItems.length - 1]?.value() ?? 0) +
 					scale.toValue(viewport.padding.right + item.width / 2);
 
-				console.log({
-					padding: viewport.padding,
-					focalValue,
-					leftValue,
-					rightValue,
-					leftMostValue,
-					rightMostValue,
-				});
-
 				if (leftValue < leftMostValue && rightValue > rightMostValue) {
 					hScrollbarNeeded = false;
 				} else {
