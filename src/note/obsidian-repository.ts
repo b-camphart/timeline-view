@@ -22,6 +22,10 @@ export class ObsidianNoteRepository implements NoteRepository {
 		this.#metadata = metadata;
 	}
 
+	getNoteForFile(file: TFile): Note {
+		return new ObsidianNote(file, this.#metadata);	
+	}
+
 	getFileFromNote(note: Note): TFile | null {
 		if (note instanceof ObsidianNote) {
 			return note.file();
