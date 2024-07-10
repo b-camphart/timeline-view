@@ -460,17 +460,16 @@
 	});
 </script>
 
-<canvas bind:this={canvas} style={`top: ${canvasTop}px;`} />
 <div
-	id="stage"
-	class="stage"
-	role="presentation"
-	bind:this={stageCSSTarget}
-	class:has-hover={hover != null}
-	on:wheel|stopPropagation|capture={handleScroll}
-	on:mousemove={detectHover}
-	on:click={handleClick}
-	on:keypress={() => {}}
+id="stage"
+class="stage"
+role="presentation"
+bind:this={stageCSSTarget}
+class:has-hover={hover != null}
+on:wheel|stopPropagation|capture={handleScroll}
+on:mousemove={detectHover}
+on:click={handleClick}
+on:keypress={() => {}}
 >
 	<div
 		class="timeline-point"
@@ -478,8 +477,8 @@
 		style="float: left;"
 	></div>
 	<div
-		class="timeline-point"
-		bind:this={pointElements[1]}
+	class="timeline-point"
+	bind:this={pointElements[1]}
 		style="clear: right;"
 	></div>
 	<div class="timeline-point" bind:this={pointElements[2]}></div>
@@ -487,7 +486,8 @@
 		class="bottom-right-padding-measure"
 		bind:offsetWidth={innerWidth}
 		bind:offsetHeight={innerHeight}
-	></div>
+		></div>
+	<canvas bind:this={canvas} />
 	<div
 		role="scrollbar"
 		style:height={scrollbarHeight + "px"}
@@ -550,6 +550,8 @@
 <style>
 	canvas {
 		position: absolute;
+		top: 0;
+		left: 0;
 	}
 	.stage.has-hover {
 		cursor: pointer;
