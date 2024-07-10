@@ -402,6 +402,8 @@
 
 				if (leftValue < leftMostValue && rightValue > rightMostValue) {
 					hScrollbarNeeded = false;
+					minScrollValue = focalValue;
+					maxScrollValue = focalValue;
 				} else {
 					hScrollbarNeeded = true;
 
@@ -461,15 +463,10 @@
 </script>
 
 <div
-id="stage"
-class="stage"
-role="presentation"
-bind:this={stageCSSTarget}
-class:has-hover={hover != null}
-on:wheel|stopPropagation|capture={handleScroll}
-on:mousemove={detectHover}
-on:click={handleClick}
-on:keypress={() => {}}
+	id="stage"
+	class="stage"
+	bind:this={stageCSSTarget}
+	class:has-hover={hover != null}
 >
 	<div
 		class="timeline-point"
@@ -477,8 +474,8 @@ on:keypress={() => {}}
 		style="float: left;"
 	></div>
 	<div
-	class="timeline-point"
-	bind:this={pointElements[1]}
+		class="timeline-point"
+		bind:this={pointElements[1]}
 		style="clear: right;"
 	></div>
 	<div class="timeline-point" bind:this={pointElements[2]}></div>
@@ -486,8 +483,14 @@ on:keypress={() => {}}
 		class="bottom-right-padding-measure"
 		bind:offsetWidth={innerWidth}
 		bind:offsetHeight={innerHeight}
-		></div>
-	<canvas bind:this={canvas} />
+	></div>
+	<canvas
+		bind:this={canvas}
+		on:wheel|stopPropagation|capture={handleScroll}
+		on:mousemove={detectHover}
+		on:click={handleClick}
+		on:keypress={() => {}}
+	/>
 	<div
 		role="scrollbar"
 		style:height={scrollbarHeight + "px"}
@@ -495,8 +498,8 @@ on:keypress={() => {}}
 		aria-orientation="horizontal"
 		aria-controls={"stage"}
 		aria-valuenow={focalValue}
-		aria-valuemin={Number.MIN_VALUE}
-		aria-valuemax={Number.MAX_VALUE}
+		aria-valuemin={minScrollValue}
+		aria-valuemax={maxScrollValue}
 	>
 		<div
 			role="presentation"
@@ -529,8 +532,7 @@ on:keypress={() => {}}
 	bind:clientWidth={scrollbarMeasurerInnerWidth}
 	bind:offsetHeight={scrollbarMeasurerFullHeight}
 	bind:offsetWidth={scrollbarMeasurerFullWidth}
-	class="scrollbar-style-meausurer"
-	style="position: absolute; top: 0; left: 0; width: 100px; height: 100px;overflow: scroll;visibility: hidden;"
+	class="scrollbar-style-measurer"
 ></div>
 
 {#if hover != null}
@@ -584,6 +586,16 @@ on:keypress={() => {}}
 		position: absolute;
 		margin: 0;
 		pointer-events: none;
+	}
+
+	.scrollbar-style-measurer {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100px;
+		height: 100px;
+		overflow: scroll;
+		visibility: hidden;
 	}
 
 	div[role="scrollbar"] {
