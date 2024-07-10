@@ -6,12 +6,10 @@ import {
 	Vault,
 	WorkspaceLeaf,
 	type ViewStateResult,
-	Workspace as ObsidianWorkspace,
+	Workspace,
 	Keymap,
 	MetadataCache,
 } from "obsidian";
-import type { Obsidian } from "../Obsidian";
-import { Workspace } from "../workspace";
 import { getMetadataTypeManager } from "../MetadataTypeManager";
 import { ObsidianNotePropertyRepository } from "src/note/property/obsidian-repository";
 import { ObsidianNoteRepository } from "src/note/obsidian-repository";
@@ -26,7 +24,7 @@ import { writableProperties } from "src/timeline/Persistence";
 const OBSIDIAN_LEAF_VIEW_TYPE: string = "VIEW_TYPE_TIMELINE_VIEW";
 const LUCID_ICON = "waypoints";
 
-export default class ObsidianTimelinePlugin extends Plugin implements Obsidian {
+export default class ObsidianTimelinePlugin extends Plugin {
 	async onload(): Promise<void> {
 		const notes = new ObsidianNoteRepository(
 			this.app.vault,
@@ -90,11 +88,6 @@ export default class ObsidianTimelinePlugin extends Plugin implements Obsidian {
 			);
 		}
 	}
-
-	private _workspace = new Workspace(this.app);
-	workspace(): Workspace {
-		return this._workspace;
-	}
 }
 
 class TimelineItemView extends ItemView {
@@ -110,7 +103,7 @@ class TimelineItemView extends ItemView {
 		leaf: WorkspaceLeaf,
 		vault: Vault,
 		metadata: MetadataCache,
-		private workspace: ObsidianWorkspace,
+		private workspace: Workspace,
 		private notes: ObsidianNoteRepository,
 		private noteProperties: ObsidianNotePropertyRepository,
 	) {
@@ -193,11 +186,6 @@ class TimelineItemView extends ItemView {
 	private component: NoteTimeline | null = null;
 	private initialization?: Promise<void>;
 	private completeInitialization() {}
-
-	private transientState: any;
-	setEphemeralState(state: any): void {
-		this.transientState = state;
-	}
 
 	private state: any;
 	setState(state: any, result: ViewStateResult): Promise<void> {
