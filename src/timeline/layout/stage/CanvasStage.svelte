@@ -23,6 +23,7 @@
 	};
 	const dispatch = createEventDispatcher<{
 		scrollX: number;
+		scrollToValue: number;
 		zoomIn: ZoomEvent;
 		zoomOut: ZoomEvent;
 		select: { item: TimelineItem; causedBy: Event };
@@ -105,8 +106,10 @@
 			0,
 			pointElements[0]!.offsetLeft - item.margin.horizontal,
 		);
-		viewport.padding.right = stageCSSTarget.clientWidth - viewport.padding.left - innerWidth;
-		viewport.padding.bottom = stageCSSTarget.clientHeight - viewport.padding.top - innerHeight;
+		viewport.padding.right =
+			stageCSSTarget.clientWidth - viewport.padding.left - innerWidth;
+		viewport.padding.bottom =
+			stageCSSTarget.clientHeight - viewport.padding.top - innerHeight;
 
 		viewport.width = stageCSSTarget.clientWidth;
 		viewport.height = stageCSSTarget.clientHeight;
@@ -127,7 +130,7 @@
 
 	function handleScroll(event: WheelEvent) {
 		if (event.shiftKey) {
-			focalValue = focalValue + scale.toValue(event.deltaY);
+			dispatch("scrollX", scale.toValue(event.deltaY));
 		} else if (event.ctrlKey) {
 			const xRelativeToMiddle = event.offsetX - viewport.width / 2;
 			const zoomFocusValue =
@@ -269,15 +272,19 @@
 
 		const mouseMoveListener = (event: MouseEvent) => {
 			if (Math.abs(event.screenY - yStart) > 150) {
-				focalValue = focalValueStart;
+				dispatch("scrollToValue", focalValueStart);
 				return;
 			}
-			focalValue = Math.max(
-				limits.min,
-				Math.min(
-					limits.max,
-					focalValueStart +
-						scale.toValue(event.screenX - xStart) / hPercentStart,
+			dispatch(
+				"scrollToValue",
+				Math.max(
+					limits.min,
+					Math.min(
+						limits.max,
+						focalValueStart +
+							scale.toValue(event.screenX - xStart) /
+								hPercentStart,
+					),
 				),
 			);
 		};

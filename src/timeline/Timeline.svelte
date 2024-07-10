@@ -126,6 +126,7 @@
 		}}
 		focalValue={$focalValue}
 		bind:width={$stageWidth}
+		on:scrollToValue={(event) => navigation.scrollToValue(event.detail)}
 		on:scrollX={({ detail }) =>
 			navigation.scrollToValue($focalValue + detail)}
 		on:zoomIn={({ detail }) => navigation.zoomIn(detail)}
