@@ -163,6 +163,10 @@
 
 	function handleClick(event: MouseEvent) {
 		if (hover == null || hover.element == null) return;
+		if (event.button === 2) {
+			focusOn(hover.element, elements.indexOf(hover.element));
+			return;
+		}
 		dispatch("select", {
 			item: hover.element.layoutItem.item,
 			causedBy: event,
@@ -178,36 +182,32 @@
 		element: TimelineItemElement;
 		index: number;
 	} | null = null;
+	function focusOn(element: TimelineItemElement, index: number) {
+		focus = {
+			element,
+			index,
+		};
+		redrawNeeded = true;
+
+		if (focus.element.offsetTop < 0) {
+			scrollTop = focus.element.layoutItem.top();
+			scrollNeeded = true;
+		} else if (focus.element.offsetBottom > viewport.height) {
+			scrollTop = focus.element.layoutItem.bottom() - viewport.height;
+			scrollNeeded = true;
+		}
+
+		if (focus.element.offsetLeft < 0) {
+			dispatch("scrollToValue", focus.element.layoutItem.item.value());
+		} else if (focus.element.offsetRight > viewport.width) {
+			dispatch("scrollToValue", focus.element.layoutItem.item.value());
+		}
+	}
 	function focusNextItem(back: boolean = false) {
 		const index =
 			focus == null ? 0 : back ? focus.index - 1 : focus.index + 1;
 		if (index < elements.length && index >= 0) {
-			focus = {
-				element: elements[index],
-				index,
-			};
-			redrawNeeded = true;
-
-			if (focus.element.offsetTop < 0) {
-				scrollTop = focus.element.layoutItem.top();
-				scrollNeeded = true;
-			} else if (focus.element.offsetBottom > viewport.height) {
-				scrollTop = focus.element.layoutItem.bottom() - viewport.height;
-				scrollNeeded = true;
-			}
-
-			if (focus.element.offsetLeft < 0) {
-				dispatch(
-					"scrollToValue",
-					focus.element.layoutItem.item.value(),
-				);
-			} else if (focus.element.offsetRight > viewport.width) {
-				dispatch(
-					"scrollToValue",
-					focus.element.layoutItem.item.value(),
-				);
-			}
-
+			focusOn(elements[index], index);
 			return true;
 		} else {
 			focus = null;
@@ -439,7 +439,7 @@
 		tabindex={0}
 		on:wheel|stopPropagation|capture={handleScroll}
 		on:mousemove={detectHover}
-		on:click={handleClick}
+		on:mousedown={handleClick}
 		on:keydown={(event) => {
 			switch (event.key) {
 				case "ArrowLeft":
