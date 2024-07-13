@@ -304,6 +304,14 @@
 		translate: -2px -2px;
 		background-color: var(--graph-node-focused);
 	}
+
+	:global(.timeline-point.focus) {
+		border: 2px solid var(--graph-node-focused);
+		border-radius: 4px;
+		background-color: transparent;
+		box-sizing: content-box;
+		translate: -2px -2px;
+	}
 	
 	:global(.timeline-controls) {
 		max-height: calc(100% - var(--size-4-12));

@@ -10,6 +10,7 @@
 	import Scrollbar from "src/view/controls/Scrollbar.svelte";
 	import type { ChangeEvent } from "src/view/controls/Scrollbar";
 	import Hover from "./Hover.svelte";
+	import FocusedItem from "./FocusedItem.svelte";
 
 	type ZoomEvent = {
 		keepValue: number;
@@ -173,6 +174,46 @@
 		element: TimelineItemElement;
 		pos: [number, number];
 	} | null = null;
+	let focus: {
+		element: TimelineItemElement;
+		index: number;
+	} | null = null;
+	function focusNextItem(back: boolean = false) {
+		const index =
+			focus == null ? 0 : back ? focus.index - 1 : focus.index + 1;
+		if (index < elements.length && index >= 0) {
+			focus = {
+				element: elements[index],
+				index,
+			};
+			redrawNeeded = true;
+
+			if (focus.element.offsetTop < 0) {
+				scrollTop = focus.element.layoutItem.top();
+				scrollNeeded = true;
+			} else if (focus.element.offsetBottom > viewport.height) {
+				scrollTop = focus.element.layoutItem.bottom() - viewport.height;
+				scrollNeeded = true;
+			}
+
+			if (focus.element.offsetLeft < 0) {
+				dispatch(
+					"scrollToValue",
+					focus.element.layoutItem.item.value(),
+				);
+			} else if (focus.element.offsetRight > viewport.width) {
+				dispatch(
+					"scrollToValue",
+					focus.element.layoutItem.item.value(),
+				);
+			}
+
+			return true;
+		} else {
+			focus = null;
+			return false;
+		}
+	}
 
 	let scrollbarDragging = false;
 	function detectHover(event: { offsetX: number; offsetY: number }) {
@@ -285,6 +326,11 @@
 				} else {
 					scrollHeight = 0;
 				}
+				if (focus != null) {
+					if (focus.index > layout.length) {
+						focus = null;
+					}
+				}
 			}
 
 			if (scrollNeeded || layoutNeeded) {
@@ -348,6 +394,7 @@
 						offsetY: hover.pos[1],
 					});
 				}
+				focus = focus;
 			}
 
 			if (redrawNeeded || scrollNeeded || layoutNeeded) {
@@ -396,10 +443,10 @@
 		on:keydown={(event) => {
 			switch (event.key) {
 				case "ArrowLeft":
-					dispatch("scrollX", scale.toValue(-1));
+					dispatch("scrollX", scale.toValue(-10));
 					break;
 				case "ArrowRight":
-					dispatch("scrollX", scale.toValue(1));
+					dispatch("scrollX", scale.toValue(10));
 					break;
 				case "ArrowUp":
 					scrollTop = Math.max(0, scrollTop - 10);
@@ -425,17 +472,26 @@
 				case "End":
 					scrollTop = scrollHeight - viewport.height;
 					break;
+				case "Tab":
+					if (focusNextItem(event.shiftKey)) {
+						event.stopPropagation();
+						event.preventDefault();
+					}
+					break;
 			}
 		}}
 	/>
 	{#if hover != null}
 		<Hover {hover} {display} stage={stageCSSTarget} />
 	{/if}
+	{#if focus != null}
+		<FocusedItem focus={focus.element} />
+	{/if}
 	<Scrollbar
 		style={`height: ${scrollbarHeight}px;`}
 		orientation={"horizontal"}
 		controls={"stage"}
-		tabindex={1}
+		tabindex={sortedItems.length}
 		value={hScrollValue}
 		visibleAmount={visibleHAmount}
 		min={minHScrollValue}
@@ -452,7 +508,7 @@
 		style={`width: ${scrollbarWidth}px;`}
 		orientation={"vertical"}
 		controls={"stage"}
-		tabindex={2}
+		tabindex={sortedItems.length + 1}
 		value={scrollTop}
 		visibleAmount={visibleVAmount}
 		min={0}
