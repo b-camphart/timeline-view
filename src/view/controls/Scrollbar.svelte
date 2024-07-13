@@ -52,16 +52,6 @@
 	export let max: number = 100;
 
 	$: span = max - min;
-	$: if (visibleAmount > span) {
-		console.debug(
-			`[Timeline View] [Scrollbar] visibleAmount(${visibleAmount}) > span(${span})`,
-		);
-	}
-	$: if (value < min || value > max) {
-		console.debug(
-			`[Timeline View] [Scrollbar] value(${value}) < min(${min}) || value(${value}) > max(${max})`,
-		);
-	}
 
 	$: percent = span === 0 ? 1 : visibleAmount / span;
 	$: scrollSpan = Math.max(0, span - visibleAmount);
