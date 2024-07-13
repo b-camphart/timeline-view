@@ -16,6 +16,5 @@
 		width: var(--label-width);
         position: absolute;
         top:0;
-		transition: width 0.25s, left 0.25s;
 	}
 </style>

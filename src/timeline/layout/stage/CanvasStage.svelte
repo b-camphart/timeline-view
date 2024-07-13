@@ -368,6 +368,35 @@
 
 		requestAnimationFrame(() => draw());
 	});
+
+	let tooltip: HTMLDivElement | undefined;
+	$: if (hover != null) {
+		if (tooltip == null) {
+			tooltip = document.createElement("div");
+			document.body.appendChild(tooltip);
+			tooltip.className = "tooltip";
+
+			tooltip.innerText = `${hover.element.layoutItem.item.name()}: ${display.displayValue(hover.element.layoutItem.item.value())}`;
+
+			const tooltipArrow = document.createElement("div");
+			tooltipArrow.className = "tooltip-arrow";
+			tooltip.appendChild(tooltipArrow);
+
+			tooltip.setCssStyles({
+				translate: `0 ${tooltipArrow.offsetHeight}px`,
+			});
+		}
+
+		tooltip.setCssStyles({
+			top: `${hover.element.offsetBottom + (stageCSSTarget?.getBoundingClientRect()?.top ?? 0)}px`,
+			left: `${hover.element.offsetCenterX + (stageCSSTarget?.getBoundingClientRect()?.left ?? 0)}px`,
+		});
+	} else {
+		if (tooltip != null) {
+			tooltip.remove();
+			tooltip = undefined;
+		}
+	}
 </script>
 
 <div
@@ -479,15 +508,12 @@
 {#if hover != null}
 	<div
 		class="timeline-point hover"
+		aria-label="{hover.element.layoutItem.item.name()}: {display.displayValue(
+			hover.element.layoutItem.item.value(),
+		)}"
 		style="top: {hover.element.offsetTop + canvasTop}px; left: {hover
 			.element.offsetLeft}px;"
-	>
-		<div class="display-name">
-			{hover.element.layoutItem.item.name()}: {display.displayValue(
-				hover.element.layoutItem.item.value(),
-			)}
-		</div>
-	</div>
+	></div>
 {/if}
 
 <style>
