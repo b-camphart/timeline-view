@@ -21,21 +21,21 @@
 		"obsidian-search": "0.1.1"
 	},
 	"devDependencies": {
-		"@sveltejs/vite-plugin-svelte": "^2.4.2",
-		"@tsconfig/svelte": "^5.0.0",
-		"@types/node": "^20.10.5",
-		"@typescript-eslint/eslint-plugin": "5.29.0",
-		"@typescript-eslint/parser": "5.29.0",
-		"builtin-modules": "3.3.0",
-		"esbuild": "0.17.3",
+		"@sveltejs/vite-plugin-svelte": "latest",
+		"@tsconfig/svelte": "latest",
+		"@types/node": "latest",
+		"@typescript-eslint/eslint-plugin": "latest",
+		"@typescript-eslint/parser": "latest",
+		"builtin-modules": "latest",
+		"esbuild": "latest",
 		"obsidian": "latest",
-		"svelte": "^4.0.0",
-		"svelte-check": "^3.4.4",
-		"svelte-preprocess": "^5.0.4",
-		"tslib": "2.6.0",
-		"tsx": "3.12.10",
-		"typescript": "^5.0.0",
-		"vite": "^4.4.5",
-		"vitest": "1.0.4"
+		"svelte": "latest",
+		"svelte-check": "latest",
+		"svelte-preprocess": "latest",
+		"tslib": "latest",
+		"tsx": "latest",
+		"typescript": "latest",
+		"vite": "latest",
+		"vitest": "latest"
 	}
 }
