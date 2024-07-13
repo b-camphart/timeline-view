@@ -104,6 +104,7 @@
 		displayPropertyAs === "date"
 			? timelineDateValueDisplay()
 			: timelineNumericValueDisplay();
+	
 </script>
 
 <div class="timeline">

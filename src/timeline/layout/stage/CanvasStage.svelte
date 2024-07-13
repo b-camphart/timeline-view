@@ -6,15 +6,9 @@
 		TimelineItemElement,
 		TimelineLayoutItem,
 	} from "src/timeline/layout/stage/TimelineItemElement";
-
-	// initially get created with nothing loaded yet
-	// get populated with sorted items, the scale, focal value, and a value display
-	//
-
-	interface Scale {
-		toPixels(value: number): number;
-		toValue(pixels: number): number;
-	}
+	import { type Scale } from "src/timeline/scale";
+	import Scrollbar from "src/view/controls/Scrollbar.svelte";
+	import type { ChangeEvent } from "src/view/controls/Scrollbar";
 
 	type ZoomEvent = {
 		keepValue: number;
@@ -81,6 +75,16 @@
 			return;
 		}
 
+		// if it's completely minimized, no use recalculating everything, since
+		// none of it will be visible anyway.  Also, avoids resetting the
+		// scroll height to 0.
+		if (
+			stageCSSTarget.offsetHeight === 0 &&
+			stageCSSTarget.offsetWidth === 0
+		) {
+			return;
+		}
+
 		if (canvasTop != stageCSSTarget.offsetTop) {
 			canvasTop = stageCSSTarget.offsetTop;
 		}
@@ -98,20 +102,23 @@
 				(pointElements[0]!.offsetTop + item.height),
 		);
 
-		viewport.padding.top = Math.max(
+		(viewport.padding.top = Math.max(
 			0,
 			pointElements[0]!.offsetTop - item.margin.vertical,
-		);
-		viewport.padding.left = Math.max(
-			0,
-			pointElements[0]!.offsetLeft - item.margin.horizontal,
-		);
-		viewport.padding.right =
-			stageCSSTarget.clientWidth - viewport.padding.left - innerWidth;
-		viewport.padding.bottom =
-			stageCSSTarget.clientHeight - viewport.padding.top - innerHeight;
-
-		viewport.width = stageCSSTarget.clientWidth;
+		)),
+			(viewport.padding.left = Math.max(
+				0,
+				pointElements[0]!.offsetLeft - item.margin.horizontal,
+			)),
+			(viewport.padding.right =
+				stageCSSTarget.clientWidth -
+				viewport.padding.left -
+				innerWidth),
+			(viewport.padding.bottom =
+				stageCSSTarget.clientHeight -
+				viewport.padding.top -
+				innerHeight),
+			(viewport.width = stageCSSTarget.clientWidth);
 		viewport.height = stageCSSTarget.clientHeight;
 
 		const reportedWidth =
@@ -172,8 +179,9 @@
 		pos: [number, number];
 	} | null = null;
 
+	let scrollbarDragging = false;
 	function detectHover(event: { offsetX: number; offsetY: number }) {
-		if (!vScrollDrag && !hScrollDrag) {
+		if (!scrollbarDragging) {
 			for (let i = 0; i < elements.length; i++) {
 				const element = elements[i];
 				if (element.contains(event.offsetX, event.offsetY)) {
@@ -209,93 +217,32 @@
 	$: onScrollTopChanged(scrollTop);
 
 	let scrollHeight = 0;
+	let visibleVAmount = 0;
+
 	let scrollbarMeasurerFullWidth: number = 0;
 	let scrollbarMeasurerInnerWidth: number = 0;
 	$: scrollbarWidth =
 		scrollbarMeasurerFullWidth - scrollbarMeasurerInnerWidth;
-	let vScrollbarNeeded = false;
-	let vPercent = 1;
-	/**
-	 * a percentage between 0 and 1, representing how far down the user has scrolled of the maximum scroll height
-	 */
-	let vScrollValue = 0;
-	let vScrollDrag = false;
-	let hScrollDrag = false;
-	function onVScrollThumbMouseDown(
-		event: MouseEvent & { currentTarget: HTMLDivElement },
-	) {
-		vScrollDrag = true;
-		const xStart = event.screenX;
-		const yStart = event.screenY;
-		const scrollTopStart = scrollTop;
-		const mouseMoveListener = (event: MouseEvent) => {
-			if (Math.abs(event.screenX - xStart) > 150) {
-				scrollTop = 0;
-				return;
-			}
-
-			scrollTop = scrollTopStart + (event.screenY - yStart) / vPercent;
-		};
-		window.addEventListener("mousemove", mouseMoveListener);
-		const mouseUpListener = () => {
-			vScrollDrag = false;
-			window.removeEventListener("mousemove", mouseMoveListener);
-			window.removeEventListener("mouseup", mouseUpListener);
-		};
-		window.addEventListener("mouseup", mouseUpListener);
-	}
-
-	let minScrollValue = 0;
-	let maxScrollValue = 0;
-	let scrollValueSpan = 0;
 	let scrollbarMeasurerFullHeight: number = 0;
 	let scrollbarMeasurerInnerHeight: number = 0;
 	$: scrollbarHeight =
 		scrollbarMeasurerFullHeight - scrollbarMeasurerInnerHeight;
-	let hScrollbarNeeded = false;
-	let hPercent = 1;
+
 	let hScrollValue = 0;
-	function onHScrollThumbMouseDown(
-		event: MouseEvent & { currentTarget: HTMLDivElement },
-	) {
-		hScrollDrag = true;
-		const xStart = event.screenX;
-		const yStart = event.screenY;
-		const focalValueStart = focalValue;
+	let visibleHAmount = viewport.width;
+	let minHScrollValue = 0;
+	let maxHScrollValue = 0;
 
-		const limits = {
-			min: minScrollValue,
-			max: maxScrollValue,
-		};
+	function handleHScroll(event: ChangeEvent) {
+		dispatch(
+			"scrollToValue",
+			focalValue +
+				scale.toValue(event.detail.deltaPixels) / event.detail.ratio,
+		);
+	}
 
-		const hPercentStart = hPercent;
-
-		const mouseMoveListener = (event: MouseEvent) => {
-			if (Math.abs(event.screenY - yStart) > 150) {
-				dispatch("scrollToValue", focalValueStart);
-				return;
-			}
-			dispatch(
-				"scrollToValue",
-				Math.max(
-					limits.min,
-					Math.min(
-						limits.max,
-						focalValueStart +
-							scale.toValue(event.screenX - xStart) /
-								hPercentStart,
-					),
-				),
-			);
-		};
-		window.addEventListener("mousemove", mouseMoveListener);
-		const mouseUpListener = () => {
-			hScrollDrag = false;
-			scrollNeeded = true;
-			window.removeEventListener("mousemove", mouseMoveListener);
-			window.removeEventListener("mouseup", mouseUpListener);
-		};
-		window.addEventListener("mouseup", mouseUpListener);
+	function handleVScroll(event: ChangeEvent) {
+		scrollTop = event.detail.value;
 	}
 
 	onMount(() => {
@@ -353,11 +300,11 @@
 				const scrollLeft =
 					scale.toPixels(focalValue) - viewport.width / 2;
 
-				const maxScrollY = scrollHeight - viewport.height;
 				scrollTop = Math.max(
 					0,
 					Math.min(scrollTop, scrollHeight - viewport.height),
 				);
+				visibleVAmount = viewport.height;
 
 				for (let i = 0; i < layout.length; i++) {
 					const item = layout[i];
@@ -379,66 +326,27 @@
 					elements[i] = element;
 				}
 
-				if (viewport.height >= scrollHeight) {
-					vScrollbarNeeded = false;
-				} else {
-					vScrollbarNeeded = true;
-					vPercent = viewport.height / scrollHeight;
-					vScrollValue = scrollTop / maxScrollY;
-				}
-
-				const viewportWidthValue = scale.toValue(viewport.width);
-				const halfViewportWidthValue = viewportWidthValue / 2;
-				const leftValue = focalValue - halfViewportWidthValue;
-				const rightValue = focalValue + halfViewportWidthValue;
+				visibleHAmount = scale.toValue(viewport.width);
+				hScrollValue = focalValue - scale.toValue(viewport.width / 2);
 
 				const leftMostValue =
 					(sortedItems[0]?.value() ?? 0) -
 					scale.toValue(viewport.padding.left + item.width / 2);
 
 				const rightMostValue =
-					(sortedItems[sortedItems.length - 1]?.value() ?? 0) +
-					scale.toValue(viewport.padding.right + item.width / 2);
+					(sortedItems[sortedItems.length - 1]?.value() ?? 0) -
+					scale.toValue(viewport.padding.left + item.width / 2);
 
-				if (leftValue < leftMostValue && rightValue > rightMostValue) {
-					hScrollbarNeeded = false;
-					minScrollValue = focalValue;
-					maxScrollValue = focalValue;
-				} else {
-					hScrollbarNeeded = true;
+				minHScrollValue = Math.min(
+					focalValue - scale.toValue(viewport.width / 2),
+					leftMostValue,
+				);
 
-					/*
-					 Now, we need to define the range that the h scrollbar can move between
-					 Think of this as the value ranget that the focalValue (center of the viewport) can move between
-					 
-					 the furthest left the focalValue can be scrolled BY THE SROLLBAR is the first value minus the pointRadius and padding, plus the value of half the viewport width.
+				maxHScrollValue = Math.max(
+					focalValue + scale.toValue(viewport.width / 2),
+					rightMostValue,
+				);
 
-					 the furthest right the focalValue can be scrolled BY THE SROLLBAR is the last value plus the pointRadius and padding, minus the value of half the viewport width.
-
-					 However, if the focalValue is already beyond those points, then the scrollbar can be scrolled to the current focalValue.
-					*/
-
-					minScrollValue = Math.min(
-						focalValue,
-						leftMostValue + halfViewportWidthValue,
-					);
-
-					maxScrollValue = Math.max(
-						focalValue,
-						rightMostValue - halfViewportWidthValue,
-					);
-
-					scrollValueSpan = maxScrollValue - minScrollValue;
-
-					/** How much does the value span within the viewport cover the total amount of scrollable space? */
-					hPercent =
-						viewportWidthValue /
-						(scrollValueSpan + viewportWidthValue);
-
-					/** What percent is the focalValue along the available scrollable space? */
-					hScrollValue =
-						(focalValue - minScrollValue) / scrollValueSpan;
-				}
 				if (hover != null) {
 					detectHover({
 						offsetX: hover.pos[0],
@@ -486,46 +394,79 @@
 	></div>
 	<canvas
 		bind:this={canvas}
+		tabindex={0}
 		on:wheel|stopPropagation|capture={handleScroll}
 		on:mousemove={detectHover}
 		on:click={handleClick}
-		on:keypress={() => {}}
+		on:keydown={(event) => {
+			switch (event.key) {
+				case "ArrowLeft":
+					dispatch("scrollX", scale.toValue(-1));
+					break;
+				case "ArrowRight":
+					dispatch("scrollX", scale.toValue(1));
+					break;
+				case "ArrowUp":
+					scrollTop = Math.max(0, scrollTop - 10);
+					break;
+				case "ArrowDown":
+					scrollTop = Math.min(
+						scrollHeight - viewport.height,
+						scrollTop + 10,
+					);
+					break;
+				case "PageUp":
+					scrollTop = Math.max(0, scrollTop - viewport.height);
+					break;
+				case "PageDown":
+					scrollTop = Math.min(
+						scrollHeight - viewport.height,
+						scrollTop + viewport.height,
+					);
+					break;
+				case "Home":
+					scrollTop = 0;
+					break;
+				case "End":
+					scrollTop = scrollHeight - viewport.height;
+					break;
+			}
+		}}
 	/>
-	<div
-		role="scrollbar"
-		style:height={scrollbarHeight + "px"}
-		class:unneeded={!hScrollbarNeeded}
-		aria-orientation="horizontal"
-		aria-controls={"stage"}
-		aria-valuenow={focalValue}
-		aria-valuemin={minScrollValue}
-		aria-valuemax={maxScrollValue}
-	>
-		<div
-			role="presentation"
-			on:mousedown={onHScrollThumbMouseDown}
-			class="thumb"
-			class:dragging={hScrollDrag}
-			style="--percent: {hPercent}; --value: {hScrollValue};"
-		/>
-	</div>
-	<div
-		role="scrollbar"
-		style:width={scrollbarWidth + "px"}
-		class:unneeded={!vScrollbarNeeded}
-		aria-orientation="vertical"
-		aria-controls={"stage"}
-		aria-valuenow={viewport.scrollTop}
-		aria-valuemax={scrollHeight - viewport.height}
-	>
-		<div
-			role="presentation"
-			on:mousedown={onVScrollThumbMouseDown}
-			class="thumb"
-			class:dragging={vScrollDrag}
-			style="--percent: {vPercent}; --value: {vScrollValue};"
-		/>
-	</div>
+	<Scrollbar
+		style={`height: ${scrollbarHeight}px;`}
+		orientation={"horizontal"}
+		controls={"stage"}
+		tabindex={1}
+		value={hScrollValue}
+		visibleAmount={visibleHAmount}
+		min={minHScrollValue}
+		max={maxHScrollValue}
+		on:change={handleHScroll}
+		on:dragstart={() => {
+			scrollbarDragging = true;
+		}}
+		on:dragend={() => {
+			scrollbarDragging = false;
+		}}
+	/>
+	<Scrollbar
+		style={`width: ${scrollbarWidth}px;`}
+		orientation={"vertical"}
+		controls={"stage"}
+		tabindex={2}
+		value={scrollTop}
+		visibleAmount={visibleVAmount}
+		min={0}
+		max={scrollHeight}
+		on:change={handleVScroll}
+		on:dragstart={() => {
+			scrollbarDragging = true;
+		}}
+		on:dragend={() => {
+			scrollbarDragging = false;
+		}}
+	/>
 </div>
 <div
 	bind:clientHeight={scrollbarMeasurerInnerHeight}
@@ -598,56 +539,17 @@
 		visibility: hidden;
 	}
 
-	div[role="scrollbar"] {
+	.stage :global([role="scrollbar"]) {
 		position: absolute;
-		background-color: var(--scrollbar-bg, transparent);
 	}
-	div[role="scrollbar"].unneeded {
-		visibility: hidden;
-	}
-	div[role="scrollbar"] .thumb {
-		position: absolute;
-
-		background-color: var(
-			--scrollbar-thumb-bg,
-			var(--ui1, rbga(256, 256, 256, 0.2))
-		);
-
-		background-clip: padding-box;
-		border-radius: 20px;
-		border: 3px solid transparent;
-		border-width: 3px 3px 3px 3px;
-	}
-	div[role="scrollbar"] .thumb:hover,
-	div[role="scrollbar"] .thumb.dragging {
-		background-color: var(
-			--scrollbar-active-thumb-bg,
-			var(--ui3, rbga(256, 256, 256, 0.4))
-		);
-		/* background-color: white; */
-	}
-	div[role="scrollbar"][aria-orientation="horizontal"] {
-		width: 100%;
+	.stage :global([role="scrollbar"][aria-orientation="horizontal"]) {
 		bottom: 0;
 		left: 0;
+		width: 100%;
 	}
-	div[role="scrollbar"][aria-orientation="horizontal"] .thumb {
-		min-width: 45px;
-		height: 100%;
-		--thumb-width: calc(100% * var(--percent, 1));
-		width: var(--thumb-width);
-		left: calc(calc(100% - var(--thumb-width)) * var(--value, 0));
-	}
-	div[role="scrollbar"][aria-orientation="vertical"] {
-		height: 100%;
+	.stage :global([role="scrollbar"][aria-orientation="vertical"]) {
 		top: 0;
 		right: 0;
-	}
-	div[role="scrollbar"][aria-orientation="vertical"] .thumb {
-		min-height: 45px;
-		width: 100%;
-		--thumb-height: calc(100% * var(--percent, 1));
-		height: var(--thumb-height);
-		top: calc(calc(100% - var(--thumb-height)) * var(--value, 0));
+		height: 100%;
 	}
 </style>
