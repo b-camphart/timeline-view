@@ -161,8 +161,13 @@
 		}
 	}
 
+	let focusCausedByClick = false;
 	function handleClick(event: MouseEvent) {
-		if (hover == null || hover.element == null) return;
+		focusCausedByClick = true;
+		if (hover == null || hover.element == null) {
+			focus = null;
+			return;
+		}
 		if (event.button === 2) {
 			focusOn(hover.element, elements.indexOf(hover.element));
 			return;
@@ -440,6 +445,13 @@
 		on:wheel|stopPropagation|capture={handleScroll}
 		on:mousemove={detectHover}
 		on:mousedown={handleClick}
+		on:focus={(e) => {
+			if (!focusCausedByClick && focusNextItem()) {
+				e.stopPropagation();
+				e.preventDefault();
+			}
+			focusCausedByClick = false;
+		}}
 		on:keydown={(event) => {
 			switch (event.key) {
 				case "ArrowLeft":
