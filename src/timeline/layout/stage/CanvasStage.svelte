@@ -9,6 +9,7 @@
 	import { type Scale } from "src/timeline/scale";
 	import Scrollbar from "src/view/controls/Scrollbar.svelte";
 	import type { ChangeEvent } from "src/view/controls/Scrollbar";
+	import Hover from "./Hover.svelte";
 
 	type ZoomEvent = {
 		keepValue: number;
@@ -48,7 +49,6 @@
 			bottom: 0,
 			left: 0,
 		},
-		scrollTop: 0,
 	};
 
 	let pointStyle: CSSStyleDeclaration | undefined;
@@ -363,35 +363,6 @@
 
 		requestAnimationFrame(() => draw());
 	});
-
-	let tooltip: HTMLDivElement | undefined;
-	$: if (hover != null) {
-		if (tooltip == null) {
-			tooltip = document.createElement("div");
-			document.body.appendChild(tooltip);
-			tooltip.className = "tooltip";
-
-			tooltip.innerText = `${hover.element.layoutItem.item.name()}: ${display.displayValue(hover.element.layoutItem.item.value())}`;
-
-			const tooltipArrow = document.createElement("div");
-			tooltipArrow.className = "tooltip-arrow";
-			tooltip.appendChild(tooltipArrow);
-
-			tooltip.setCssStyles({
-				translate: `0 ${tooltipArrow.offsetHeight}px`,
-			});
-		}
-
-		tooltip.setCssStyles({
-			top: `${hover.element.offsetBottom + (stageCSSTarget?.getBoundingClientRect()?.top ?? 0)}px`,
-			left: `${hover.element.offsetCenterX + (stageCSSTarget?.getBoundingClientRect()?.left ?? 0)}px`,
-		});
-	} else {
-		if (tooltip != null) {
-			tooltip.remove();
-			tooltip = undefined;
-		}
-	}
 </script>
 
 <div
@@ -458,14 +429,7 @@
 		}}
 	/>
 	{#if hover != null}
-		<div
-			class="timeline-point hover"
-			aria-label="{hover.element.layoutItem.item.name()}: {display.displayValue(
-				hover.element.layoutItem.item.value(),
-			)}"
-			style="top: {hover.element.offsetTop}px; left: {hover.element
-				.offsetLeft}px;"
-		></div>
+		<Hover {hover} {display} stage={stageCSSTarget} />
 	{/if}
 	<Scrollbar
 		style={`height: ${scrollbarHeight}px;`}
@@ -524,7 +488,7 @@
 		padding: var(--timeline-stage-side-padding);
 		--scrollbar-width: var(--size-4-1);
 	}
-	.stage .timeline-point:not(.hover) {
+	.stage .timeline-point {
 		visibility: hidden !important;
 	}
 
@@ -541,12 +505,6 @@
 		pointer-events: none;
 		bottom: 0;
 		right: 0;
-	}
-
-	.timeline-point.hover {
-		position: absolute;
-		margin: 0;
-		pointer-events: none;
 	}
 
 	.scrollbar-style-measurer {
