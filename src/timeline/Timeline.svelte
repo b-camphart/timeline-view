@@ -12,6 +12,7 @@
 	import type { NamespacedWritableFactory } from "./Persistence";
 	import CanvasStage from "./layout/stage/CanvasStage.svelte";
 	import type { TimelineViewModel } from "./viewModel";
+	import { ValuePerPixelScale, type Scale } from "./scale";
 
 	export let namespacedWritable:
 		| NamespacedWritableFactory<TimelineViewModel>
@@ -20,7 +21,8 @@
 
 	const focalValue =
 		namespacedWritable?.make("focalValue", 0) ?? makeWritable(0);
-	const scale = namespacedWritable?.make("scale", 1) ?? makeWritable(1);
+	const persistedValuePerPixel =
+		namespacedWritable?.make("scale", 1) ?? makeWritable(1);
 
 	let unsortedItems: TimelineItem[] = [];
 	export { unsortedItems as items };
@@ -28,35 +30,36 @@
 	let sortedItems: TimelineItem[] = [];
 	$: sortedItems = unsortedItems.toSorted((a, b) => a.value() - b.value());
 
-	function valuePerPixelStore(initialValue: number = 1) {
-		function atLeastMinimum(value: number) {
+	const stageWidth = writable(0);
+
+	function scaleStore(initialScale: Scale = new ValuePerPixelScale(1)) {
+		function atLeastMinimum(value: Scale) {
+			const valuePerPixel = value.toValue(1);
 			const minimum = 1 / 100;
-			if (Number.isNaN(value)) {
-				return minimum;
+			if (Number.isNaN(valuePerPixel)) {
+				return new ValuePerPixelScale(minimum);
 			}
-			return Math.max(minimum, value);
+			return new ValuePerPixelScale(Math.max(minimum, valuePerPixel));
 		}
 
-		const { subscribe, set } = makeWritable(atLeastMinimum(initialValue));
+		const { subscribe, set } = makeWritable(atLeastMinimum(initialScale));
 
 		return {
 			subscribe,
-			set: (newValue: number) => {
+			set: (newValue: Scale) => {
 				const validated = atLeastMinimum(newValue);
 				set(validated);
-				$scale = validated;
+				$persistedValuePerPixel = validated.valuePerPixel;
 				return validated;
 			},
 		};
 	}
 
-	const valuePerPixel = valuePerPixelStore($scale);
-	$: $valuePerPixel = $scale;
-
-	const stageWidth = writable(0);
+	const scale = scaleStore(new ValuePerPixelScale($persistedValuePerPixel));
+	$: $scale = new ValuePerPixelScale($persistedValuePerPixel);
 
 	const navigation: TimelineNavigation = timelineNavigation(
-		valuePerPixel,
+		scale,
 		{
 			get() {
 				return sortedItems;
@@ -104,27 +107,15 @@
 		displayPropertyAs === "date"
 			? timelineDateValueDisplay()
 			: timelineNumericValueDisplay();
-	
 </script>
 
 <div class="timeline">
-	<TimelineRuler
-		{display}
-		valuePerPixel={$valuePerPixel}
-		focalValue={$focalValue}
-	/>
+	<TimelineRuler {display} scale={$scale} focalValue={$focalValue} />
 	<CanvasStage
 		bind:this={canvasStage}
 		{display}
 		{sortedItems}
-		scale={{
-			toPixels(value) {
-				return Math.floor(value / $valuePerPixel);
-			},
-			toValue(pixels) {
-				return $valuePerPixel * pixels;
-			},
-		}}
+		scale={$scale}
 		focalValue={$focalValue}
 		bind:width={$stageWidth}
 		on:scrollToValue={(event) => navigation.scrollToValue(event.detail)}

@@ -14,3 +14,4 @@ export class ValuePerPixelScale implements Scale {
 		return pixels * this.valuePerPixel;
 	}
 }
+
