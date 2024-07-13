@@ -36,7 +36,6 @@
 		undefined,
 	];
 	let stageCSSTarget: HTMLDivElement | undefined;
-	let canvasTop = 0;
 
 	let innerWidth = 0;
 	let innerHeight = 0;
@@ -83,10 +82,6 @@
 			stageCSSTarget.offsetWidth === 0
 		) {
 			return;
-		}
-
-		if (canvasTop != stageCSSTarget.offsetTop) {
-			canvasTop = stageCSSTarget.offsetTop;
 		}
 
 		item.width = pointElements[0]!.clientWidth;
@@ -462,6 +457,16 @@
 			}
 		}}
 	/>
+	{#if hover != null}
+		<div
+			class="timeline-point hover"
+			aria-label="{hover.element.layoutItem.item.name()}: {display.displayValue(
+				hover.element.layoutItem.item.value(),
+			)}"
+			style="top: {hover.element.offsetTop}px; left: {hover.element
+				.offsetLeft}px;"
+		></div>
+	{/if}
 	<Scrollbar
 		style={`height: ${scrollbarHeight}px;`}
 		orientation={"horizontal"}
@@ -505,17 +510,6 @@
 	class="scrollbar-style-measurer"
 ></div>
 
-{#if hover != null}
-	<div
-		class="timeline-point hover"
-		aria-label="{hover.element.layoutItem.item.name()}: {display.displayValue(
-			hover.element.layoutItem.item.value(),
-		)}"
-		style="top: {hover.element.offsetTop + canvasTop}px; left: {hover
-			.element.offsetLeft}px;"
-	></div>
-{/if}
-
 <style>
 	canvas {
 		position: absolute;
@@ -530,7 +524,7 @@
 		padding: var(--timeline-stage-side-padding);
 		--scrollbar-width: var(--size-4-1);
 	}
-	.stage .timeline-point {
+	.stage .timeline-point:not(.hover) {
 		visibility: hidden !important;
 	}
 

@@ -304,15 +304,7 @@
 		translate: -2px -2px;
 		background-color: var(--graph-node-focused);
 	}
-
-	:global(.timeline-point) :global(.display-name) {
-		background-color: var(--background-primary);
-		white-space: nowrap;
-		position: relative;
-		top: calc(var(--point-diameter) + 8px);
-		pointer-events: none;
-	}
-
+	
 	:global(.timeline-controls) {
 		max-height: calc(100% - var(--size-4-12));
 		z-index: var(--layer-cover);
