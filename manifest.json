@@ -4,7 +4,7 @@
 
   "name": "Timeline View",
 
-  "version": "1.2.0",
+  "version": "1.2.1",
 
   "minAppVersion": "1.6.5",
 
@@ -14,7 +14,7 @@
 
   "authorUrl": "https://github.com/b-camphart",
 
-	"fundingUrl": "https://buymeacoffee.com/b.camphart",
-  
+  "fundingUrl": "https://buymeacoffee.com/b.camphart",
+
   "isDesktopOnly": true
 }
