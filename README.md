@@ -35,12 +35,15 @@ In conjunction with the filtering feature above, you can use the same query synt
 
 ![Groups](docs/resources/groups.PNG)
 
-### Names below points
-Toggle if you'd like to see the names of notes below their point on the timeline.  
+### Link to Tab
+From within an open tab, you can open the timeline as a "linked view," or link it with another tab after opening.
 
-![Display notes below points](docs/resources/display-notes-below-points.PNG)
+![Open linked timeline view](docs/resources/open%20linked%20timeline%20view.PNG)
 
-This is off by default, as any notes that are close together may overlap.  However, you can place your mouse over a note to display both its name, and the value it has for the selected property.
+When this happens, every time you navigate to a new note, the timeline will focus on that note, and scroll to it, if necessary.
+Additionally, when you click on a note while the tabs are linked, it will automatically be opened in the linked tab.
+
+![linked timeline tab](docs/resources/linked%20timeline%20tab.PNG)
 
 # Roadmap
 
