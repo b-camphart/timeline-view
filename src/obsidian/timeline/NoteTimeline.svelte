@@ -40,6 +40,7 @@
 
 	const dispatch = createEventDispatcher<{
 		noteSelected: { note: Note; event?: Event };
+		noteFocused: TimelineFileItem | undefined;
 	}>();
 
 	const settings = viewModel.namespace("settings");
@@ -63,7 +64,7 @@
 		groupsNamespace.make("groups", []),
 		noteRepository,
 	);
-	let groupsView: Groups | undefined;	
+	let groupsView: Groups | undefined;
 
 	const timelineItemGroups: TimelineItemGroups = makeTimelineItemGroups(
 		{
@@ -235,6 +236,12 @@
 		scheduleItemUpdate();
 	}
 
+	export function focusOnNote(note: Note) {
+		const item = notes.get(note.id());
+		if (item == null) return;
+		timelineView?.focusOnItem(item);
+	}
+
 	function onPropertySelected(property: NoteProperty<TimelinePropertyType>) {
 		if (timelineView == null) return;
 
@@ -254,6 +261,7 @@
 	displayPropertyAs={displayItemsAs}
 	bind:this={timelineView}
 	on:select={(e) => openFile(e.detail.causedBy, e.detail.item)}
+	on:focus={(e) => dispatch("noteFocused", notes.get(e.detail.id()))}
 >
 	<svelte:fragment slot="additional-settings">
 		<TimelinePropertySetting
@@ -312,7 +320,7 @@
 		box-sizing: content-box;
 		translate: -2px -2px;
 	}
-	
+
 	:global(.timeline-controls) {
 		max-height: calc(100% - var(--size-4-12));
 		z-index: var(--layer-cover);

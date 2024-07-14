@@ -20,6 +20,9 @@ import { NoPropertySelector } from "../timeline/settings/property/NotePropertySe
 import { TimelineFileItem } from "../timeline/TimelineFileItem";
 import type { Note } from "src/note";
 import { writableProperties } from "src/timeline/Persistence";
+import { workspaceLeafExt } from "../WorkspaceLeaf";
+import { titleEl } from "../ItemVIew";
+import type { ObsidianNoteTimelineViewModel } from "../timeline/viewModel";
 
 const OBSIDIAN_LEAF_VIEW_TYPE: string = "VIEW_TYPE_TIMELINE_VIEW";
 const LUCID_ICON = "waypoints";
@@ -35,12 +38,14 @@ export default class ObsidianTimelinePlugin extends Plugin {
 			() => getMetadataTypeManager(this.app),
 		);
 
-		const openTimelineView = async () => {
+		const openTimelineView = async (
+			leaf: WorkspaceLeaf,
+			group?: WorkspaceLeaf,
+		) => {
 			const timeline = await createNewTimeline(
 				notes,
 				NoteProperty.Created,
 			);
-			const leaf = this.app.workspace.getLeaf(true);
 			leaf.setViewState({
 				type: OBSIDIAN_LEAF_VIEW_TYPE,
 				active: true,
@@ -48,7 +53,12 @@ export default class ObsidianTimelinePlugin extends Plugin {
 					focalValue: timeline.focalValue,
 					isNew: true,
 				},
+				group,
 			});
+		};
+
+		const openTimelineViewInNewLeaf = () => {
+			openTimelineView(this.app.workspace.getLeaf(true));
 		};
 
 		this.registerView(OBSIDIAN_LEAF_VIEW_TYPE, leaf => {
@@ -64,13 +74,30 @@ export default class ObsidianTimelinePlugin extends Plugin {
 		});
 
 		this.addRibbonIcon(LUCID_ICON, "Open timeline view", () =>
-			openTimelineView(),
+			openTimelineViewInNewLeaf(),
 		);
 		this.addCommand({
 			id: "open-timeline-view",
 			name: "Open timeline view",
-			callback: () => openTimelineView(),
+			callback: () => openTimelineViewInNewLeaf(),
+			icon: LUCID_ICON,
 		});
+
+		this.registerEvent(
+			this.app.workspace.on("file-menu", (menu, editor, info) => {
+				menu.addItem(item => {
+					item.setSection("view.linked");
+					item.setTitle("Open timeline view");
+					item.setIcon(LUCID_ICON);
+					item.onClick(() => {
+						openTimelineView(
+							this.app.workspace.getLeaf("split", "horizontal"),
+							this.app.workspace.getMostRecentLeaf() ?? undefined,
+						);
+					});
+				});
+			}),
+		);
 
 		if (import.meta.env.MODE === "development") {
 			if (await this.app.vault.adapter.exists("___reload.md")) {
@@ -88,6 +115,10 @@ export default class ObsidianTimelinePlugin extends Plugin {
 			);
 		}
 	}
+
+	onunload(): void {
+		this.app.workspace.detachLeavesOfType(OBSIDIAN_LEAF_VIEW_TYPE);
+	}
 }
 
 class TimelineItemView extends ItemView {
@@ -99,6 +130,8 @@ class TimelineItemView extends ItemView {
 		return OBSIDIAN_LEAF_VIEW_TYPE;
 	}
 
+	private group: string | undefined;
+
 	constructor(
 		leaf: WorkspaceLeaf,
 		vault: Vault,
@@ -108,7 +141,8 @@ class TimelineItemView extends ItemView {
 		private noteProperties: ObsidianNotePropertyRepository,
 	) {
 		super(leaf);
-		this.navigation = true; // hide status bar
+		this.navigation = false;
+
 		this.initialization = new Promise(resolve => {
 			this.completeInitialization = resolve;
 		});
@@ -155,11 +189,85 @@ class TimelineItemView extends ItemView {
 				}
 			}),
 		);
+
+		this.registerEvent(
+			this.leaf.on("group-change", group => {
+				this.group = group;
+			}),
+		);
+
+		const openFile = this.leaf.openFile.bind(this.leaf);
+		this.leaf.openFile = async (file, openState) => {
+			if (!this.group) {
+				openFile(file, openState);
+				return;
+			}
+
+			const leavesInGroup = this.workspace.getGroupLeaves(this.group);
+			if (leavesInGroup.length === 1) {
+				openFile(file, openState);
+				return;
+			}
+		};
+
+		this.registerEvent(
+			this.workspace.on("active-leaf-change", activeLeaf => {
+				if (activeLeaf === this.leaf || !activeLeaf) {
+					return;
+				}
+				if (!this.group) {
+					return;
+				}
+
+				const state = activeLeaf.getViewState().state;
+				if (!state) {
+					return;
+				}
+
+				if (!("file" in state) || typeof state.file !== "string") {
+					return;
+				}
+
+				const leavesInGroup = this.workspace.getGroupLeaves(this.group);
+				if (!leavesInGroup.includes(activeLeaf)) {
+					return;
+				}
+
+				const file = vault.getAbstractFileByPath(state.file);
+				if (file instanceof TFile) {
+					const note = this.notes.getNoteForFile(file);
+					if (!note) {
+						return;
+					}
+					this.component?.focusOnNote(note);
+				}
+			}),
+		);
+	}
+
+	private openNoteInLinkedLeaf(note: Note) {
+		if (!this.group) {
+			return;
+		}
+		const leavesInGroup = this.workspace.getGroupLeaves(this.group);
+		if (leavesInGroup.length === 1) {
+			return;
+		}
+
+		const file = this.notes.getFileFromNote(note);
+		if (!file) {
+			return;
+		}
+		leavesInGroup.forEach(leaf => {
+			if (leaf === this.leaf) return;
+			leaf.openFile(file);
+		});
 	}
 
 	private computeDisplayText() {
-		if ((this.state?.settings?.filter?.query ?? "") !== "") {
-			return `Timeline view - ${this.state.settings!.filter!.query}`;
+		const query = this.state?.settings?.filter?.query ?? "";
+		if (query !== "") {
+			return `Timeline view - ${query}`;
 		}
 		return "Timeline view";
 	}
@@ -171,11 +279,10 @@ class TimelineItemView extends ItemView {
 		if (this.#displayText !== value) {
 			this.#displayText = value;
 
-			// unofficial obsidian api to change the title
-			(this as any).titleEl.setText(value);
+			titleEl(this)?.setText?.(value);
 
 			// the leaf pulls its text from the title, so just have it update
-			(this.leaf as any).updateHeader();
+			workspaceLeafExt(this.leaf)?.updateHeader();
 		}
 	}
 
@@ -184,13 +291,13 @@ class TimelineItemView extends ItemView {
 	}
 
 	private component: NoteTimeline | null = null;
-	private initialization?: Promise<void>;
-	private completeInitialization() {}
+	private initialization?: Promise<TimelineItemViewState>;
+	private completeInitialization(_state: TimelineItemViewState) {}
 
-	private state: any;
-	setState(state: any, result: ViewStateResult): Promise<void> {
-		this.state = state;
-		this.completeInitialization();
+	private state: TimelineItemViewState | undefined;
+	setState(state: unknown, result: ViewStateResult): Promise<void> {
+		this.state = state as TimelineItemViewState;
+		this.completeInitialization(this.state);
 		return super.setState(state, result);
 	}
 
@@ -215,7 +322,7 @@ class TimelineItemView extends ItemView {
 			notes.set(note.id(), new TimelineFileItem(note, propertySelection));
 		}
 
-		this.initialization?.then(() => {
+		this.initialization?.then(state => {
 			delete this.initialization;
 			content.empty();
 			content.setAttribute(
@@ -223,8 +330,8 @@ class TimelineItemView extends ItemView {
 				"padding:0;position: relative;overflow-x:hidden;overflow-y:hidden",
 			);
 
-			const isNew = this.state.isNew;
-			delete this.state.isNew;
+			const isNew = state.isNew;
+			delete state.isNew;
 
 			this.component = new NoteTimeline({
 				target: content,
@@ -234,14 +341,11 @@ class TimelineItemView extends ItemView {
 					propertySelection,
 					notePropertyRepository: this.noteProperties,
 					isNew,
-					viewModel: writableProperties(
-						this.state,
-						(key, newValue) => {
-							this.state[key] = newValue;
-							this.displayText = this.computeDisplayText();
-							this.workspace.requestSaveLayout();
-						},
-					),
+					viewModel: writableProperties(state, (key, newValue) => {
+						state[key] = newValue;
+						this.displayText = this.computeDisplayText();
+						this.workspace.requestSaveLayout();
+					}),
 				},
 			});
 
@@ -260,11 +364,22 @@ class TimelineItemView extends ItemView {
 				}
 				newLeaf.openFile(file);
 			});
+
+			this.component?.$on("noteFocused", event => {
+				if (event.detail) {
+					this.openNoteInLinkedLeaf(event.detail.obsidianFile);
+				}
+			});
 		});
 	}
 
 	protected onClose(): Promise<void> {
+		this.leaf.openFile = WorkspaceLeaf.prototype.openFile;
 		this.component?.$destroy();
 		return super.onClose();
 	}
 }
+
+type TimelineItemViewState = {
+	isNew?: boolean;
+} & ObsidianNoteTimelineViewModel;

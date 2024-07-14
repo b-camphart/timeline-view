@@ -91,6 +91,10 @@
 		sortedItems = sortedItems;
 	}
 
+	export function focusOnItem(item: TimelineItem) {
+		canvasStage.focusOnItem(item);
+	}
+
 	let canvasStage: CanvasStage;
 	export function invalidateColors() {
 		canvasStage.invalidateColors();
@@ -124,6 +128,7 @@
 		on:zoomIn={({ detail }) => navigation.zoomIn(detail)}
 		on:zoomOut={({ detail }) => navigation.zoomOut(detail)}
 		on:select
+		on:focus
 	/>
 	<TimelineControls
 		namespacedWritable={namespacedWritable?.namespace("settings")}

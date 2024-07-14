@@ -23,6 +23,7 @@
 		zoomIn: ZoomEvent;
 		zoomOut: ZoomEvent;
 		select: { item: TimelineItem; causedBy: Event };
+		focus: TimelineItem;
 	}>();
 
 	export let display: ValueDisplay;
@@ -172,8 +173,11 @@
 			focusOn(hover.element, elements.indexOf(hover.element));
 			return;
 		}
+		focus = null;
+		const hoveredItem = hover.element.layoutItem.item;
+		hover = null;
 		dispatch("select", {
-			item: hover.element.layoutItem.item,
+			item: hoveredItem,
 			causedBy: event,
 		});
 	}
@@ -187,24 +191,41 @@
 		element: TimelineItemElement;
 		index: number;
 	} | null = null;
-	function focusOn(element: TimelineItemElement, index: number) {
+	function verticalScrollToFocusItem(element: TimelineItemElement) {
+		if (element.offsetTop < 0) {
+			scrollTop = element.layoutItem.top();
+			scrollNeeded = true;
+		} else if (element.offsetBottom > viewport.height) {
+			scrollTop = element.layoutItem.bottom() - viewport.height;
+			scrollNeeded = true;
+		}
+	}
+	function focusOn(
+		element: TimelineItemElement,
+		index: number,
+		skipEvent: boolean = false,
+	) {
+		if (!skipEvent) {
+			dispatch("focus", element.layoutItem.item);
+		}
 		focus = {
 			element,
 			index,
 		};
 		redrawNeeded = true;
 
-		if (focus.element.offsetTop < 0) {
-			scrollTop = focus.element.layoutItem.top();
-			scrollNeeded = true;
-		} else if (focus.element.offsetBottom > viewport.height) {
-			scrollTop = focus.element.layoutItem.bottom() - viewport.height;
-			scrollNeeded = true;
-		}
+		verticalScrollToFocusItem(element);
 
 		if (focus.element.offsetLeft < 0) {
+			console.log("centering focused item", {
+				offsetLeft: focus.element.offsetLeft,
+			});
 			dispatch("scrollToValue", focus.element.layoutItem.item.value());
 		} else if (focus.element.offsetRight > viewport.width) {
+			console.log("centering focused item", {
+				offsetRigth: focus.element.offsetRight,
+				width: viewport.width,
+			});
 			dispatch("scrollToValue", focus.element.layoutItem.item.value());
 		}
 	}
@@ -217,6 +238,14 @@
 		} else {
 			focus = null;
 			return false;
+		}
+	}
+	export function focusOnItem(item: TimelineItem) {
+		const index = elements.findIndex(
+			(element) => element.layoutItem.item === item,
+		);
+		if (index >= 0) {
+			focusOn(elements[index], index, true);
 		}
 	}
 
@@ -238,6 +267,17 @@
 	}
 
 	function onPointsOrScaleChanged(points: TimelineItem[], scale: Scale) {
+		if (focus) {
+			const index = points.findIndex(
+				(item) => item === focus!.element.layoutItem.item,
+			);
+			if (index >= 0) {
+				focus = {
+					index,
+					element: elements[index],
+				};
+			}
+		}
 		layoutNeeded = true;
 	}
 	$: onPointsOrScaleChanged(sortedItems, scale);
@@ -399,7 +439,13 @@
 						offsetY: hover.pos[1],
 					});
 				}
-				focus = focus;
+				if (focus) {
+					focus.element = elements[focus.index];
+					if (layoutNeeded) {
+						verticalScrollToFocusItem(focus.element);
+					}
+					focus = focus;
+				}
 			}
 
 			if (redrawNeeded || scrollNeeded || layoutNeeded) {
