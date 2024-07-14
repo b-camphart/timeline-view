@@ -6,5 +6,6 @@ export default {
 	"description": "Display your obsidian notes in a timeline, based on a given property.",
 	"author": "b-camphart",
 	"authorUrl": "https://github.com/b-camphart",
+	"fundingUrl": "https://buymeacoffee.com/b.camphart",
 	"isDesktopOnly": true
 } as const;
