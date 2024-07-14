@@ -9,6 +9,7 @@ import {
 	Workspace,
 	Keymap,
 	MetadataCache,
+	Menu,
 } from "obsidian";
 import { getMetadataTypeManager } from "../MetadataTypeManager";
 import { ObsidianNotePropertyRepository } from "src/note/property/obsidian-repository";
@@ -243,6 +244,26 @@ class TimelineItemView extends ItemView {
 				}
 			}),
 		);
+	}
+
+	onPaneMenu(
+		menu: Menu,
+		source: "more-options" | "tab-header" | string,
+	): void {
+		menu.addItem(item => {
+			item
+				.setIcon("link")
+				.setSection("view.linked")
+				.setTitle("Open linked markdown tab")
+				.onClick(() => {
+					this.workspace.getLeaf("split", "horizontal")
+						.setViewState({
+							type: "empty",
+							group: this.leaf,
+						})
+				})
+		});
+		return super.onPaneMenu(menu, source);
 	}
 
 	private openNoteInLinkedLeaf(note: Note) {
