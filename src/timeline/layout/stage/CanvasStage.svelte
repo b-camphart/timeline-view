@@ -276,6 +276,8 @@
 					index,
 					element: elements[index],
 				};
+			} else {
+				focus = null;
 			}
 		}
 		layoutNeeded = true;
@@ -441,10 +443,14 @@
 				}
 				if (focus) {
 					focus.element = elements[focus.index];
-					if (layoutNeeded) {
-						verticalScrollToFocusItem(focus.element);
+					if (!focus.element) {
+						focus = null;
+					} else {
+						if (layoutNeeded) {
+							verticalScrollToFocusItem(focus.element);
+						}
+						focus = focus;
 					}
-					focus = focus;
 				}
 			}
 
