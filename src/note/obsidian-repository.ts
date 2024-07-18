@@ -1,29 +1,51 @@
-import type { MetadataCache, TFile, Vault } from "obsidian";
+import type { FileManager, MetadataCache, TFile, Vault } from "obsidian";
 import type { Note } from "src/note";
-import type { NoteRepository } from "src/note/repository";
-import {
-	EmtpyFilter,
-	MatchNone,
-	parse,
-	type FileFilter,
-} from "obsidian-search";
+import type { MutableNoteRepository } from "src/note/repository";
+import { EmtpyFilter, parse, type FileFilter } from "obsidian-search";
 import { MatchAllEmptyQuery } from "src/obsidian/timeline/settings/filter/DefaultFileFilter";
 import type { NoteFilter } from "src/note/filter";
+import { truncate } from "src/utils/number";
 
-export class ObsidianNoteRepository implements NoteRepository {
-	#files;
+export class ObsidianNoteRepository implements MutableNoteRepository {
+	#vault;
 	#metadata;
+	#files;
 
 	constructor(
-		files: Pick<Vault, "getMarkdownFiles">,
+		vault: Pick<Vault, "getMarkdownFiles" | "create" | "adapter">,
 		metadata: MetadataCache,
+		files: Pick<FileManager, "processFrontMatter">,
 	) {
-		this.#files = files;
+		this.#vault = vault;
 		this.#metadata = metadata;
+		this.#files = files;
+	}
+
+	async createNote(note: {
+		created?: number;
+		modified?: number;
+		properties?: Record<string, unknown>;
+	}): Promise<Note> {
+		let count = 0;
+		let name = "Untitled.md";
+		while (await this.#vault.adapter.exists(name)) {
+			count++;
+			name = `Untitled ${count}.md`;
+		}
+		const tFile = await this.#vault.create(name, "", {
+			ctime: truncate(note.created),
+			mtime: truncate(note.modified),
+		});
+		if (note.properties) {
+			this.#files.processFrontMatter(tFile, frontmatter => {
+				Object.assign(frontmatter, note.properties);
+			});
+		}
+		return new ObsidianNote(tFile, this.#metadata);
 	}
 
 	getNoteForFile(file: TFile): Note {
-		return new ObsidianNote(file, this.#metadata);	
+		return new ObsidianNote(file, this.#metadata);
 	}
 
 	getFileFromNote(note: Note): TFile | null {
@@ -35,7 +57,7 @@ export class ObsidianNoteRepository implements NoteRepository {
 
 	listAll(): Promise<Note[]> {
 		return Promise.resolve(
-			this.#files
+			this.#vault
 				.getMarkdownFiles()
 				.map(tFile => new ObsidianNote(tFile, this.#metadata)),
 		);
@@ -49,7 +71,7 @@ export class ObsidianNoteRepository implements NoteRepository {
 
 		const notes = (
 			await Promise.all(
-				this.#files.getMarkdownFiles().map(async tFile => {
+				this.#vault.getMarkdownFiles().map(async tFile => {
 					if (!(await filter.appliesTo(tFile))) {
 						return new ObsidianNote(tFile, this.#metadata);
 					}
@@ -110,7 +132,7 @@ export class ObsidianNote implements Note {
 	#tFile;
 	#metadata;
 
-	constructor(tFile: TFile, metadata: MetadataCache) {
+	constructor(tFile: TFile, metadata: Pick<MetadataCache, "getFileCache">) {
 		this.#tFile = tFile;
 		this.#metadata = metadata;
 	}
@@ -135,7 +157,7 @@ export class ObsidianNote implements Note {
 		return this.#tFile.stat.mtime;
 	}
 
-	properties(): Record<string, any> {
+	properties(): Record<string, unknown> {
 		return this.#metadata.getFileCache(this.#tFile)?.frontmatter ?? {};
 	}
 }

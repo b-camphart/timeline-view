@@ -1,10 +1,6 @@
 <script lang="ts">
 	import { type TimelineNavigation } from "./controls/TimelineNavigation";
-	import {
-		timelineDateValueDisplay,
-		type TimelineItem,
-		timelineNumericValueDisplay,
-	} from "./Timeline";
+	import { type TimelineItem } from "./Timeline";
 	import { writable as makeWritable, writable } from "svelte/store";
 	import { timelineNavigation } from "./controls/TimelineNavigation";
 	import TimelineRuler from "./layout/ruler/TimelineRuler.svelte";
@@ -16,7 +12,9 @@
 	import TimelineSettings from "./controls/settings/TimelineSettings.svelte";
 
 	export let namespacedWritable: NamespacedWritableFactory<TimelineViewModel>;
-	export let displayPropertyAs: "numeric" | "date";
+	import type { RulerValueDisplay } from "src/timeline/Timeline";
+
+	export let display: RulerValueDisplay;
 
 	const focalValue = namespacedWritable.make("focalValue", 0);
 	const persistedValuePerPixel = namespacedWritable.make("scale", 1);
@@ -105,11 +103,6 @@
 		}
 	}
 
-	$: display =
-		displayPropertyAs === "date"
-			? timelineDateValueDisplay()
-			: timelineNumericValueDisplay();
-
 	let rulerHeight = 0;
 </script>
 
@@ -139,6 +132,7 @@
 		on:zoomOut={({ detail }) => navigation.zoomOut(detail)}
 		on:select
 		on:focus
+		on:create
 	/>
 	<menu class="timeline-controls">
 		<TimelineNavigationControls {navigation} />

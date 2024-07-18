@@ -1,31 +1,31 @@
-import type { TimelineItem } from "../../timeline/Timeline";
-import type { FilePropertySelector } from "./settings/property/NotePropertySelector";
-import type { ItemGroup } from "./settings/groups/FileGroup";
+import type { NoteTimelineValueSelector } from "src/timeline/order/ByNoteProperty";
+import type { ItemGroup } from "../obsidian/timeline/settings/groups/FileGroup";
 import type { Note } from "src/note";
 
-export class TimelineFileItem implements TimelineItem {
+export class TimelineNoteItem {
 	private _group: ItemGroup | undefined;
 
 	constructor(
-		public obsidianFile: Note,
-		private propertySelection: FilePropertySelector,
+		public note: Note,
+		private getValueSelector: (this: void) => NoteTimelineValueSelector,
 	) {
 		this.value = this.#calculateValue;
 	}
 
 	id(): string {
-		return this.obsidianFile.id();
+		return this.note.id();
 	}
 
 	#value: number | undefined;
 	value: () => number;
 
-	#getCachedValue() {
-		return this.#value!!;
+	#getCachedValue(): number {
+		return this.#value!;
 	}
 
-	#calculateValue() {
-		const value = this.propertySelection.selectProperty(this.obsidianFile);
+	#calculateValue(): number {
+		const getValueSelector = this.getValueSelector;
+		const value = getValueSelector().selectValueFromNote(this.note);
 		this.#value = value;
 		this.value = this.#getCachedValue;
 		return value;
@@ -37,7 +37,7 @@ export class TimelineFileItem implements TimelineItem {
 	}
 
 	name(): string {
-		return this.obsidianFile.name();
+		return this.note.name();
 	}
 
 	applyGroup(group: ItemGroup | undefined) {

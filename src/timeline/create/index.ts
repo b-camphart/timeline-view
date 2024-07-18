@@ -1,28 +1,19 @@
-import type { Note } from "src/note";
-import type { NoteProperty } from "src/note/property";
 import type { NoteRepository } from "src/note/repository";
-import {
-	getPropertySelector,
-	type FilePropertySelector,
-} from "src/obsidian/timeline/settings/property/NotePropertySelector";
-import type { TimelinePropertyType } from "src/obsidian/timeline/settings/property/TimelineProperties";
+import type { TimelineNoteOrder } from "../order/ByNoteProperty";
 
 export async function createNewTimeline(
 	notes: NoteRepository,
-	initiallyOrderBy: NoteProperty<TimelinePropertyType>,
+	order: TimelineNoteOrder,
 ): Promise<{ focalValue: number }> {
-	const propertySelector = getPropertySelector(initiallyOrderBy);
+	const allNotes = await notes.listAll();
+	order.sortNotes(allNotes);
 
-	const allNotes = (await notes.listAll()).toSorted(
-		(a, b) =>
-			propertySelector.selectProperty(a) -
-			propertySelector.selectProperty(b),
-	);
+	const firstNote = allNotes.at(0);
+	const lastNote = allNotes.at(-1);
 
-	const minValue =
-		selectPropertyFromNote(propertySelector, allNotes.at(0)) ?? 0;
-	const maxValue =
-		selectPropertyFromNote(propertySelector, allNotes.at(-1)) ?? 0;
+	const minValue = firstNote ? order.selectValueFromNote(firstNote) : 0;
+	const maxValue = lastNote ? order.selectValueFromNote(lastNote) : minValue;
+
 	const range = maxValue - minValue;
 
 	const focalValue = minValue + range / 2;
@@ -30,13 +21,4 @@ export async function createNewTimeline(
 	return {
 		focalValue,
 	};
-}
-
-function selectPropertyFromNote(
-	propertySelector: FilePropertySelector,
-	note: Note | undefined,
-) {
-	if (!note) return undefined;
-
-	return propertySelector.selectProperty(note);
 }

@@ -1,14 +1,13 @@
 <script lang="ts">
 	import TimelineView from "../../timeline/Timeline.svelte";
-	import { TimelineFileItem } from "./TimelineFileItem";
-	import type { TimelineItem } from "../../timeline/Timeline";
-	import {
-		getPropertySelector,
-		type FilePropertySelector,
-	} from "./settings/property/NotePropertySelector";
+	import { TimelineNoteItem } from "../../timeline/TimelineNoteItem";
+	import type {
+		RulerValueDisplay,
+		TimelineItem,
+	} from "../../timeline/Timeline";
 	import { type NamespacedWritableFactory } from "../../timeline/Persistence";
 	import { createEventDispatcher, onMount } from "svelte";
-	import { get, writable } from "svelte/store";
+	import { writable } from "svelte/store";
 	import Groups from "./settings/groups/Groups.svelte";
 	import {
 		makeTimelineItemGroups,
@@ -19,28 +18,28 @@
 	import TimelinePropertySetting from "./settings/property/TimelinePropertySetting.svelte";
 	import type { ObsidianNoteTimelineViewModel } from "./viewModel";
 	import TimelineFilterSetting from "./settings/filter/TimelineFilterSetting.svelte";
-	import { getPropertyDisplayType } from "src/obsidian/timeline/settings/property/display";
 	import type { NotePropertyRepository } from "src/note/property/repository";
-	import { NoteProperty } from "src/note/property";
-	import {
-		isTimelinePropertyType,
-		type TimelinePropertyType,
-	} from "./settings/property/TimelineProperties";
-	import type { NoteRepository } from "src/note/repository";
+	import type { MutableNoteRepository } from "src/note/repository";
 	import type { Note } from "src/note";
+	import {
+		TimelineOrderByNoteProperty,
+		TimelineOrderNoteProperty,
+	} from "src/timeline/order/ByNoteProperty";
 
-	export let notes: Map<string, TimelineFileItem>;
-	export let noteRepository: NoteRepository;
-	export let propertySelection: FilePropertySelector & {
-		selector: FilePropertySelector;
-	};
+	export let noteRepository: MutableNoteRepository;
+	export let notePropertyRepository: NotePropertyRepository;
+
 	export let viewModel: NamespacedWritableFactory<ObsidianNoteTimelineViewModel>;
 	export let isNew: boolean = false;
-	export let notePropertyRepository: NotePropertyRepository;
 
 	const dispatch = createEventDispatcher<{
 		noteSelected: { note: Note; event?: Event };
-		noteFocused: TimelineFileItem | undefined;
+		noteFocused: Note | undefined;
+		createNote: {
+			created?: number;
+			modified?: number;
+			properties?: Record<string, number>;
+		};
 	}>();
 
 	const settings = viewModel.namespace("settings");
@@ -57,7 +56,8 @@
 		),
 	);
 
-	let items: TimelineFileItem[] = [];
+	let itemsById: Map<string, TimelineNoteItem> = new Map();
+	let items: TimelineNoteItem[] = [];
 
 	const groupsNamespace = settings.namespace("groups");
 	const groupsRepo = new GroupRepository(
@@ -102,7 +102,7 @@
 	);
 
 	function openFile(event: Event | undefined, item: TimelineItem) {
-		const note = notes.get(item.id())?.obsidianFile;
+		const note = itemsById.get(item.id())?.note;
 		if (note == null) {
 			return;
 		}
@@ -110,43 +110,54 @@
 		dispatch("noteSelected", { note, event });
 	}
 
+	let order: TimelineOrderByNoteProperty;
+
+	function selectedProperty() {
+		return order.selectedProperty();
+	}
+	async function createItem(item: { value: number }) {
+		const property = order.selectedProperty();
+		let creation;
+		if (property === TimelineOrderNoteProperty.Created) {
+			creation = { created: item.value };
+		} else if (property === TimelineOrderNoteProperty.Modified) {
+			creation = { modified: item.value };
+		} else {
+			creation = {
+				properties: {
+					[property.name()]: property.sanitizeValue(item.value),
+				},
+			};
+		}
+
+		dispatch("createNote", creation);
+	}
+
 	let timelineView: TimelineView;
-	let displayItemsAs: "numeric" | "date" = "date";
+	let display: RulerValueDisplay;
 	onMount(async () => {
+		const orderSettings = viewModel
+			.namespace("settings")
+			.namespace("property");
+
+		order = await TimelineOrderByNoteProperty.create(
+			notePropertyRepository,
+			orderSettings,
+		);
+
+		display = order.selectedProperty().displayAs();
+
 		items = (
 			await Promise.all(
-				Array.from(notes.values()).map(async (item) => {
-					if (await $activeFilter.matches(item.obsidianFile)) {
+				(await noteRepository.listAll()).map(async (note) => {
+					const item = new TimelineNoteItem(note, selectedProperty);
+					itemsById.set(item.id(), item);
+					if (await $activeFilter.matches(item.note)) {
 						return item;
 					}
 				}),
 			)
 		).filter((item) => !!item);
-
-		const orderPropertyName = get(
-			viewModel
-				.namespace("settings")
-				.namespace("property")
-				.make("property", "created"),
-		);
-
-		let orderProperty: NoteProperty<string> | null =
-			await notePropertyRepository.getPropertyByName(orderPropertyName);
-
-		if (!orderProperty || !isTimelinePropertyType(orderProperty.type())) {
-			orderProperty = NoteProperty.Created;
-		}
-
-		propertySelection.selector = getPropertySelector(
-			orderProperty as NoteProperty<TimelinePropertyType>,
-		);
-		displayItemsAs = getPropertyDisplayType(
-			orderProperty as NoteProperty<TimelinePropertyType>,
-		);
-		for (const item of items) {
-			item._invalidateValueCache();
-		}
-		items = items;
 
 		const groups = timelineItemGroups.listGroups();
 		if (groups.length > 0) {
@@ -159,9 +170,9 @@
 			const filteringId = currentFilteringId + 1;
 			currentFilteringId = filteringId;
 			const newItems = [];
-			for (const item of Array.from(notes.values())) {
+			for (const item of Array.from(itemsById.values())) {
 				if (currentFilteringId !== filteringId) break;
-				if (await newFilter.matches(item.obsidianFile)) {
+				if (await newFilter.matches(item.note)) {
 					newItems.push(item);
 				}
 			}
@@ -173,44 +184,58 @@
 		}
 	});
 
-	let groupUpdates: TimelineFileItem[] = [];
-	let itemUpdateTimeout: ReturnType<typeof setTimeout> | undefined;
+	let groupUpdates: TimelineNoteItem[] = [];
+	let scheduledUpdate: ((listener: () => void) => void) | undefined;
 	function scheduleItemUpdate() {
-		if (itemUpdateTimeout != null) return;
+		if (scheduledUpdate != null) return scheduledUpdate;
 
-		itemUpdateTimeout = setTimeout(async () => {
-			itemUpdateTimeout = undefined;
+		let updateListeners: (() => void)[] = [];
+		setTimeout(async () => {
+			scheduledUpdate = undefined;
 			if (groupUpdates.length > 0) {
 				const groups = groupsRepo.list();
-				for (const item of groupUpdates) {
+				const tasks = groupUpdates.map(async (item) => {
 					item._invalidateValueCache();
-					const group = await selectGroupForFile(
-						groups,
-						item.obsidianFile,
-					);
+					const group = await selectGroupForFile(groups, item.note);
 					item.applyGroup(group);
-				}
+				});
 				groupUpdates = [];
+				await Promise.all(tasks);
 			}
 			timelineView?.refresh();
+			updateListeners.forEach((listener) => listener());
 		}, 250);
+
+		scheduledUpdate = (listener) => {
+			updateListeners.push(listener);
+		};
+
+		return scheduledUpdate;
 	}
 
+	async function onItemAdded(item: TimelineNoteItem) {
+		if (await $activeFilter.matches(item.note)) {
+			items.push(item);
+			return scheduleItemUpdate();
+		}
+	}
+
+	function getValueSelector(this: void) {
+		return order.selectedProperty();
+	}
 	export async function addFile(file: Note) {
 		if (timelineView == null) return;
-		const item = new TimelineFileItem(file, propertySelection);
-		notes.set(file.id(), item);
-		if (await $activeFilter.matches(file)) {
-			items.push(item);
-			scheduleItemUpdate();
-		}
+		if (itemsById.has(file.id())) return;
+		const item = new TimelineNoteItem(file, getValueSelector);
+		itemsById.set(file.id(), item);
+		return onItemAdded(item);
 	}
 
 	export function deleteFile(file: Note) {
 		if (timelineView == null) return;
-		const item = notes.get(file.id());
+		const item = itemsById.get(file.id());
 		if (item == null) return;
-		if (notes.delete(file.id())) {
+		if (itemsById.delete(file.id())) {
 			items.remove(item);
 			scheduleItemUpdate();
 		}
@@ -218,7 +243,7 @@
 
 	export async function modifyFile(file: Note) {
 		if (timelineView == null) return;
-		const item = notes.get(file.id());
+		const item = itemsById.get(file.id());
 		if (item == null) return;
 
 		groupUpdates.push(item);
@@ -227,48 +252,51 @@
 
 	export async function renameFile(file: Note, oldPath: string) {
 		if (timelineView == null) return;
-		const item = notes.get(oldPath);
+		const item = itemsById.get(oldPath);
 		if (item == null) return;
-		notes.delete(oldPath);
-		notes.set(file.id(), item);
+		itemsById.delete(oldPath);
+		itemsById.set(file.id(), item);
 
 		groupUpdates.push(item);
 		scheduleItemUpdate();
 	}
 
 	export function focusOnNote(note: Note) {
-		const item = notes.get(note.id());
+		const item = itemsById.get(note.id());
 		if (item == null) return;
 		timelineView?.focusOnItem(item);
 	}
 
-	function onPropertySelected(property: NoteProperty<TimelinePropertyType>) {
-		if (timelineView == null) return;
+	function onPropertySelected(property: TimelineOrderNoteProperty) {
+		order.selectProperty(property);
+		order = order;
 
-		propertySelection.selector = getPropertySelector(property);
-		for (const item of items) {
-			item._invalidateValueCache();
-		}
+		order.sortItems(items);
 		items = items;
 		timelineView.zoomToFit(items);
-		displayItemsAs = getPropertyDisplayType(property);
+		display = property.displayAs();
 	}
 </script>
 
 <TimelineView
 	{items}
 	namespacedWritable={viewModel}
-	displayPropertyAs={displayItemsAs}
+	{display}
 	bind:this={timelineView}
 	on:select={(e) => openFile(e.detail.causedBy, e.detail.item)}
-	on:focus={(e) => dispatch("noteFocused", notes.get(e.detail.id()))}
+	on:focus={(e) =>
+		dispatch("noteFocused", itemsById.get(e.detail.id())?.note)}
+	on:create={(e) => createItem(e.detail)}
 >
 	<svelte:fragment slot="additional-settings">
-		<TimelinePropertySetting
-			viewModel={settings.namespace("property")}
-			properties={notePropertyRepository}
-			on:propertySelected={(event) => onPropertySelected(event.detail)}
-		/>
+		{#if order}
+			<TimelinePropertySetting
+				viewModel={settings.namespace("property")}
+				{order}
+				on:propertySelected={(event) =>
+					onPropertySelected(event.detail)}
+			/>
+		{/if}
 		<TimelineFilterSetting viewModel={settings.namespace("filter")} />
 		<Groups
 			bind:this={groupsView}

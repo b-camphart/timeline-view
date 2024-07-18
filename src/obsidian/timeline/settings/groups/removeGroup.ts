@@ -1,7 +1,6 @@
 import type { TimelineItem } from "src/timeline/Timeline";
-import type { TimelineFileItem } from "../../TimelineFileItem";
+import type { TimelineNoteItem } from "src/timeline/TimelineNoteItem";
 import type { ItemGroup } from "./FileGroup";
-import type { TFile } from "obsidian";
 import { selectGroupForFile } from "./selectGroupForFile";
 import { longProcess } from "../longProcess";
 
@@ -16,7 +15,7 @@ interface Context {
     }
 
     readonly items: {
-        list(): readonly TimelineFileItem[];
+        list(): readonly TimelineNoteItem[];
     }
 }
 
@@ -45,7 +44,7 @@ export async function removeGroup(this: Context, groupId: string, output: Output
     const selectGroup = selectGroupForFile.bind(null, groups)
 
     const process = longProcess(items, async (item) => {
-        const group = await selectGroup(item.obsidianFile)
+        const group = await selectGroup(item.note)
         item.applyGroup(group)
         output.presentRecoloredItem(item)
     })

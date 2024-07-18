@@ -14,16 +14,14 @@ import {
 import { getMetadataTypeManager } from "../MetadataTypeManager";
 import { ObsidianNotePropertyRepository } from "src/note/property/obsidian-repository";
 import { ObsidianNoteRepository } from "src/note/obsidian-repository";
-import { NoteProperty } from "src/note/property";
 import { createNewTimeline } from "src/timeline/create";
 import NoteTimeline from "../timeline/NoteTimeline.svelte";
-import { NoPropertySelector } from "../timeline/settings/property/NotePropertySelector";
-import { TimelineFileItem } from "../timeline/TimelineFileItem";
 import type { Note } from "src/note";
 import { writableProperties } from "src/timeline/Persistence";
 import { workspaceLeafExt } from "../WorkspaceLeaf";
 import { titleEl } from "../ItemVIew";
 import type { ObsidianNoteTimelineViewModel } from "../timeline/viewModel";
+import { TimelineNoteOrder } from "src/timeline/order/ByNoteProperty";
 
 const OBSIDIAN_LEAF_VIEW_TYPE: string = "VIEW_TYPE_TIMELINE_VIEW";
 const LUCID_ICON = "waypoints";
@@ -33,6 +31,7 @@ export default class ObsidianTimelinePlugin extends Plugin {
 		const notes = new ObsidianNoteRepository(
 			this.app.vault,
 			this.app.metadataCache,
+			this.app.fileManager,
 		);
 		const properties = new ObsidianNotePropertyRepository(
 			this.app.vault.adapter,
@@ -45,7 +44,7 @@ export default class ObsidianTimelinePlugin extends Plugin {
 		) => {
 			const timeline = await createNewTimeline(
 				notes,
-				NoteProperty.Created,
+				TimelineNoteOrder.ByNoteCreated,
 			);
 			leaf.setViewState({
 				type: OBSIDIAN_LEAF_VIEW_TYPE,
@@ -254,38 +253,37 @@ class TimelineItemView extends ItemView {
 		source: "more-options" | "tab-header" | string,
 	): void {
 		menu.addItem(item => {
-			item
-				.setIcon("link")
+			item.setIcon("link")
 				.setSection("view.linked")
 				.setTitle("Open linked markdown tab")
 				.onClick(() => {
-					this.workspace.getLeaf("split", "horizontal")
-						.setViewState({
-							type: "empty",
-							group: this.leaf,
-						})
-				})
+					this.workspace.getLeaf("split", "horizontal").setViewState({
+						type: "empty",
+						group: this.leaf,
+					});
+				});
 		});
 		return super.onPaneMenu(menu, source);
 	}
 
-	private openNoteInLinkedLeaf(note: Note) {
+	private openNoteInLinkedLeaf(note: Note): boolean {
 		if (!this.group) {
-			return;
+			return false;
 		}
 		const leavesInGroup = this.workspace.getGroupLeaves(this.group);
 		if (leavesInGroup.length === 1) {
-			return;
+			return false;
 		}
 
 		const file = this.notes.getFileFromNote(note);
 		if (!file) {
-			return;
+			return false;
 		}
 		leavesInGroup.forEach(leaf => {
 			if (leaf === this.leaf) return;
 			leaf.openFile(file);
 		});
+		return true;
 	}
 
 	private computeDisplayText() {
@@ -334,18 +332,6 @@ class TimelineItemView extends ItemView {
 
 		content.createEl("progress");
 
-		const propertySelection = {
-			selector: NoPropertySelector,
-			selectProperty(note: Note) {
-				return this.selector.selectProperty(note);
-			},
-		};
-
-		const notes: Map<string, TimelineFileItem> = new Map();
-		for (const note of await this.notes.listAll()) {
-			notes.set(note.id(), new TimelineFileItem(note, propertySelection));
-		}
-
 		this.initialization?.then(state => {
 			delete this.initialization;
 			content.empty();
@@ -360,9 +346,7 @@ class TimelineItemView extends ItemView {
 			this.component = new NoteTimeline({
 				target: content,
 				props: {
-					notes,
 					noteRepository: this.notes,
-					propertySelection,
 					notePropertyRepository: this.noteProperties,
 					isNew,
 					viewModel: writableProperties(state, (key, newValue) => {
@@ -391,7 +375,16 @@ class TimelineItemView extends ItemView {
 
 			this.component?.$on("noteFocused", event => {
 				if (event.detail) {
-					this.openNoteInLinkedLeaf(event.detail.obsidianFile);
+					this.openNoteInLinkedLeaf(event.detail);
+				}
+			});
+
+			this.component?.$on("createNote", async event => {
+				const note = await this.notes.createNote(event.detail);
+				if (!this.openNoteInLinkedLeaf(note)) {
+					const file = this.notes.getFileFromNote(note);
+					if (!file) return;
+					this.workspace.getLeaf(true).openFile(file);
 				}
 			});
 		});

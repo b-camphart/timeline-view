@@ -5,7 +5,7 @@
 	import type { Scale } from "src/timeline/scale";
 	import Playhead from "./Playhead.svelte";
 
-	export let display: RulerValueDisplay;
+	export let display: RulerValueDisplay | undefined;
 	export let scale: Scale;
 	export let focalValue: number;
 
@@ -17,6 +17,9 @@
 	}>();
 
 	function getLabelCount(stepWidth: number, fullWidth: number) {
+		if (stepWidth === 0) {
+			return 0;
+		}
 		return Math.ceil(fullWidth / stepWidth) + 1;
 	}
 
@@ -24,18 +27,28 @@
 		focalValue: number,
 		scale: Scale,
 		labelStepValue: number,
+		width: number,
 	) {
 		const valueOnLeftSide = focalValue - scale.toValue(width / 2);
+		if (labelStepValue === 0) {
+			return valueOnLeftSide;
+		}
 		return Math.floor(valueOnLeftSide / labelStepValue) * labelStepValue;
 	}
 
-	$: labelStepValue = display.getSmallestLabelStepValue(scale);
+	$: labelStepValue = display?.getSmallestLabelStepValue(scale) ?? 0;
 	$: labelStepWidth = scale.toPixels(labelStepValue);
 	$: labelCount = getLabelCount(labelStepWidth, width);
 
-	$: firstLabelValue = getFirstLabelValue(focalValue, scale, labelStepValue);
+	$: firstLabelValue = getFirstLabelValue(
+		focalValue,
+		scale,
+		labelStepValue,
+		width,
+	);
 
-	$: labels = display.labels(labelCount, labelStepValue, firstLabelValue);
+	$: labels =
+		display?.labels(labelCount, labelStepValue, firstLabelValue) ?? [];
 
 	let mousePosition: { value: string; x: number } | undefined;
 
@@ -51,8 +64,10 @@
 		if (Object.is(value, -0)) {
 			value = 0;
 		}
-		mousePosition = { value: display.displayValue(value), x };
-		dispatch("mouseMeasurement", mousePosition);
+		if (display) {
+			mousePosition = { value: display.displayValue(value), x };
+			dispatch("mouseMeasurement", mousePosition);
+		}
 	}
 
 	function stopMeasureMouseLocation(event: MouseEvent) {
@@ -111,5 +126,10 @@
 		width: 100%;
 		position: relative;
 		overflow-x: hidden;
+	}
+	.ruler :global(.min-height) {
+		position: relative;
+		visibility: hidden;
+		width: 100%;
 	}
 </style>

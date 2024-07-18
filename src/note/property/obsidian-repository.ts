@@ -22,9 +22,6 @@ export class ObsidianNotePropertyRepository implements NotePropertyRepository {
 	async getPropertyByName(
 		name: string,
 	): Promise<NoteProperty<string> | null> {
-		if (name === NoteProperty.Created.name()) return NoteProperty.Created;
-		if (name === NoteProperty.Modified.name()) return NoteProperty.Modified;
-
 		const registeredProperties = await this.#loadRegisteredProperties();
 		return registeredProperties.find(it => it.name() === name) ?? null;
 	}
@@ -37,12 +34,6 @@ export class ObsidianNotePropertyRepository implements NotePropertyRepository {
 
 		if (unregisteredProperties) {
 			const properties: NoteProperty<T>[] = [];
-			if (types.includes(NoteProperty.Created.type() as T)) {
-				properties.push(NoteProperty.Created as NoteProperty<T>);
-			}
-			if (types.includes(NoteProperty.Modified.type() as T)) {
-				properties.push(NoteProperty.Modified as NoteProperty<T>);
-			}
 			for (const property of Object.values(unregisteredProperties)) {
 				if (types.includes(property.type as T)) {
 					properties.push(
@@ -69,10 +60,7 @@ export class ObsidianNotePropertyRepository implements NotePropertyRepository {
 			console.error("[Timline View]", err);
 		}
 
-		const registeredProperties: NoteProperty<string>[] = [
-			NoteProperty.Created,
-			NoteProperty.Modified,
-		];
+		const registeredProperties: NoteProperty<string>[] = [];
 
 		if (!("types" in json)) {
 			return registeredProperties;

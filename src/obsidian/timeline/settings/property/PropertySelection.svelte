@@ -1,27 +1,23 @@
 <script lang="ts">
 	import Select from "src/view/inputs/Select.svelte";
 	import PropertySelectionOption from "./PropertySelectionOption.svelte";
-	import type { NotePropertyRepository } from "src/note/property/repository";
-	import { NoteProperty } from "src/note/property/index";
-	import {
-		TIMELINE_PROPERTY_TYPES,
-		type TimelinePropertyType,
-	} from "./TimelineProperties";
 	import { createEventDispatcher, onMount } from "svelte";
+	import { TimelineOrderByNoteProperty, TimelineOrderNoteProperty } from "src/timeline/order/ByNoteProperty";
 
 	const alwaysAvailableProperties = [
-		NoteProperty.Created,
-		NoteProperty.Modified,
+		TimelineOrderNoteProperty.Created,
+		TimelineOrderNoteProperty.Modified,
 	];
 
-	export let properties: NotePropertyRepository;
-	export let selectedProperty: string;
+	export let order: TimelineOrderByNoteProperty;
+
+	$: selectedProperty = order.selectedProperty().name()
 
 	const dispatch = createEventDispatcher<{
-		selected: NoteProperty<TimelinePropertyType>;
+		selected: TimelineOrderNoteProperty;
 	}>();
 
-	let availableProperties: NoteProperty<TimelinePropertyType>[] =
+	let availableProperties: TimelineOrderNoteProperty[] =
 		alwaysAvailableProperties;
 	$: propertyNames = availableProperties.map((it) => it.name());
 	$: propertyCount = availableProperties.length;
@@ -53,9 +49,7 @@
 	}
 
 	async function getPropertyList() {
-		const propertyList = await properties.listPropertiesOfTypes(
-			TIMELINE_PROPERTY_TYPES,
-		);
+		const propertyList = await order.availableProperties();
 		availableProperties = propertyList;
 		selectedIndex = propertyList.findIndex(
 			(property) => property.name() === selectedProperty,

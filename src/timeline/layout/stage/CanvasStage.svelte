@@ -24,6 +24,7 @@
 		zoomOut: ZoomEvent;
 		select: { item: TimelineItem; causedBy: Event };
 		focus: TimelineItem;
+		create: { value: number };
 	}>();
 
 	export let display: ValueDisplay;
@@ -182,6 +183,18 @@
 			item: hoveredItem,
 			causedBy: event,
 		});
+	}
+
+	function handleDblClick(event: MouseEvent) {
+		if (hover != null) {
+			return;
+		}
+
+		const leftValue = focalValue - scale.toValue(viewport.width / 2);
+		const valueFromLeft = scale.toValue(event.offsetX);
+		const value = leftValue + valueFromLeft;
+
+		dispatch("create", { value });
 	}
 
 	let elements: TimelineItemElement[] = [];
@@ -491,6 +504,7 @@
 		on:mouseleave={() => (hover = null)}
 		on:mousemove={detectHover}
 		on:mousedown={handleClick}
+		on:dblclick={handleDblClick}
 		on:focus={(e) => {
 			if (!focusCausedByClick && focusNextItem()) {
 				e.stopPropagation();
