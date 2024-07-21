@@ -19,14 +19,14 @@
 
 	const dispatch = createEventDispatcher<{
 		remove: null;
-		primeDrag: { offsetX: number, offsetY: number };
+		primeDrag: { offsetX: number; offsetY: number };
 	}>();
 
 	const query = writable(group.query);
 	$: query.set(group.query);
 	query.subscribe((newQuery) => {
 		if (newQuery !== group.query) {
-			groups?.applyFileToGroup(group.id, newQuery)
+			groups?.applyFileToGroup(group.id, newQuery);
 		}
 	});
 
@@ -34,7 +34,7 @@
 	$: color.set(group.color);
 	color.subscribe((newColor) => {
 		if (newColor !== group.color) {
-			groups?.recolorGroup(group.id, newColor)
+			groups?.recolorGroup(group.id, newColor);
 		}
 	});
 
@@ -51,17 +51,19 @@
 		}).observe(element);
 	});
 
-    function primeDrag(event: MouseEvent & { currentTarget: HTMLInputElement }) {
-        const offsetX = event.currentTarget.offsetLeft + event.offsetX
-        const offsetY = event.currentTarget.offsetTop + event.offsetY 
-        dispatch("primeDrag", { offsetX, offsetY })
-    }
+	function primeDrag(
+		event: MouseEvent & { currentTarget: HTMLInputElement },
+	) {
+		const offsetX = event.currentTarget.offsetLeft + event.offsetX;
+		const offsetY = event.currentTarget.offsetTop + event.offsetY;
+		dispatch("primeDrag", { offsetX, offsetY });
+	}
 </script>
 
 <fieldset
 	{style}
 	bind:this={element}
-	class="{dragging ? 'dragging' : ''} {pushDown ? 'pushDown' : ''}"
+	class="group {dragging ? 'dragging' : ''} {pushDown ? 'pushDown' : ''}"
 >
 	<input
 		type="text"
@@ -73,7 +75,7 @@
 		type="color"
 		aria-label={"Click to change color\nDrag to reorder groups"}
 		bind:value={$color}
-        on:mousedown={primeDrag}
+		on:mousedown={primeDrag}
 	/>
 	<ActionButton
 		class="clickable-icon"
@@ -102,7 +104,11 @@
 </fieldset>
 
 <style>
-	fieldset {
+	fieldset.group {
+		margin: 0;
+		border: none;
+	}
+	.group {
 		--swatch-height: 18px;
 		--swatch-width: 18px;
 		position: relative;
@@ -111,13 +117,13 @@
 		padding: 0 0 6px 0;
 		transition: top 200ms ease-in-out;
 	}
-	fieldset.pushDown {
+	.group.pushDown {
 		top: var(--form-height);
 	}
 	input[type="color"] {
 		margin: 0 2px 0 6px;
 	}
-	fieldset > :global(button) {
+	.group > :global(button) {
 		padding: var(--size-2-2) !important;
 	}
 </style>

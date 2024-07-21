@@ -1,5 +1,4 @@
 <script lang="ts">
-	import TimelineControls from "./controls/TimelineControls.svelte";
 	import { type TimelineNavigation } from "./controls/TimelineNavigation";
 	import {
 		timelineDateValueDisplay,
@@ -13,16 +12,14 @@
 	import CanvasStage from "./layout/stage/CanvasStage.svelte";
 	import type { TimelineViewModel } from "./viewModel";
 	import { ValuePerPixelScale, type Scale } from "./scale";
+	import TimelineNavigationControls from "./controls/TimelineNavigationControls.svelte";
+	import TimelineSettings from "./controls/settings/TimelineSettings.svelte";
 
-	export let namespacedWritable:
-		| NamespacedWritableFactory<TimelineViewModel>
-		| undefined = undefined;
+	export let namespacedWritable: NamespacedWritableFactory<TimelineViewModel>;
 	export let displayPropertyAs: "numeric" | "date";
 
-	const focalValue =
-		namespacedWritable?.make("focalValue", 0) ?? makeWritable(0);
-	const persistedValuePerPixel =
-		namespacedWritable?.make("scale", 1) ?? makeWritable(1);
+	const focalValue = namespacedWritable.make("focalValue", 0);
+	const persistedValuePerPixel = namespacedWritable.make("scale", 1);
 
 	let unsortedItems: TimelineItem[] = [];
 	export { unsortedItems as items };
@@ -31,6 +28,7 @@
 	$: sortedItems = unsortedItems.toSorted((a, b) => a.value() - b.value());
 
 	const stageWidth = writable(0);
+	let stageClientWidth = 0;
 
 	function scaleStore(initialScale: Scale = new ValuePerPixelScale(1)) {
 		function atLeastMinimum(value: Scale) {
@@ -111,10 +109,21 @@
 		displayPropertyAs === "date"
 			? timelineDateValueDisplay()
 			: timelineNumericValueDisplay();
+
+	let rulerHeight = 0;
 </script>
 
-<div class="timeline">
-	<TimelineRuler {display} scale={$scale} focalValue={$focalValue} />
+<div
+	class="timeline"
+	style:--ruler-height="{rulerHeight}px"
+	style:--stage-client-width="{stageClientWidth}px"
+>
+	<TimelineRuler
+		{display}
+		scale={$scale}
+		focalValue={$focalValue}
+		bind:clientHeight={rulerHeight}
+	/>
 	<CanvasStage
 		bind:this={canvasStage}
 		{display}
@@ -122,6 +131,7 @@
 		scale={$scale}
 		focalValue={$focalValue}
 		bind:width={$stageWidth}
+		bind:clientWidth={stageClientWidth}
 		on:scrollToValue={(event) => navigation.scrollToValue(event.detail)}
 		on:scrollX={({ detail }) =>
 			navigation.scrollToValue($focalValue + detail)}
@@ -130,29 +140,77 @@
 		on:select
 		on:focus
 	/>
-	<TimelineControls
-		namespacedWritable={namespacedWritable?.namespace("settings")}
-		{navigation}
-	>
-		<svelte:fragment slot="additional-settings">
+	<menu class="timeline-controls">
+		<TimelineNavigationControls {navigation} />
+		<TimelineSettings
+			namespacedWritable={namespacedWritable.namespace("settings")}
+		>
 			<slot name="additional-settings" />
-		</svelte:fragment>
-	</TimelineControls>
+		</TimelineSettings>
+	</menu>
 </div>
 
 <style>
-	.timeline {
-		height: 100%;
-		--point-radius: 8px;
-		--point-diameter: calc(var(--point-radius) * 2);
-		--timeline-stage-side-padding: 32px;
+	@property --timeline-background {
+		syntax: "<color>";
+		inherits: true;
+		initial-value: darkgrey;
+	}
+
+	:global(.timeline) {
+		background-color: var(--timeline-background);
+	}
+
+	/*! Positioning */
+	:global(.timeline-controls) {
+		position: absolute;
+		top: var(--ruler-height);
+		margin-top: var(--size-4-2);
+		right: calc(100% - var(--stage-client-width));
+	}
+	/*! Icon sizing */
+	:global(.timeline-controls) {
+		--icon-size: var(--icon-s);
+		--icon-stroke: var(--icon-s-stroke-width);
+	}
+	/*! Menu padding overrides  */
+	:global(menu.timeline-controls) {
+		padding: 0;
+	}
+
+	/*! Internal layout */
+	:global(.timeline-controls) {
 		display: flex;
 		flex-direction: column;
+		gap: var(--size-4-2);
+		align-items: flex-end;
 	}
-	.timeline :global(.ruler) {
-		flex-grow: 0;
+	:global(.timeline-controls > *) {
+		margin: 0;
 	}
-	.timeline :global(.stage) {
-		flex-grow: 1;
+
+	/*! Item styling */
+	:global(.timeline-controls > *) {
+		border-radius: var(--radius-s);
+		background-color: var(--timeline-settings-background);
+		border: 1px solid var(--background-modifier-border);
+		box-shadow: var(--input-shadow);
+		box-sizing: border-box;
+	}
+	:global(.timeline-controls > * > *) {
+		background-color: var(--timeline-settings-background);
+	}
+
+	div menu {
+		pointer-events: none;
+	}
+	div menu > :global(*) {
+		pointer-events: all;
+	}
+
+	div {
+		height: 100%;
+		display: flex;
+		flex-direction: column;
 	}
 </style>

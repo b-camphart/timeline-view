@@ -4,8 +4,6 @@
 	import type { TimelineNavigation } from "./TimelineNavigation";
 
 	export let navigation: TimelineNavigation;
-	let className: string = "";
-	export { className as class };
 
 	function triggerZoomIn() {
 		navigation.zoomIn();
@@ -28,9 +26,13 @@
 	}
 </script>
 
-<menu class="timeline-navigation-controls {className ?? ''}">
+<menu class="timeline-navigation-controls">
 	<li class="control-item">
-		<ActionButton aria-label="Zoom In" on:action={triggerZoomIn}>
+		<ActionButton
+			aria-label="Zoom In"
+			on:action={triggerZoomIn}
+			class="clickable-icon"
+		>
 			<SvgIcon>
 				<line x1="12" y1="5" x2="12" y2="19" />
 				<line x1="5" y1="12" x2="19" y2="12" />
@@ -38,14 +40,22 @@
 		</ActionButton>
 	</li>
 	<li class="control-item">
-		<ActionButton aria-label="Zoom Out" on:action={triggerZoomOut}>
+		<ActionButton
+			aria-label="Zoom Out"
+			on:action={triggerZoomOut}
+			class="clickable-icon"
+		>
 			<SvgIcon>
 				<line x1="5" y1="12" x2="19" y2="12" />
 			</SvgIcon>
 		</ActionButton>
 	</li>
 	<li class="control-item">
-		<ActionButton aria-label="Zoom to Fit" on:action={triggerZoomToFit}>
+		<ActionButton
+			aria-label="Zoom to Fit"
+			on:action={triggerZoomToFit}
+			class="clickable-icon"
+		>
 			<SvgIcon>
 				<path d="M8 3H5a2 2 0 0 0-2 2v3" />
 				<path d="M21 8V5a2 2 0 0 0-2-2h-3" />
@@ -58,6 +68,7 @@
 		<ActionButton
 			aria-label="Scroll to Zero"
 			on:action={triggerScrollToZero}
+			class="clickable-icon"
 		>
 			<SvgIcon>
 				<path d="M3 19V5" />
@@ -70,6 +81,7 @@
 		<ActionButton
 			aria-label="Scroll to First"
 			on:action={triggerScrollToFirst}
+			class="clickable-icon"
 		>
 			<SvgIcon>
 				<path d="m12 19-7-7 7-7" />
@@ -80,7 +92,24 @@
 </menu>
 
 <style>
-	li.control-item {
+	:global(menu.timeline-navigation-controls) {
+		padding: 0;
+	}
+	:global(.timeline-navigation-controls) {
+		overflow: hidden;
+		background-color: var(--timeline-settings-background);
+	}
+	:global(menu.timeline-navigation-controls li.control-item) {
 		list-style-type: none;
+	}
+
+	:global(.timeline-navigation-controls .control-item button) {
+		padding: var(--timeline-settings-button-padding);
+		border-bottom: 1px solid var(--background-modifier-border);
+		border-radius: 0;
+		background-color: var(--interactive-normal);
+	}
+	:global(.timeline-navigation-controls .control-item:last-child button) {
+		border-bottom: none;
 	}
 </style>

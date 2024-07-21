@@ -20,12 +20,9 @@
 </script>
 
 <CollapsableSection name="Property" bind:collapsed={$collapsed}>
-	<Row>
-		<label for="orderPropertySelect">Name</label>
-		<PropertySelection
-			{properties}
-			bind:selectedProperty={$property}
-			on:selected={(event) => dispatch("propertySelected", event.detail)}
-		/>
-	</Row>
+	<PropertySelection
+		{properties}
+		bind:selectedProperty={$property}
+		on:selected={(event) => dispatch("propertySelected", event.detail)}
+	/>
 </CollapsableSection>

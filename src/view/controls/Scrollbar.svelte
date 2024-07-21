@@ -192,7 +192,7 @@
 <div
 	{...$$restProps}
 	role="scrollbar"
-	class:unneeded={Math.abs(percent - 1) < 0.00000000001}
+	class:unneeded={percent >= 0.99999999999}
 	aria-orientation={orientation}
 	aria-controls={controls}
 	aria-valuenow={value}

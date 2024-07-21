@@ -31,6 +31,8 @@
 	export let scale: Scale;
 	export let focalValue: number;
 	export let width: number = 0;
+	export let clientWidth: number = 0;
+	export let clientHeight: number = 0;
 
 	let canvas: HTMLCanvasElement | undefined;
 	const pointElements: (HTMLDivElement | undefined)[] = [
@@ -306,10 +308,12 @@
 	let scrollbarMeasurerInnerWidth: number = 0;
 	$: scrollbarWidth =
 		scrollbarMeasurerFullWidth - scrollbarMeasurerInnerWidth;
+	$: clientWidth = viewport.width - scrollbarWidth;
 	let scrollbarMeasurerFullHeight: number = 0;
 	let scrollbarMeasurerInnerHeight: number = 0;
 	$: scrollbarHeight =
 		scrollbarMeasurerFullHeight - scrollbarMeasurerInnerHeight;
+	$: clientHeight = viewport.height - scrollbarHeight;
 
 	let hScrollValue = 0;
 	let visibleHAmount = viewport.width;
@@ -469,23 +473,12 @@
 	});
 </script>
 
-<div
-	id="stage"
-	class="stage"
-	bind:this={stageCSSTarget}
-	class:has-hover={hover != null}
->
-	<div
-		class="timeline-point"
-		bind:this={pointElements[0]}
-		style="float: left;"
-	></div>
-	<div
-		class="timeline-point"
-		bind:this={pointElements[1]}
-		style="clear: right;"
-	></div>
-	<div class="timeline-point" bind:this={pointElements[2]}></div>
+<div id="stage" bind:this={stageCSSTarget} class:has-hover={hover != null}>
+	<div style="display: flex;flex-direction: row;">
+		<div class="timeline-item" bind:this={pointElements[0]}></div>
+		<div class="timeline-item" bind:this={pointElements[1]}></div>
+	</div>
+	<div class="timeline-item" bind:this={pointElements[2]}></div>
 	<div
 		class="bottom-right-padding-measure"
 		bind:offsetWidth={innerWidth}
@@ -495,6 +488,7 @@
 		bind:this={canvas}
 		tabindex={0}
 		on:wheel|stopPropagation|capture={handleScroll}
+		on:mouseleave={() => (hover = null)}
 		on:mousemove={detectHover}
 		on:mousedown={handleClick}
 		on:focus={(e) => {
@@ -546,7 +540,7 @@
 		}}
 	/>
 	{#if hover != null}
-		<Hover {hover} {display} stage={stageCSSTarget} />
+		<Hover {hover} {display} />
 	{/if}
 	{#if focus != null}
 		<FocusedItem focus={focus.element} />
@@ -595,30 +589,51 @@
 ></div>
 
 <style>
+	@property --timeline-item-color {
+		syntax: "<color>";
+		initial-value: grey;
+		inherits: true;
+	}
+	@property --timeline-item-size {
+		syntax: "<length>";
+		initial-value: 16px;
+		inherits: true;
+	}
+	@property --timeline-item-margin {
+		syntax: "<length>";
+		initial-value: 4px;
+		inherits: true;
+	}
+
+	:global(.timeline-item) {
+		background-color: var(--timeline-item-color);
+		margin: var(--timeline-item-margin, 4px);
+	}
+
+	div#stage {
+		--timeline-item-diameter: var(--timeline-item-size);
+		--timeline-item-radius: calc(var(--timeline-item-diameter) / 2);
+
+		flex-grow: 1;
+		position: relative;
+		padding: var(--timeline-padding);
+		--scrollbar-width: var(--size-4-1);
+	}
+	div#stage.has-hover {
+		cursor: pointer;
+	}
+
 	canvas {
 		position: absolute;
 		top: 0;
 		left: 0;
 	}
-	.stage.has-hover {
-		cursor: pointer;
-	}
-	.stage {
-		position: relative;
-		padding: var(--timeline-stage-side-padding);
-		--scrollbar-width: var(--size-4-1);
-	}
-	.stage .timeline-point {
+	div#stage .timeline-item {
 		visibility: hidden !important;
+		width: var(--timeline-item-diameter);
+		height: var(--timeline-item-diameter);
 	}
-
-	.timeline-point {
-		border-radius: 50%;
-		width: var(--point-diameter);
-		height: var(--point-diameter);
-		margin: var(--margin-between-points, 4px);
-	}
-	.stage .bottom-right-padding-measure {
+	div#stage .bottom-right-padding-measure {
 		width: 1005;
 		height: 100%;
 		visibility: hidden !important;
@@ -637,15 +652,15 @@
 		visibility: hidden;
 	}
 
-	.stage :global([role="scrollbar"]) {
+	div#stage :global([role="scrollbar"]) {
 		position: absolute;
 	}
-	.stage :global([role="scrollbar"][aria-orientation="horizontal"]) {
+	div#stage :global([role="scrollbar"][aria-orientation="horizontal"]) {
 		bottom: 0;
 		left: 0;
 		width: 100%;
 	}
-	.stage :global([role="scrollbar"][aria-orientation="vertical"]) {
+	div#stage :global([role="scrollbar"][aria-orientation="vertical"]) {
 		top: 0;
 		right: 0;
 		height: 100%;

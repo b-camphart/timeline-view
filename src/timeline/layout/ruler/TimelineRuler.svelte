@@ -3,12 +3,15 @@
 	import { type RulerValueDisplay } from "../../Timeline";
 	import RulerLabel from "./RulerLabel.svelte";
 	import type { Scale } from "src/timeline/scale";
+	import Playhead from "./Playhead.svelte";
 
 	export let display: RulerValueDisplay;
 	export let scale: Scale;
 	export let focalValue: number;
 
 	let width: number = 0;
+	let height: number = 0;
+	export { height as clientHeight };
 	const dispatch = createEventDispatcher<{
 		mouseMeasurement: { value: string; x: number } | undefined;
 	}>();
@@ -36,13 +39,12 @@
 
 	let mousePosition: { value: string; x: number } | undefined;
 
-	function onMeasureMouseLocation(event: MouseEvent) {
-		const maybeRuler = event.currentTarget as HTMLElement;
-		if (maybeRuler == null || !("getBoundingClientRect" in maybeRuler)) {
-			return;
-		}
-		let currentTargetRect = maybeRuler.getBoundingClientRect();
-		const x = event.pageX - currentTargetRect.left;
+	function onMeasureMouseLocation(
+		event: MouseEvent & { currentTarget: HTMLDivElement },
+	) {
+		const x =
+			event.clientX - event.currentTarget.getBoundingClientRect().left;
+
 		const distanceToCenter = width / 2 - x;
 
 		let value = Math.floor(focalValue - scale.toValue(distanceToCenter));
@@ -57,15 +59,14 @@
 		mousePosition = undefined;
 		dispatch("mouseMeasurement", mousePosition);
 	}
-
-	let mousePositionTooltipWidth: number;
 </script>
 
 <div
 	class="ruler"
 	style="--label-width:{labelStepWidth}px;"
 	bind:clientWidth={width}
-	on:mousemove|capture={onMeasureMouseLocation}
+	bind:clientHeight={height}
+	on:mousemove={onMeasureMouseLocation}
 	on:mouseleave={stopMeasureMouseLocation}
 	role="slider"
 	aria-valuemin={Number.NEGATIVE_INFINITY}
@@ -73,7 +74,14 @@
 	aria-valuenow={focalValue}
 	tabindex="0"
 >
-	<RulerLabel class="measurement" text={"1234567890-:/APM"} position={0} />
+	{#if mousePosition != null}
+		<Playhead x={mousePosition.x} label={mousePosition.value} />
+	{/if}
+	<RulerLabel
+		text={"1234567890-:/APM"}
+		position={0}
+		style="position:relative;visibility:hidden;"
+	/>
 	{#each labels as label (label.value)}
 		<RulerLabel
 			text={label.text}
@@ -81,35 +89,27 @@
 		/>
 	{/each}
 </div>
-{#if mousePosition != null}
-	<div
-		class="mouse-position-tooltip"
-		bind:clientWidth={mousePositionTooltipWidth}
-		style="right:{Math.min(
-			width - mousePosition.x,
-			width - mousePositionTooltipWidth,
-		)}px;"
-	>
-		{mousePosition.value}
-	</div>
-{/if}
 
 <style>
-	.mouse-position-tooltip {
-		top: 0;
-		position: absolute;
-		pointer-events: none;
-		display: block;
-		white-space: nowrap;
+	@property --timeline-ruler-background {
+		syntax: "<color>";
+		inherits: true;
 	}
-	.ruler {
+	@property --timeline-ruler-size {
+		syntax: "<length>";
+		inherits: true;
+	}
+
+	:global(.ruler) {
+		background-color: var(
+			--timeline-ruler-background,
+			var(--timeline-background)
+		);
+		height: var(--timeline-ruler-size, auto);
+	}
+	div {
 		width: 100%;
 		position: relative;
 		overflow-x: hidden;
-	}
-	.ruler :global(.measurement) {
-		position: relative;
-		visibility: hidden;
-		width: 100%;
 	}
 </style>

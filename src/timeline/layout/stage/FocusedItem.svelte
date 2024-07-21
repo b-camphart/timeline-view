@@ -1,24 +1,29 @@
 <script lang="ts">
-	import type { TimelineItem } from "src/timeline/Timeline";
-
 	export let focus: {
 		offsetTop: number;
 		offsetLeft: number;
-		offsetBottom: number;
-		offsetCenterX: number;
-		layoutItem: {
-			item: TimelineItem;
-		};
 	};
 </script>
 
 <div
-	class="timeline-point focus"
+	class="timeline-item focus"
 	style="top: {focus.offsetTop}px; left: {focus.offsetLeft}px;"
-></div>
+/>
 
 <style>
-	.timeline-point.focus {
+	:global(.timeline-item.focus) {
+		border: 2px solid var(--timeline-item-border-focused);
+		border-radius: 4px;
+		box-sizing: content-box;
+		translate: -2px -2px;
+
+		background-color: var(--timeline-item-color-focused);
+	}
+
+	div {
+		width: var(--timeline-item-diameter);
+		height: var(--timeline-item-diameter);
+
 		position: absolute;
 		margin: 0;
 		pointer-events: none;
