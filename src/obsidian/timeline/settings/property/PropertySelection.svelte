@@ -2,7 +2,10 @@
 	import Select from "src/view/inputs/Select.svelte";
 	import PropertySelectionOption from "./PropertySelectionOption.svelte";
 	import { createEventDispatcher, onMount } from "svelte";
-	import { TimelineOrderByNoteProperty, TimelineOrderNoteProperty } from "src/timeline/order/ByNoteProperty";
+	import {
+		TimelineOrderByNoteProperty,
+		TimelineOrderNoteProperty,
+	} from "src/timeline/order/ByNoteProperty";
 
 	const alwaysAvailableProperties = [
 		TimelineOrderNoteProperty.Created,
@@ -10,8 +13,9 @@
 	];
 
 	export let order: TimelineOrderByNoteProperty;
+	export let tabindex: number;
 
-	$: selectedProperty = order.selectedProperty().name()
+	$: selectedProperty = order.selectedProperty().name();
 
 	const dispatch = createEventDispatcher<{
 		selected: TimelineOrderNoteProperty;
@@ -67,6 +71,7 @@
 
 <Select
 	class="timeline-property-select"
+	{tabindex}
 	{selectedIndex}
 	itemCount={propertyCount}
 	bind:this={selectView}
@@ -95,6 +100,7 @@
 <style>
 	:global(.timeline-property-select) {
 		width: 100%;
+		margin-block: var(--size-2-3);
 	}
 	:global(.timeline-property-select::before) {
 		content: " ";

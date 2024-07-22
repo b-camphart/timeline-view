@@ -2,7 +2,7 @@ import type { NoteProperty } from "src/note/property";
 import type { NotePropertyRepository } from "src/note/property/repository";
 import type { Note } from "src/note";
 import type { NoteSorter } from "src/note/order";
-import { get, type Writable } from "svelte/store";
+import { get } from "svelte/store";
 import type { TimelineNoteItem } from "src/timeline/TimelineNoteItem";
 import {
 	timelineDateValueDisplay,
@@ -290,11 +290,10 @@ export class TimelineOrderNoteProperty implements NoteTimelineValueSelector {
 	}
 
 	sanitizeValue(value: number): number {
-		if (this.#type !== TimelineOrderPropertyType.Number) {
-			return value;
-		}
-
-		if (!this.#preferInt) {
+		if (
+			!this.#preferInt &&
+			this.#type === TimelineOrderPropertyType.Number
+		) {
 			return value;
 		}
 

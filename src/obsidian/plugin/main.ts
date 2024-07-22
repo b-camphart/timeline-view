@@ -22,6 +22,7 @@ import { workspaceLeafExt } from "../WorkspaceLeaf";
 import { titleEl } from "../ItemVIew";
 import type { ObsidianNoteTimelineViewModel } from "../timeline/viewModel";
 import { TimelineNoteOrder } from "src/timeline/order/ByNoteProperty";
+import { writable } from "svelte/store";
 
 const OBSIDIAN_LEAF_VIEW_TYPE: string = "VIEW_TYPE_TIMELINE_VIEW";
 const LUCID_ICON = "waypoints";
@@ -248,10 +249,32 @@ class TimelineItemView extends ItemView {
 		);
 	}
 
+	private $mode: "view" | "edit" = "edit";
+	private mode = writable(this.$mode);
+
 	onPaneMenu(
 		menu: Menu,
 		source: "more-options" | "tab-header" | string,
 	): void {
+		if (this.$mode === "edit") {
+			menu.addItem(item => {
+				item.setIcon("book-open")
+					.setSection("pane")
+					.setTitle("View-only timeline")
+					.onClick(() => {
+						this.mode.set("view");
+					});
+			});
+		} else if (this.$mode === "view") {
+			menu.addItem(item => {
+				item.setIcon("edit-3")
+					.setSection("pane")
+					.setTitle("Edit timeline")
+					.onClick(() => {
+						this.mode.set("edit");
+					});
+			});
+		}
 		menu.addItem(item => {
 			item.setIcon("link")
 				.setSection("view.linked")
@@ -343,17 +366,36 @@ class TimelineItemView extends ItemView {
 			const isNew = state.isNew;
 			delete state.isNew;
 
+			const viewModel = writableProperties(state, (key, newValue) => {
+				state[key] = newValue;
+				this.displayText = this.computeDisplayText();
+				this.workspace.requestSaveLayout();
+			});
+
+			this.mode = viewModel.make("mode", this.$mode);
+			const switchToViewMode = this.addAction(
+				"book-open",
+				"Current view: editing\nClick to view-only",
+				() => this.mode.set("view"),
+			);
+			const switchToEditMode = this.addAction(
+				"edit-3",
+				"Current view: view-only\nClick to edit",
+				() => this.mode.set("edit"),
+			);
+			this.mode.subscribe(newMode => {
+				this.$mode = newMode;
+				switchToViewMode.toggle(newMode === "edit");
+				switchToEditMode.toggle(newMode === "view");
+			});
+
 			this.component = new NoteTimeline({
 				target: content,
 				props: {
 					noteRepository: this.notes,
 					notePropertyRepository: this.noteProperties,
 					isNew,
-					viewModel: writableProperties(state, (key, newValue) => {
-						state[key] = newValue;
-						this.displayText = this.computeDisplayText();
-						this.workspace.requestSaveLayout();
-					}),
+					viewModel,
 				},
 			});
 
@@ -385,6 +427,26 @@ class TimelineItemView extends ItemView {
 					const file = this.notes.getFileFromNote(note);
 					if (!file) return;
 					this.workspace.getLeaf(true).openFile(file);
+				}
+			});
+
+			this.component?.$on("modifyNote", async event => {
+				const note = event.detail.note;
+				if ("created" in event.detail.modification) {
+					await this.notes.modifyNote(note, {
+						created: event.detail.modification.created,
+					});
+				} else if ("modified" in event.detail.modification) {
+					await this.notes.modifyNote(note, {
+						modified: event.detail.modification.modified,
+					});
+				} else {
+					await this.notes.modifyNote(note, {
+						property: {
+							[event.detail.modification.property.name]:
+								event.detail.modification.property.value,
+						},
+					});
 				}
 			});
 		});

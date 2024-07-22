@@ -10,10 +10,9 @@
 	import { ValuePerPixelScale, type Scale } from "./scale";
 	import TimelineNavigationControls from "./controls/TimelineNavigationControls.svelte";
 	import TimelineSettings from "./controls/settings/TimelineSettings.svelte";
-
-	export let namespacedWritable: NamespacedWritableFactory<TimelineViewModel>;
 	import type { RulerValueDisplay } from "src/timeline/Timeline";
 
+	export let namespacedWritable: NamespacedWritableFactory<TimelineViewModel>;
 	export let display: RulerValueDisplay;
 
 	const focalValue = namespacedWritable.make("focalValue", 0);
@@ -21,6 +20,15 @@
 
 	let unsortedItems: TimelineItem[] = [];
 	export { unsortedItems as items };
+
+	export let onPreviewNewItemValue: (
+		item: TimelineItem,
+		value: number,
+	) => number = (_, value) => value;
+	export let onMoveItem: (
+		item: TimelineItem,
+		value: number,
+	) => boolean = () => true;
 
 	let sortedItems: TimelineItem[] = [];
 	$: sortedItems = unsortedItems.toSorted((a, b) => a.value() - b.value());
@@ -103,7 +111,19 @@
 		}
 	}
 
+	function moveItem(
+		event: CustomEvent<{ item: TimelineItem; value: number }>,
+	) {
+		if (!onMoveItem(event.detail.item, event.detail.value)) {
+			return;
+		}
+
+		event.detail.item.value = () => event.detail.value;
+		sortedItems = sortedItems.toSorted((a, b) => a.value() - b.value());
+	}
+
 	let rulerHeight = 0;
+	$: mode = namespacedWritable?.make("mode", "edit");
 </script>
 
 <div
@@ -125,6 +145,7 @@
 		focalValue={$focalValue}
 		bind:width={$stageWidth}
 		bind:clientWidth={stageClientWidth}
+		editable={mode != null ? $mode === "edit" : false}
 		on:scrollToValue={(event) => navigation.scrollToValue(event.detail)}
 		on:scrollX={({ detail }) =>
 			navigation.scrollToValue($focalValue + detail)}
@@ -133,6 +154,8 @@
 		on:select
 		on:focus
 		on:create
+		on:moveItem={moveItem}
+		{onPreviewNewItemValue}
 	/>
 	<menu class="timeline-controls">
 		<TimelineNavigationControls {navigation} />

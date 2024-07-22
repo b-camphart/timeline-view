@@ -40,6 +40,13 @@
 			modified?: number;
 			properties?: Record<string, number>;
 		};
+		modifyNote: {
+			note: Note;
+			modification:
+				| { created: number }
+				| { modified: number }
+				| { property: { name: string; value: number } };
+		};
 	}>();
 
 	const settings = viewModel.namespace("settings");
@@ -131,6 +138,47 @@
 		}
 
 		dispatch("createNote", creation);
+	}
+
+	function moveItem(item: TimelineItem, value: number) {
+		const noteItem = itemsById.get(item.id());
+		if (noteItem == null) {
+			return false;
+		}
+
+		const property = order.selectedProperty();
+		value = property.sanitizeValue(value);
+
+		if (property === TimelineOrderNoteProperty.Created) {
+			return dispatch(
+				"modifyNote",
+				{
+					note: noteItem.note,
+					modification: { created: value },
+				},
+				{ cancelable: true },
+			);
+		} else if (property === TimelineOrderNoteProperty.Modified) {
+			return dispatch(
+				"modifyNote",
+				{
+					note: noteItem.note,
+					modification: { modified: value },
+				},
+				{ cancelable: true },
+			);
+		} else {
+			return dispatch(
+				"modifyNote",
+				{
+					note: noteItem.note,
+					modification: {
+						property: { name: property.name(), value: value },
+					},
+				},
+				{ cancelable: true },
+			);
+		}
 	}
 
 	let timelineView: TimelineView;
@@ -276,6 +324,10 @@
 		timelineView.zoomToFit(items);
 		display = property.displayAs();
 	}
+
+	function onPreviewNewItemValue(item: TimelineItem, value: number): number {
+		return order.selectedProperty().sanitizeValue(value);
+	}
 </script>
 
 <TimelineView
@@ -287,6 +339,8 @@
 	on:focus={(e) =>
 		dispatch("noteFocused", itemsById.get(e.detail.id())?.note)}
 	on:create={(e) => createItem(e.detail)}
+	onMoveItem={moveItem}
+	{onPreviewNewItemValue}
 >
 	<svelte:fragment slot="additional-settings">
 		{#if order}

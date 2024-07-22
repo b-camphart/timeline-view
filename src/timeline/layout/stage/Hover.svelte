@@ -1,20 +1,17 @@
 <script lang="ts">
-	import type { TimelineItem, ValueDisplay } from "src/timeline/Timeline";
+	import type { ValueDisplay } from "src/timeline/Timeline";
 	import { hoverTooltip } from "src/view/Tooltip";
 	import { fade } from "svelte/transition";
 
-	export let hover: {
-		element: {
-			offsetTop: number;
-			offsetLeft: number;
-			layoutItem: {
-				item: TimelineItem;
-			};
-		};
-	};
 	export let display: ValueDisplay;
+	export let position: {
+		offsetTop: number;
+		offsetLeft: number;
+	};
+	export let name: string;
+	export let value: number;
 
-	$: label = `${hover.element.layoutItem.item.name()}: ${display.displayValue(hover.element.layoutItem.item.value())}`;
+	$: label = `${name}: ${display.displayValue(value)}`;
 
 	let hovered = false;
 </script>
@@ -30,8 +27,8 @@
 	on:outrostart={() => (hovered = false)}
 	class="timeline-item hover"
 	aria-label={label}
-	style:top="{hover.element.offsetTop}px"
-	style:left="{hover.element.offsetLeft}px"
+	style:top="{position.offsetTop}px"
+	style:left="{position.offsetLeft}px"
 />
 
 <style>

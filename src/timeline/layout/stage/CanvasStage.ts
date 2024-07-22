@@ -2,6 +2,8 @@ import type { Scale } from "src/timeline/scale";
 import type { TimelineItem } from "../../Timeline";
 import { TimelineLayoutItem, type OffsetBox } from "./TimelineItemElement";
 
+export type BackgroundColor = string | CanvasGradient | CanvasPattern;
+
 export function renderLayout(
 	context: CanvasRenderingContext2D,
 	viewport: {
@@ -11,7 +13,8 @@ export function renderLayout(
 	point: {
 		width: number;
 	},
-	layout: readonly (OffsetBox & { backgroundColor?: string })[],
+	layout: readonly (OffsetBox & { backgroundColor?: BackgroundColor })[],
+	dragPreview: (OffsetBox & { backgroundColor?: BackgroundColor }) | null,
 ) {
 	const pointRadius = point.width / 2;
 	const PI2 = 2 * Math.PI;
@@ -49,13 +52,28 @@ export function renderLayout(
 	}
 	context.closePath();
 	context.fill();
+
+	if (dragPreview) {
+		context.beginPath();
+		context.fillStyle = dragPreview.backgroundColor ?? defaultColor;
+		context.moveTo(dragPreview.offsetRight, dragPreview.offsetTop);
+		context.arc(
+			dragPreview.offsetCenterX,
+			dragPreview.offsetCenterY,
+			pointRadius,
+			0,
+			PI2,
+		);
+		context.closePath();
+		context.fill();
+	}
 }
 
 export function layoutPoints(
 	viewport: {
 		padding: {
 			top: number;
-		}
+		};
 	},
 	point: {
 		width: number;

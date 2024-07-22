@@ -5,6 +5,7 @@
 	import {
 		TimelineItemElement,
 		TimelineLayoutItem,
+		type OffsetBox,
 	} from "src/timeline/layout/stage/TimelineItemElement";
 	import { type Scale } from "src/timeline/scale";
 	import Scrollbar from "src/view/controls/Scrollbar.svelte";
@@ -25,6 +26,8 @@
 		select: { item: TimelineItem; causedBy: Event };
 		focus: TimelineItem;
 		create: { value: number };
+		/** Cancelable.  Called just before 'on:itemMoved' */
+		moveItem: { item: TimelineItem; value: number };
 	}>();
 
 	export let display: ValueDisplay;
@@ -34,6 +37,11 @@
 	export let width: number = 0;
 	export let clientWidth: number = 0;
 	export let clientHeight: number = 0;
+	export let editable: boolean;
+	export let onPreviewNewItemValue: (
+		item: TimelineItem,
+		value: number,
+	) => number = (_, value) => value;
 
 	let canvas: HTMLCanvasElement | undefined;
 	const pointElements: (HTMLDivElement | undefined)[] = [
@@ -166,7 +174,16 @@
 	}
 
 	let focusCausedByClick = false;
-	function handleClick(event: MouseEvent) {
+	let mouseDownOn: TimelineItemElement | null = null;
+	let dragPreview:
+		| (OffsetBox & {
+				backgroundColor?: string | CanvasGradient | CanvasPattern;
+				item: TimelineItem;
+				value: number;
+		  })
+		| null = null;
+	$: dragPreview, (scrollNeeded = true);
+	function handleMouseDown(event: MouseEvent) {
 		focusCausedByClick = true;
 		if (hover == null || hover.element == null) {
 			focus = null;
@@ -176,6 +193,103 @@
 			focusOn(hover.element, elements.indexOf(hover.element));
 			return;
 		}
+		mouseDownOn = hover.element;
+
+		const startItem = mouseDownOn.layoutItem.item;
+		const startItemBackground = mouseDownOn.backgroundColor;
+		const startItemOffsetTop = mouseDownOn.offsetTop;
+
+		const startViewportBounds = stageCSSTarget!.getBoundingClientRect();
+
+		function dragItemListener(event: MouseEvent) {
+			/** x position of the mouse relative to the document viewport */
+			const mouseX = event.clientX;
+
+			const valueAtLeftOfScreen =
+				focalValue -
+				scale.toValue(viewport.width / 2) -
+				scale.toValue(stageCSSTarget!.getBoundingClientRect().left);
+
+			const newItemValue = onPreviewNewItemValue(
+				startItem,
+				valueAtLeftOfScreen + scale.toValue(mouseX),
+			);
+
+			dragPreview = {
+				offsetCenterX:
+					scale.toPixels(newItemValue - focalValue) +
+					viewport.width / 2,
+				get offsetCenterY() {
+					return this.offsetTop + item.height / 2;
+				},
+				get offsetLeft() {
+					return this.offsetCenterX - item.width / 2;
+				},
+				offsetTop: startItemOffsetTop,
+				get offsetRight() {
+					return this.offsetCenterX + item.width / 2;
+				},
+				get offsetBottom() {
+					return this.offsetTop + item.height;
+				},
+				get offsetWidth() {
+					return item.width;
+				},
+				get offsetHeight() {
+					return item.height;
+				},
+				get backgroundColor() {
+					return startItemBackground;
+				},
+				item: startItem,
+				value: newItemValue,
+			};
+
+			if (mouseX < startViewportBounds.left + viewport.padding.left) {
+				const delta =
+					mouseX - (startViewportBounds.left + viewport.padding.left);
+				dispatch("scrollX", scale.toValue(delta));
+			} else if (
+				mouseX >
+				startViewportBounds.right - viewport.padding.right
+			) {
+				const delta =
+					mouseX -
+					(startViewportBounds.right - viewport.padding.right);
+				dispatch("scrollX", scale.toValue(delta));
+			}
+		}
+		function releaseItemListener() {
+			if (dragPreview != null) {
+				dispatch(
+					"moveItem",
+					{ item: startItem, value: dragPreview.value },
+					{ cancelable: true },
+				);
+			}
+			dragPreview = null;
+			window.removeEventListener("mousemove", dragItemListener);
+			window.removeEventListener("mouseup", releaseItemListener);
+		}
+		if (editable) {
+			window.addEventListener("mouseup", releaseItemListener);
+			window.addEventListener("mousemove", dragItemListener);
+		}
+	}
+
+	function handleMouseUp(event: MouseEvent) {
+		if (mouseDownOn == null) {
+			return;
+		}
+		const mouseWasDownOn = mouseDownOn;
+		mouseDownOn = null;
+		if (hover == null || hover.element == null) {
+			return;
+		}
+		if (hover.element !== mouseWasDownOn) {
+			return;
+		}
+
 		focus = null;
 		const hoveredItem = hover.element.layoutItem.item;
 		hover = null;
@@ -186,6 +300,9 @@
 	}
 
 	function handleDblClick(event: MouseEvent) {
+		if (!editable) {
+			return;
+		}
 		if (hover != null) {
 			return;
 		}
@@ -264,9 +381,13 @@
 		}
 	}
 
+	function handleMouseMove(event: MouseEvent) {
+		detectHover(event);
+	}
+
 	let scrollbarDragging = false;
 	function detectHover(event: { offsetX: number; offsetY: number }) {
-		if (!scrollbarDragging) {
+		if (!scrollbarDragging && dragPreview == null) {
 			for (let i = 0; i < elements.length; i++) {
 				const element = elements[i];
 				if (element.contains(event.offsetX, event.offsetY)) {
@@ -410,6 +531,11 @@
 					Math.min(scrollTop, scrollHeight - viewport.height),
 				);
 				visibleVAmount = viewport.height;
+				let dragPreviewed = dragPreview != null;
+
+				const backgroundColor = dragPreviewed
+					? getComputedStyle(stageCSSTarget!).backgroundColor
+					: null;
 
 				for (let i = 0; i < layout.length; i++) {
 					const item = layout[i];
@@ -429,6 +555,10 @@
 						element.offsetTop + element.offsetHeight;
 
 					elements[i] = element;
+					if (dragPreviewed && dragPreview!.item === item.item) {
+						element.backgroundColor = backgroundColor!;
+						dragPreviewed = false;
+					}
 				}
 
 				visibleHAmount = scale.toValue(viewport.width);
@@ -473,7 +603,13 @@
 
 			if (redrawNeeded || scrollNeeded || layoutNeeded) {
 				renderContext.fillStyle = pointStyle!.backgroundColor;
-				renderLayout(renderContext, viewport, item, elements);
+				renderLayout(
+					renderContext,
+					viewport,
+					item,
+					elements,
+					dragPreview,
+				);
 			}
 			layoutNeeded = false;
 			scrollNeeded = false;
@@ -502,8 +638,9 @@
 		tabindex={0}
 		on:wheel|stopPropagation|capture={handleScroll}
 		on:mouseleave={() => (hover = null)}
-		on:mousemove={detectHover}
-		on:mousedown={handleClick}
+		on:mousemove={handleMouseMove}
+		on:mousedown={handleMouseDown}
+		on:mouseup={handleMouseUp}
 		on:dblclick={handleDblClick}
 		on:focus={(e) => {
 			if (!focusCausedByClick && focusNextItem()) {
@@ -553,8 +690,21 @@
 			}
 		}}
 	/>
-	{#if hover != null}
-		<Hover {hover} {display} />
+	{#if hover != null && display != null}
+		<Hover
+			{display}
+			position={hover.element}
+			name={hover.element.layoutItem.item.name()}
+			value={hover.element.layoutItem.item.value()}
+		/>
+	{/if}
+	{#if dragPreview != null && display != null}
+		<Hover
+			{display}
+			position={dragPreview}
+			name={dragPreview.item.name()}
+			value={dragPreview.value}
+		/>
 	{/if}
 	{#if focus != null}
 		<FocusedItem focus={focus.element} />

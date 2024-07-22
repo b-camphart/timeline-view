@@ -127,9 +127,4 @@
 		position: relative;
 		overflow-x: hidden;
 	}
-	.ruler :global(.min-height) {
-		position: relative;
-		visibility: hidden;
-		width: 100%;
-	}
 </style>

@@ -48,7 +48,7 @@ export class TimelineLayoutItem {
 
 export class TimelineItemElement {
 	constructor(
-		public layoutItem: TimelineLayoutItem,
+		layoutItem: TimelineLayoutItem,
 		public offsetLeft: number = 0,
 		public offsetRight: number = 0,
 		public offsetTop: number = 0,
@@ -57,7 +57,9 @@ export class TimelineItemElement {
 		public offsetBottom: number = 0,
 		public offsetCenterX: number = 0,
 		public offsetCenterY: number = 0,
-	) {}
+	) {
+		this.#layoutItem = layoutItem;
+	}
 
 	contains(x: number, y: number) {
 		return (
@@ -68,7 +70,24 @@ export class TimelineItemElement {
 		);
 	}
 
-	get backgroundColor() {
-		return this.layoutItem.item.color();
+	#layoutItem: TimelineLayoutItem;
+	get layoutItem() {
+		return this.#layoutItem;
+	}
+
+	set layoutItem(item: TimelineLayoutItem) {
+		this.#layoutItem = item;
+		this.#color = undefined;
+	}
+
+	#color: string | CanvasGradient | CanvasPattern | undefined;
+	get backgroundColor(): string | CanvasGradient | CanvasPattern | undefined {
+		return this.#color ?? this.layoutItem.item.color();
+	}
+
+	set backgroundColor(
+		color: string | CanvasGradient | CanvasPattern | undefined,
+	) {
+		this.#color = color;
 	}
 }

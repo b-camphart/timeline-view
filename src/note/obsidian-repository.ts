@@ -44,6 +44,35 @@ export class ObsidianNoteRepository implements MutableNoteRepository {
 		return new ObsidianNote(tFile, this.#metadata);
 	}
 
+	async modifyNote(
+		note: Note,
+		modification: {
+			created?: number;
+			modified?: number;
+			property?: { [name: string]: unknown };
+		},
+	) {
+		const tFile = this.getFileFromNote(note);
+		if (tFile == null) {
+			return;
+		}
+
+		if (modification.created != null) {
+			tFile.stat.ctime = Math.trunc(modification.created);
+		}
+		if (modification.modified != null) {
+			tFile.stat.mtime = Math.trunc(modification.modified);
+		}
+		if (modification.property != null) {
+			const property = modification.property;
+			this.#files.processFrontMatter(tFile, frontmatter => {
+				for (const [key, value] of Object.entries(property)) {
+					frontmatter[key] = value;
+				}
+			});
+		}
+	}
+
 	getNoteForFile(file: TFile): Note {
 		return new ObsidianNote(file, this.#metadata);
 	}

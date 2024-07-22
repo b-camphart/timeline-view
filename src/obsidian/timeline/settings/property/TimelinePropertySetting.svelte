@@ -8,6 +8,8 @@
 		TimelineOrderByNoteProperty,
 		TimelineOrderNoteProperty,
 	} from "src/timeline/order/ByNoteProperty";
+	import Row from "src/view/layouts/Row.svelte";
+	import NumericPropertyIntToggle from "src/timeline/order/NumericPropertyIntToggle.svelte";
 
 	export let viewModel: NamespacedWritableFactory<TimelinePropertySettingViewModel>;
 	export let order: TimelineOrderByNoteProperty;
@@ -18,10 +20,20 @@
 	}>();
 </script>
 
-<CollapsableSection name="Property" bind:collapsed={$collapsed}>
+<CollapsableSection
+	name="Property"
+	bind:collapsed={$collapsed}
+	class={"timeline-property-setting"}
+>
 	<PropertySelection
+		tabindex={0}
 		{order}
 		on:selected={(event) => dispatch("propertySelected", event.detail)}
+	/>
+
+	<NumericPropertyIntToggle
+		property={order.selectedProperty()}
+		tabindex={1}
 	/>
 </CollapsableSection>
 
