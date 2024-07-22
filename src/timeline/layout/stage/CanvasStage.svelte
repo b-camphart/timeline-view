@@ -42,6 +42,10 @@
 		item: TimelineItem,
 		value: number,
 	) => number = (_, value) => value;
+	export let oncontextmenu: (
+		e: MouseEvent,
+		item: TimelineItem,
+	) => void = () => {};
 
 	let canvas: HTMLCanvasElement | undefined;
 	const pointElements: (HTMLDivElement | undefined)[] = [
@@ -278,6 +282,13 @@
 	}
 
 	function handleMouseUp(event: MouseEvent) {
+		if (event.button === 2) {
+			if (hover == null || hover.element == null) {
+				return;
+			}
+			oncontextmenu(event, hover.element.layoutItem.item);
+			return;
+		}
 		if (mouseDownOn == null) {
 			return;
 		}
@@ -293,6 +304,7 @@
 		focus = null;
 		const hoveredItem = hover.element.layoutItem.item;
 		hover = null;
+
 		dispatch("select", {
 			item: hoveredItem,
 			causedBy: event,

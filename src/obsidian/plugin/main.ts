@@ -23,6 +23,7 @@ import { titleEl } from "../ItemVIew";
 import type { ObsidianNoteTimelineViewModel } from "../timeline/viewModel";
 import { TimelineNoteOrder } from "src/timeline/order/ByNoteProperty";
 import { writable } from "svelte/store";
+import { openFileContextMenu } from "../FileExporer";
 
 const OBSIDIAN_LEAF_VIEW_TYPE: string = "VIEW_TYPE_TIMELINE_VIEW";
 const LUCID_ICON = "waypoints";
@@ -396,6 +397,11 @@ class TimelineItemView extends ItemView {
 					notePropertyRepository: this.noteProperties,
 					isNew,
 					viewModel,
+					oncontextmenu: (e, note) => {
+						const file = this.notes.getFileFromNote(note);
+						if (!file) return;
+						openFileContextMenu(e, file, this.workspace);
+					},
 				},
 			});
 

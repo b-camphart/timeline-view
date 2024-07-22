@@ -11,6 +11,7 @@
 	import TimelineNavigationControls from "./controls/TimelineNavigationControls.svelte";
 	import TimelineSettings from "./controls/settings/TimelineSettings.svelte";
 	import type { RulerValueDisplay } from "src/timeline/Timeline";
+	import type { Note } from "src/note";
 
 	export let namespacedWritable: NamespacedWritableFactory<TimelineViewModel>;
 	export let display: RulerValueDisplay;
@@ -29,6 +30,10 @@
 		item: TimelineItem,
 		value: number,
 	) => boolean = () => true;
+	export let oncontextmenu: (
+		e: MouseEvent,
+		item: TimelineItem,
+	) => void = () => {};
 
 	let sortedItems: TimelineItem[] = [];
 	$: sortedItems = unsortedItems.toSorted((a, b) => a.value() - b.value());
@@ -156,6 +161,7 @@
 		on:create
 		on:moveItem={moveItem}
 		{onPreviewNewItemValue}
+		{oncontextmenu}
 	/>
 	<menu class="timeline-controls">
 		<TimelineNavigationControls {navigation} />

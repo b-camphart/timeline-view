@@ -31,6 +31,7 @@
 
 	export let viewModel: NamespacedWritableFactory<ObsidianNoteTimelineViewModel>;
 	export let isNew: boolean = false;
+	export let oncontextmenu: (e: MouseEvent, note: Note) => void = () => {};
 
 	const dispatch = createEventDispatcher<{
 		noteSelected: { note: Note; event?: Event };
@@ -341,6 +342,11 @@
 	on:create={(e) => createItem(e.detail)}
 	onMoveItem={moveItem}
 	{onPreviewNewItemValue}
+	oncontextmenu={(e, triggerItem) => {
+		const item = itemsById.get(triggerItem.id());
+		if (item == null) return;
+		oncontextmenu(e, item.note);
+	}}
 >
 	<svelte:fragment slot="additional-settings">
 		{#if order}
