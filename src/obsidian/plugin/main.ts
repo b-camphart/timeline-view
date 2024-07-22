@@ -86,6 +86,9 @@ export default class ObsidianTimelinePlugin extends Plugin {
 
 		this.registerEvent(
 			this.app.workspace.on("file-menu", (menu, editor, info) => {
+				if (info !== "more-options") {
+					return;
+				}
 				menu.addItem(item => {
 					item.setSection("view.linked");
 					item.setTitle("Open timeline view");
