@@ -11,7 +11,7 @@ import {
 import { LUCID_ICON, OBSIDIAN_LEAF_VIEW_TYPE } from "./main";
 import type { ObsidianNoteRepository } from "src/note/obsidian-repository";
 import type { ObsidianNotePropertyRepository } from "src/note/property/obsidian-repository";
-import { writable } from "svelte/store";
+import { get, writable } from "svelte/store";
 import type { Note } from "src/note";
 import { titleEl } from "../ItemVIew";
 import { preventOpenFileWhen, workspaceLeafExt } from "../WorkspaceLeaf";
@@ -122,29 +122,29 @@ export class TimelineItemView extends ItemView {
 		);
 	}
 
-	private $mode: "view" | "edit" = "edit";
+	private $mode: EditMode = EditMode.Edit;
 	private mode = writable(this.$mode);
 
 	onPaneMenu(
 		menu: Menu,
 		source: "more-options" | "tab-header" | string,
 	): void {
-		if (this.$mode === "edit") {
+		if (this.$mode === EditMode.Edit) {
 			menu.addItem(item => {
 				item.setIcon("book-open")
 					.setSection("pane")
 					.setTitle("View-only timeline")
 					.onClick(() => {
-						this.mode.set("view");
+						this.mode.set(EditMode.View);
 					});
 			});
-		} else if (this.$mode === "view") {
+		} else if (this.$mode === EditMode.View) {
 			menu.addItem(item => {
 				item.setIcon("edit-3")
 					.setSection("pane")
 					.setTitle("Edit timeline")
 					.onClick(() => {
-						this.mode.set("edit");
+						this.mode.set(EditMode.Edit);
 					});
 			});
 		}
@@ -245,21 +245,32 @@ export class TimelineItemView extends ItemView {
 				this.workspace.requestSaveLayout();
 			});
 
-			this.mode = viewModel.make("mode", this.$mode);
+			const persistedMode = viewModel.make(
+				"mode",
+				this.$mode === EditMode.Edit ? "edit" : "view",
+			);
+			if (get(persistedMode) === "edit") {
+				this.mode.set(EditMode.Edit);
+			} else if (get(persistedMode) === "view") {
+				this.mode.set(EditMode.View);
+			}
+			this.mode.subscribe(mode =>
+				persistedMode.set(mode === EditMode.Edit ? "edit" : "view"),
+			);
 			const switchToViewMode = this.addAction(
 				"book-open",
 				"Current view: editing\nClick to view-only",
-				() => this.mode.set("view"),
+				() => this.mode.set(EditMode.View),
 			);
 			const switchToEditMode = this.addAction(
 				"edit-3",
 				"Current view: view-only\nClick to edit",
-				() => this.mode.set("edit"),
+				() => this.mode.set(EditMode.Edit),
 			);
 			this.mode.subscribe(newMode => {
 				this.$mode = newMode;
-				switchToViewMode.toggle(newMode === "edit");
-				switchToEditMode.toggle(newMode === "view");
+				switchToViewMode.toggle(newMode === EditMode.Edit);
+				switchToEditMode.toggle(newMode === EditMode.View);
 			});
 
 			this.component = new NoteTimeline({
@@ -330,3 +341,8 @@ export class TimelineItemView extends ItemView {
 type TimelineItemViewState = {
 	isNew?: boolean;
 } & ObsidianNoteTimelineViewModel;
+
+const enum EditMode {
+	View,
+	Edit,
+}
