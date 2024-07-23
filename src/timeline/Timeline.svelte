@@ -11,7 +11,6 @@
 	import TimelineNavigationControls from "./controls/TimelineNavigationControls.svelte";
 	import TimelineSettings from "./controls/settings/TimelineSettings.svelte";
 	import type { RulerValueDisplay } from "src/timeline/Timeline";
-	import type { Note } from "src/note";
 
 	export let namespacedWritable: NamespacedWritableFactory<TimelineViewModel>;
 	export let display: RulerValueDisplay;
