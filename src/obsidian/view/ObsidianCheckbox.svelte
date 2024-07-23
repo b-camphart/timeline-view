@@ -1,3 +1,8 @@
+<!-- 
+@component
+provides a way of creating a checkbos that matches the checkbox used in 
+Obsidiann 
+-->
 <script lang="ts">
 	let className: string = "";
 	export { className as class };
