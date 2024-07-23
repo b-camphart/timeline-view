@@ -47,15 +47,13 @@ export class TimelineItemView extends ItemView {
 			this.completeInitialization = resolve;
 		});
 
-		this.registerEvent(
+		// events
+		[
 			vault.on("create", file => {
 				if (file instanceof TFile) {
 					this.component?.addFile(this.notes.getNoteForFile(file));
 				}
 			}),
-		);
-
-		this.registerEvent(
 			vault.on("rename", (file, oldPath) => {
 				if (file instanceof TFile) {
 					this.component?.renameFile(
@@ -64,47 +62,24 @@ export class TimelineItemView extends ItemView {
 					);
 				}
 			}),
-		);
-
-		this.registerEvent(
 			vault.on("modify", file => {
 				if (file instanceof TFile) {
 					this.component?.modifyFile(this.notes.getNoteForFile(file));
 				}
 			}),
-		);
-
-		this.registerEvent(
 			metadata.on("changed", file => {
 				if (file instanceof TFile) {
 					this.component?.modifyFile(this.notes.getNoteForFile(file));
 				}
 			}),
-		);
-
-		this.registerEvent(
 			vault.on("delete", file => {
 				if (file instanceof TFile) {
 					this.component?.deleteFile(this.notes.getNoteForFile(file));
 				}
 			}),
-		);
-
-		this.registerEvent(
 			this.leaf.on("group-change", group => {
 				this.group = group;
 			}),
-		);
-
-		preventOpenFileWhen(
-			this,
-			() =>
-				this.group != null &&
-				this.group.length > 0 &&
-				this.workspace.getGroupLeaves(this.group).length > 1,
-		);
-
-		this.registerEvent(
 			this.workspace.on("active-leaf-change", activeLeaf => {
 				if (activeLeaf === this.leaf || !activeLeaf) {
 					return;
@@ -136,6 +111,14 @@ export class TimelineItemView extends ItemView {
 					this.component?.focusOnNote(note);
 				}
 			}),
+		].forEach(eventRef => this.registerEvent(eventRef));
+
+		preventOpenFileWhen(
+			this,
+			() =>
+				this.group != null &&
+				this.group.length > 0 &&
+				this.workspace.getGroupLeaves(this.group).length > 1,
 		);
 	}
 

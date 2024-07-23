@@ -6,10 +6,6 @@ import type { NoteFilter } from "./filter";
  */
 export interface NoteRepository {
 	listAll(): Promise<Note[]>;
-	listAllMatchingQuery(query: string): Promise<{
-		notes: Note[];
-		filter: NoteFilter;
-	}>;
 	getNoteFilterForQuery(query: string): NoteFilter;
 
 	/**

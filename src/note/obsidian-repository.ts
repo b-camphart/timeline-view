@@ -92,28 +92,6 @@ export class ObsidianNoteRepository implements MutableNoteRepository {
 		);
 	}
 
-	async listAllMatchingQuery(query: string): Promise<{
-		notes: Note[];
-		filter: NoteFilter;
-	}> {
-		const filter = parse(query, this.#metadata, MatchAllEmptyQuery);
-
-		const notes = (
-			await Promise.all(
-				this.#vault.getMarkdownFiles().map(async tFile => {
-					if (!(await filter.appliesTo(tFile))) {
-						return new ObsidianNote(tFile, this.#metadata);
-					}
-				}),
-			)
-		).filter((note): note is ObsidianNote => !!note);
-
-		return {
-			filter: new ObsidianNoteFilter(filter, query),
-			notes,
-		};
-	}
-
 	getNoteFilterForQuery(query: string): NoteFilter {
 		return new ObsidianNoteFilter(
 			parse(query, this.#metadata, MatchAllEmptyQuery),
