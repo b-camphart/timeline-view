@@ -12,6 +12,7 @@
 	import type { ChangeEvent } from "src/view/controls/Scrollbar";
 	import Hover from "./Hover.svelte";
 	import FocusedItem from "./FocusedItem.svelte";
+	import { prepareQuery } from "obsidian";
 
 	type ZoomEvent = {
 		keepValue: number;
@@ -191,6 +192,13 @@
 		focusCausedByClick = true;
 		if (hover == null || hover.element == null) {
 			focus = null;
+			if (selection.selectedItems.size > 0) {
+				scrollNeeded = true;
+			}
+			selection.selectedItems = new Set();
+
+			prepareMultiSelectDraw(event);
+
 			return;
 		}
 		if (event.button === 2) {
@@ -198,6 +206,10 @@
 			return;
 		}
 		mouseDownOn = hover.element;
+		if (!selection.selectedItems.has(mouseDownOn)) {
+			selection.selectedItems = new Set([mouseDownOn]);
+			scrollNeeded = true;
+		}
 
 		const startItem = mouseDownOn.layoutItem.item;
 		const startItemBackground = mouseDownOn.backgroundColor;
@@ -281,6 +293,118 @@
 		}
 	}
 
+	let selection: {
+		area: null | {
+			offsetLeft: number;
+			offsetTop: number;
+			offsetWidth: number;
+			offsetHeight: number;
+		};
+		selectedItems: ReadonlySet<TimelineItemElement>;
+		bounds: null | {
+			offsetLeft: number;
+			offsetTop: number;
+			offsetWidth: number;
+			offsetHeight: number;
+		};
+	} = { area: null, bounds: null, selectedItems: new Set() };
+	$: if (selection.selectedItems.size > 1) {
+		selection.bounds = {
+			offsetLeft: Number.POSITIVE_INFINITY,
+			offsetTop: Number.POSITIVE_INFINITY,
+			offsetWidth: 0,
+			offsetHeight: 0,
+		};
+		for (const element of selection.selectedItems) {
+			if (element.offsetLeft < selection.bounds!.offsetLeft) {
+				selection.bounds!.offsetLeft = element.offsetLeft;
+			}
+			if (element.offsetTop < selection.bounds!.offsetTop) {
+				selection.bounds!.offsetTop = element.offsetTop;
+			}
+			if (
+				element.offsetRight >
+				selection.bounds!.offsetLeft + selection.bounds!.offsetWidth
+			) {
+				selection.bounds!.offsetWidth =
+					element.offsetRight - selection.bounds!.offsetLeft;
+			}
+			if (
+				element.offsetBottom >
+				selection.bounds!.offsetTop + selection.bounds!.offsetHeight
+			) {
+				selection.bounds!.offsetHeight =
+					element.offsetBottom - selection.bounds!.offsetTop;
+			}
+		}
+	} else {
+		selection.bounds = null;
+	}
+
+	function prepareMultiSelectDraw(event: MouseEvent) {
+		const startViewportBounds = stageCSSTarget!.getBoundingClientRect();
+		const startX = event.clientX - startViewportBounds.left;
+		const startY = event.clientY - startViewportBounds.top;
+
+		let isDragging = false;
+
+		function dragSelectionArea(event: MouseEvent) {
+			const endX = event.clientX - startViewportBounds.left;
+			const endY = event.clientY - startViewportBounds.top;
+
+			const minX = Math.min(startX, endX);
+			const minY = Math.max(0, Math.min(startY, endY));
+			const maxX = Math.max(startX, endX);
+			const maxY = Math.min(scrollHeight, Math.max(startY, endY));
+
+			const width = maxX - minX;
+			const height = maxY - minY;
+
+			if (!isDragging && width < 5 && height < 5) {
+				return;
+			}
+
+			isDragging = true;
+
+			const selectedItems: TimelineItemElement[] = [];
+			// find all items in the selection area
+			for (let i = 0; i < elements.length; i++) {
+				const element = elements[i];
+				if (element.offsetLeft > maxX) {
+					// no more of these ordered elements can intersect the
+					// selection area
+					break;
+				}
+				if (element.intersects(minX, minY, width, height)) {
+					selectedItems.push(element);
+				}
+			}
+
+			if (selection.selectedItems.size > 0 || selectedItems.length > 0) {
+				scrollNeeded = true;
+			}
+
+			selection = {
+				area: {
+					offsetLeft: minX,
+					offsetTop: minY,
+					offsetWidth: width,
+					offsetHeight: height,
+				},
+				selectedItems: new Set(selectedItems),
+				bounds: selection.bounds,
+			};
+		}
+		function releaseSelectionArea() {
+			selection.area = null;
+			selection = selection;
+			window.removeEventListener("mousemove", dragSelectionArea);
+			window.removeEventListener("mouseup", releaseSelectionArea);
+		}
+		window.addEventListener("mouseup", releaseSelectionArea);
+		window.addEventListener("mousemove", dragSelectionArea);
+	}
+
 	function handleMouseUp(event: MouseEvent) {
 		if (event.button === 2) {
 			if (hover == null || hover.element == null) {
@@ -361,15 +485,8 @@
 		verticalScrollToFocusItem(element);
 
 		if (focus.element.offsetLeft < 0) {
-			console.log("centering focused item", {
-				offsetLeft: focus.element.offsetLeft,
-			});
 			dispatch("scrollToValue", focus.element.layoutItem.item.value());
 		} else if (focus.element.offsetRight > viewport.width) {
-			console.log("centering focused item", {
-				offsetRigth: focus.element.offsetRight,
-				width: viewport.width,
-			});
 			dispatch("scrollToValue", focus.element.layoutItem.item.value());
 		}
 	}
@@ -399,7 +516,11 @@
 
 	let scrollbarDragging = false;
 	function detectHover(event: { offsetX: number; offsetY: number }) {
-		if (!scrollbarDragging && dragPreview == null) {
+		if (
+			!scrollbarDragging &&
+			dragPreview == null &&
+			selection.area == null
+		) {
 			for (let i = 0; i < elements.length; i++) {
 				const element = elements[i];
 				if (element.contains(event.offsetX, event.offsetY)) {
@@ -492,6 +613,7 @@
 		resizeObserver.observe(stageCSSTarget);
 
 		pointStyle = getComputedStyle(pointElements[0]!);
+		const selectedPointStyle = getComputedStyle(pointElements[1]!);
 
 		function draw(layout: TimelineLayoutItem[] = []) {
 			if (canvas == null) return;
@@ -535,6 +657,8 @@
 					elements = elements.slice(0, layout.length);
 				}
 
+				selection = selection;
+
 				const scrollLeft =
 					scale.toPixels(focalValue) - viewport.width / 2;
 
@@ -544,6 +668,7 @@
 				);
 				visibleVAmount = viewport.height;
 				let dragPreviewed = dragPreview != null;
+				const hasSelectedItems = selection.selectedItems.size > 0;
 
 				const backgroundColor = dragPreviewed
 					? getComputedStyle(stageCSSTarget!).backgroundColor
@@ -567,6 +692,16 @@
 						element.offsetTop + element.offsetHeight;
 
 					elements[i] = element;
+
+					if (
+						hasSelectedItems &&
+						selection.selectedItems.has(element)
+					) {
+						element.backgroundColor =
+							selectedPointStyle.backgroundColor;
+						element.borderColor = selectedPointStyle.borderColor;
+					}
+
 					if (dragPreviewed && dragPreview!.item === item.item) {
 						element.backgroundColor = backgroundColor!;
 						dragPreviewed = false;
@@ -637,14 +772,34 @@
 <div id="stage" bind:this={stageCSSTarget} class:has-hover={hover != null}>
 	<div style="display: flex;flex-direction: row;">
 		<div class="timeline-item" bind:this={pointElements[0]}></div>
-		<div class="timeline-item" bind:this={pointElements[1]}></div>
+		<div class="timeline-item selected" bind:this={pointElements[1]}></div>
 	</div>
-	<div class="timeline-item" bind:this={pointElements[2]}></div>
+	<div class="timeline-item focused" bind:this={pointElements[2]}></div>
 	<div
 		class="bottom-right-padding-measure"
 		bind:offsetWidth={innerWidth}
 		bind:offsetHeight={innerHeight}
 	></div>
+	{#if selection.area != null}
+		<div
+			class="selection-area"
+			style:position="absolute"
+			style:left={selection.area.offsetLeft + "px"}
+			style:top={selection.area.offsetTop + "px"}
+			style:width={selection.area.offsetWidth + "px"}
+			style:height={selection.area.offsetHeight + "px"}
+		/>
+	{/if}
+	{#if selection.bounds != null}
+		{@const _ = console.log(selection.bounds)}
+		<div
+			class="selection-area selected"
+			style="position: absolute; left:{selection.bounds
+				.offsetLeft}px; top:{selection.bounds
+				.offsetTop}px; width:{selection.bounds
+				.offsetWidth}px; height:{selection.bounds.offsetHeight}px;"
+		/>
+	{/if}
 	<canvas
 		bind:this={canvas}
 		tabindex={0}
@@ -784,6 +939,19 @@
 	:global(.timeline-item) {
 		background-color: var(--timeline-item-color);
 		margin: var(--timeline-item-margin, 4px);
+	}
+
+	:global(#stage .selection-area) {
+		background-color: var(--timeline-selection-area-background);
+		border: 2px solid var(--timeline-selection-area-border);
+	}
+	:global(#stage .selection-area.selected) {
+		opacity: 0.5;
+	}
+
+	:global(.timeline-item.selected) {
+		background-color: var(--timeline-background);
+		border-color: var(--timeline-item-border-hover);
 	}
 
 	div#stage {

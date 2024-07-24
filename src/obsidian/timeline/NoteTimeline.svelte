@@ -368,6 +368,10 @@
 </TimelineView>
 
 <style>
+	@property --timeline-selection-area-background {
+		syntax: "<color>";
+		initial-value: purple;
+	}
 	:global(body) {
 		--timeline-background: var(--canvas-background);
 
@@ -393,6 +397,12 @@
 		--timeline-item-border-focused: var(--graph-node-focused);
 
 		--timeline-item-tooltip-background: var(--background-modifier-message);
+
+		--timeline-selection-area-background: hsla(
+			var(--color-accent-hsl),
+			0.1
+		);
+		--timeline-selection-area-border: var(--timeline-item-color-hover);
 
 		--timeline-settings-background: var(--background-primary);
 		--timeline-settings-width: var(--graph-controls-width);

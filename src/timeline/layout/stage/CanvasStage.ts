@@ -13,7 +13,10 @@ export function renderLayout(
 	point: {
 		width: number;
 	},
-	layout: readonly (OffsetBox & { backgroundColor?: BackgroundColor })[],
+	layout: readonly (OffsetBox & {
+		backgroundColor?: BackgroundColor;
+		borderColor?: BackgroundColor;
+	})[],
 	dragPreview: (OffsetBox & { backgroundColor?: BackgroundColor }) | null,
 ) {
 	const pointRadius = point.width / 2;
@@ -21,27 +24,34 @@ export function renderLayout(
 	const renderHeight = viewport.height + point.width;
 
 	const defaultColor = context.fillStyle;
+	const defaultBorderColor = context.strokeStyle;
+
+	context.lineWidth = 2;
+
+	let currentBorderColor = undefined;
 
 	context.beginPath();
 	context.clearRect(0, 0, viewport.width, viewport.height);
-
-	let currentColor = context.fillStyle;
 
 	for (const item of layout) {
 		if (item.offsetTop > renderHeight || item.offsetBottom < 0) continue;
 
 		const color = item.backgroundColor ?? defaultColor;
+		const borderColor = item.borderColor;
 
-		if (color !== currentColor) {
-			context.closePath();
+		if (color !== context.fillStyle || borderColor !== currentBorderColor) {
 			context.fill();
+			if (currentBorderColor != null) {
+				context.stroke();
+			}
 			context.beginPath();
-			currentColor = color;
+
+			context.fillStyle = color;
+			currentBorderColor = borderColor;
+			context.strokeStyle = borderColor ?? defaultBorderColor;
 		}
 
-		context.fillStyle = color;
-
-		context.moveTo(item.offsetRight, item.offsetTop);
+		context.moveTo(item.offsetRight, item.offsetCenterY);
 		context.arc(
 			item.offsetCenterX,
 			item.offsetCenterY,
@@ -50,13 +60,14 @@ export function renderLayout(
 			PI2,
 		);
 	}
-	context.closePath();
 	context.fill();
-
+	if (currentBorderColor != null) {
+		context.stroke();
+	}
 	if (dragPreview) {
 		context.beginPath();
 		context.fillStyle = dragPreview.backgroundColor ?? defaultColor;
-		context.moveTo(dragPreview.offsetRight, dragPreview.offsetTop);
+		context.moveTo(dragPreview.offsetRight, dragPreview.offsetCenterY);
 		context.arc(
 			dragPreview.offsetCenterX,
 			dragPreview.offsetCenterY,

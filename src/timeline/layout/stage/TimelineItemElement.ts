@@ -70,6 +70,15 @@ export class TimelineItemElement {
 		);
 	}
 
+	intersects(x: number, y: number, width: number, height: number) {
+		return (
+			((x >= this.offsetLeft && x < this.offsetRight) ||
+				(this.offsetLeft >= x && this.offsetLeft < x + width)) &&
+			((y >= this.offsetTop && y < this.offsetBottom) ||
+				(this.offsetTop >= y && this.offsetTop < y + height))
+		);
+	}
+
 	#layoutItem: TimelineLayoutItem;
 	get layoutItem() {
 		return this.#layoutItem;
@@ -78,6 +87,7 @@ export class TimelineItemElement {
 	set layoutItem(item: TimelineLayoutItem) {
 		this.#layoutItem = item;
 		this.#color = undefined;
+		this.borderColor = undefined;
 	}
 
 	#color: string | CanvasGradient | CanvasPattern | undefined;
@@ -90,4 +100,6 @@ export class TimelineItemElement {
 	) {
 		this.#color = color;
 	}
+
+	borderColor: string | CanvasGradient | CanvasPattern | undefined;
 }
