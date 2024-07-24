@@ -12,7 +12,7 @@
 	import type { ChangeEvent } from "src/view/controls/Scrollbar";
 	import Hover from "./Hover.svelte";
 	import FocusedItem from "./FocusedItem.svelte";
-	import { prepareQuery } from "obsidian";
+	import { Platform } from "obsidian";
 
 	type ZoomEvent = {
 		keepValue: number;
@@ -188,17 +188,107 @@
 		  })
 		| null = null;
 	$: dragPreview, (scrollNeeded = true);
+
+	function clearSelection() {
+		if (selection.selectedItems.size > 0) {
+			selection.selectedItems.forEach(
+				(it) => (
+					(it.backgroundColor = undefined),
+					(it.borderColor = undefined)
+				),
+			);
+			redrawNeeded = true;
+		}
+		selection.selectedItems = new Set();
+		selection.bounds = null;
+		selection = selection;
+	}
+	function selectElement(element: TimelineItemElement) {
+		if (selection.selectedItems.has(element)) return;
+		clearSelection();
+		selection.selectedItems = new Set([element]);
+		redrawNeeded = true;
+		selection = selection;
+	}
+	function selectElements(elements: TimelineItemElement[]) {
+		clearSelection();
+		selection.selectedItems = new Set(elements);
+		if (selection.selectedItems.size > 1) {
+			selection.bounds = selectionBounds(selection.selectedItems);
+		}
+		redrawNeeded = true;
+		selection = selection;
+	}
+	function shouldExtendSelection(event: MouseEvent) {
+		return (Platform.isMacOS && event.metaKey) || event.ctrlKey;
+	}
+	function includeElementInSelection(element: TimelineItemElement) {
+		selection.selectedItems.add(element);
+		if (selection.selectedItems.size > 1) {
+			selection.bounds = selectionBounds(selection.selectedItems);
+		}
+		redrawNeeded = true;
+		selection = selection;
+	}
+	function includeElementsInSelection(elements: TimelineItemElement[]) {
+		for (const element of elements) {
+			selection.selectedItems.add(element);
+		}
+		if (selection.selectedItems.size > 1) {
+			selection.bounds = selectionBounds(selection.selectedItems);
+		}
+		selection = selection;
+		redrawNeeded = true;
+	}
+	function createSelectionArea(
+		x: number,
+		y: number,
+		width: number,
+		height: number,
+	) {
+		selection.area = {
+			offsetLeft: x,
+			offsetTop: y,
+			offsetWidth: width,
+			offsetHeight: height,
+		};
+	}
+	function selectionBounds(elements: Iterable<TimelineItemElement>) {
+		let minX = Number.POSITIVE_INFINITY;
+		let minY = Number.POSITIVE_INFINITY;
+		let maxX = Number.NEGATIVE_INFINITY;
+		let maxY = Number.NEGATIVE_INFINITY;
+		for (const element of elements) {
+			if (element.offsetLeft < minX) {
+				minX = element.offsetLeft;
+			}
+			if (element.offsetTop < minY) {
+				minY = element.offsetTop;
+			}
+			if (element.offsetRight > maxX) {
+				maxX = element.offsetRight;
+			}
+			if (element.offsetBottom > maxY) {
+				maxY = element.offsetBottom;
+			}
+		}
+
+		return {
+			offsetLeft: minX,
+			offsetTop: minY,
+			offsetWidth: maxX - minX,
+			offsetHeight: maxY - minY,
+		};
+	}
+
 	function handleMouseDown(event: MouseEvent) {
 		focusCausedByClick = true;
 		if (hover == null || hover.element == null) {
 			focus = null;
-			if (selection.selectedItems.size > 0) {
-				scrollNeeded = true;
+			if (!shouldExtendSelection(event)) {
+				clearSelection();
 			}
-			selection.selectedItems = new Set();
-
 			prepareMultiSelectDraw(event);
-
 			return;
 		}
 		if (event.button === 2) {
@@ -207,8 +297,11 @@
 		}
 		mouseDownOn = hover.element;
 		if (!selection.selectedItems.has(mouseDownOn)) {
-			selection.selectedItems = new Set([mouseDownOn]);
-			scrollNeeded = true;
+			if (shouldExtendSelection(event)) {
+				includeElementInSelection(mouseDownOn);
+			} else {
+				selectElement(mouseDownOn);
+			}
 		}
 
 		const startItem = mouseDownOn.layoutItem.item;
@@ -300,7 +393,7 @@
 			offsetWidth: number;
 			offsetHeight: number;
 		};
-		selectedItems: ReadonlySet<TimelineItemElement>;
+		selectedItems: Set<TimelineItemElement>;
 		bounds: null | {
 			offsetLeft: number;
 			offsetTop: number;
@@ -308,38 +401,6 @@
 			offsetHeight: number;
 		};
 	} = { area: null, bounds: null, selectedItems: new Set() };
-	$: if (selection.selectedItems.size > 1) {
-		selection.bounds = {
-			offsetLeft: Number.POSITIVE_INFINITY,
-			offsetTop: Number.POSITIVE_INFINITY,
-			offsetWidth: 0,
-			offsetHeight: 0,
-		};
-		for (const element of selection.selectedItems) {
-			if (element.offsetLeft < selection.bounds!.offsetLeft) {
-				selection.bounds!.offsetLeft = element.offsetLeft;
-			}
-			if (element.offsetTop < selection.bounds!.offsetTop) {
-				selection.bounds!.offsetTop = element.offsetTop;
-			}
-			if (
-				element.offsetRight >
-				selection.bounds!.offsetLeft + selection.bounds!.offsetWidth
-			) {
-				selection.bounds!.offsetWidth =
-					element.offsetRight - selection.bounds!.offsetLeft;
-			}
-			if (
-				element.offsetBottom >
-				selection.bounds!.offsetTop + selection.bounds!.offsetHeight
-			) {
-				selection.bounds!.offsetHeight =
-					element.offsetBottom - selection.bounds!.offsetTop;
-			}
-		}
-	} else {
-		selection.bounds = null;
-	}
 
 	function prepareMultiSelectDraw(event: MouseEvent) {
 		const startViewportBounds = stageCSSTarget!.getBoundingClientRect();
@@ -380,20 +441,12 @@
 				}
 			}
 
-			if (selection.selectedItems.size > 0 || selectedItems.length > 0) {
-				scrollNeeded = true;
+			createSelectionArea(minX, minY, width, height);
+			if (shouldExtendSelection(event)) {
+				includeElementsInSelection(selectedItems);
+			} else {
+				selectElements(selectedItems);
 			}
-
-			selection = {
-				area: {
-					offsetLeft: minX,
-					offsetTop: minY,
-					offsetWidth: width,
-					offsetHeight: height,
-				},
-				selectedItems: new Set(selectedItems),
-				bounds: selection.bounds,
-			};
 		}
 		function releaseSelectionArea() {
 			selection.area = null;
@@ -429,10 +482,12 @@
 		const hoveredItem = hover.element.layoutItem.item;
 		hover = null;
 
-		dispatch("select", {
-			item: hoveredItem,
-			causedBy: event,
-		});
+		if (!shouldExtendSelection(event)) {
+			dispatch("select", {
+				item: hoveredItem,
+				causedBy: event,
+			});
+		}
 	}
 
 	function handleDblClick(event: MouseEvent) {
@@ -657,8 +712,6 @@
 					elements = elements.slice(0, layout.length);
 				}
 
-				selection = selection;
-
 				const scrollLeft =
 					scale.toPixels(focalValue) - viewport.width / 2;
 
@@ -667,12 +720,6 @@
 					Math.min(scrollTop, scrollHeight - viewport.height),
 				);
 				visibleVAmount = viewport.height;
-				let dragPreviewed = dragPreview != null;
-				const hasSelectedItems = selection.selectedItems.size > 0;
-
-				const backgroundColor = dragPreviewed
-					? getComputedStyle(stageCSSTarget!).backgroundColor
-					: null;
 
 				for (let i = 0; i < layout.length; i++) {
 					const item = layout[i];
@@ -692,20 +739,6 @@
 						element.offsetTop + element.offsetHeight;
 
 					elements[i] = element;
-
-					if (
-						hasSelectedItems &&
-						selection.selectedItems.has(element)
-					) {
-						element.backgroundColor =
-							selectedPointStyle.backgroundColor;
-						element.borderColor = selectedPointStyle.borderColor;
-					}
-
-					if (dragPreviewed && dragPreview!.item === item.item) {
-						element.backgroundColor = backgroundColor!;
-						dragPreviewed = false;
-					}
 				}
 
 				visibleHAmount = scale.toValue(viewport.width);
@@ -749,6 +782,36 @@
 			}
 
 			if (redrawNeeded || scrollNeeded || layoutNeeded) {
+				let dragPreviewed = dragPreview != null;
+				const hasSelectedItems = selection.selectedItems.size > 0;
+
+				if (hasSelectedItems || dragPreviewed) {
+					const backgroundColor = dragPreviewed
+						? getComputedStyle(stageCSSTarget!).backgroundColor
+						: null;
+
+					for (let i = 0; i < elements.length; i++) {
+						const element = elements[i];
+						if (
+							hasSelectedItems &&
+							selection.selectedItems.has(element)
+						) {
+							element.backgroundColor =
+								selectedPointStyle.backgroundColor;
+							element.borderColor =
+								selectedPointStyle.borderColor;
+						}
+
+						if (
+							dragPreviewed &&
+							dragPreview!.item === element.layoutItem.item
+						) {
+							element.backgroundColor = backgroundColor!;
+							dragPreviewed = false;
+						}
+					}
+				}
+
 				renderContext.fillStyle = pointStyle!.backgroundColor;
 				renderLayout(
 					renderContext,
