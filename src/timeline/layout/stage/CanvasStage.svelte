@@ -406,17 +406,22 @@
 		const startViewportBounds = stageCSSTarget!.getBoundingClientRect();
 		const startX = event.clientX - startViewportBounds.left;
 		const startY = event.clientY - startViewportBounds.top;
+		const startFocalValue = focalValue;
+		const startScrollTop = scrollTop;
 
 		let isDragging = false;
 
 		function dragSelectionArea(event: MouseEvent) {
+			const scrolledStartX =
+				startX - scale.toPixels(focalValue - startFocalValue);
+			const scrolledStartY = startY - scrollTop - startScrollTop;
 			const endX = event.clientX - startViewportBounds.left;
 			const endY = event.clientY - startViewportBounds.top;
 
-			const minX = Math.min(startX, endX);
-			const minY = Math.max(0, Math.min(startY, endY));
-			const maxX = Math.max(startX, endX);
-			const maxY = Math.min(scrollHeight, Math.max(startY, endY));
+			const minX = Math.min(scrolledStartX, endX);
+			const minY = Math.min(scrolledStartY, endY);
+			const maxX = Math.max(scrolledStartX, endX);
+			const maxY = Math.max(scrolledStartY, endY);
 
 			const width = maxX - minX;
 			const height = maxY - minY;
@@ -446,6 +451,38 @@
 				includeElementsInSelection(selectedItems);
 			} else {
 				selectElements(selectedItems);
+			}
+
+			if (
+				event.clientX <
+				startViewportBounds.left + viewport.padding.left
+			) {
+				const delta =
+					event.clientX -
+					(startViewportBounds.left + viewport.padding.left);
+				dispatch("scrollX", scale.toValue(delta));
+			} else if (
+				event.clientX >
+				startViewportBounds.right - viewport.padding.right
+			) {
+				const delta =
+					event.clientX -
+					(startViewportBounds.right - viewport.padding.right);
+				dispatch("scrollX", scale.toValue(delta));
+			}
+			if (
+				event.clientY <
+				startViewportBounds.top + viewport.padding.top
+			) {
+				const delta =
+					event.clientY -
+					(startViewportBounds.top + viewport.padding.top);
+				scrollTop += delta;
+			} else if (event.clientY > startViewportBounds.bottom) {
+				const delta =
+					event.clientY -
+					(startViewportBounds.bottom - viewport.padding.bottom);
+				scrollTop += delta;
 			}
 		}
 		function releaseSelectionArea() {
@@ -779,6 +816,8 @@
 						focus = focus;
 					}
 				}
+				selection.bounds = selectionBounds(selection.selectedItems);
+				selection = selection;
 			}
 
 			if (redrawNeeded || scrollNeeded || layoutNeeded) {
@@ -1024,6 +1063,7 @@
 		flex-grow: 1;
 		position: relative;
 		padding: var(--timeline-padding);
+		overflow: hidden;
 		--scrollbar-width: var(--size-4-1);
 	}
 	div#stage.has-hover {
