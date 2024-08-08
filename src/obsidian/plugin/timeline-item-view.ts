@@ -1,4 +1,5 @@
 import {
+	FileManager,
 	ItemView,
 	Menu,
 	MetadataCache,
@@ -17,7 +18,10 @@ import { titleEl } from "../ItemVIew";
 import { preventOpenFileWhen, workspaceLeafExt } from "../WorkspaceLeaf";
 import { writableProperties } from "src/timeline/Persistence";
 import NoteTimeline from "../timeline/NoteTimeline.svelte";
-import { openFileContextMenu } from "../FileExporer";
+import {
+	openFileContextMenu,
+	openMultipleFileContextMenu,
+} from "../FileExporer";
 import type { ObsidianNoteTimelineViewModel } from "../timeline/viewModel";
 import { openNewLeafFromEvent } from "../Workspace";
 
@@ -37,6 +41,7 @@ export class TimelineItemView extends ItemView {
 		vault: Vault,
 		metadata: MetadataCache,
 		private workspace: Workspace,
+		private fileManager: FileManager,
 		private notes: ObsidianNoteRepository,
 		private noteProperties: ObsidianNotePropertyRepository,
 	) {
@@ -60,11 +65,6 @@ export class TimelineItemView extends ItemView {
 						this.notes.getNoteForFile(file),
 						oldPath,
 					);
-				}
-			}),
-			vault.on("modify", file => {
-				if (file instanceof TFile) {
-					this.component?.modifyFile(this.notes.getNoteForFile(file));
 				}
 			}),
 			metadata.on("changed", file => {
@@ -280,10 +280,36 @@ export class TimelineItemView extends ItemView {
 					notePropertyRepository: this.noteProperties,
 					isNew,
 					viewModel,
-					oncontextmenu: (e, note) => {
-						const file = this.notes.getFileFromNote(note);
-						if (!file) return;
-						openFileContextMenu(e, file, this.workspace);
+					oncontextmenu: (e, notes) => {
+						if (notes.length === 1) {
+							const file = this.notes.getFileFromNote(notes[0]);
+							if (!file) return;
+							openFileContextMenu(
+								e,
+								file,
+								this.workspace,
+								this.fileManager,
+							);
+						} else if (notes.length > 1) {
+							const files = notes
+								.map(it => this.notes.getFileFromNote(it))
+								.filter(it => it != null);
+							if (files.length === 0) return;
+							if (files.length === 1)
+								openFileContextMenu(
+									e,
+									files[0],
+									this.workspace,
+									this.fileManager,
+								);
+							else
+								openMultipleFileContextMenu(
+									e,
+									files,
+									this.workspace,
+									this.fileManager,
+								);
+						}
 					},
 				},
 			});

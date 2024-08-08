@@ -18,7 +18,7 @@
 
 <div
 	use:hoverTooltip={{
-		hovered,
+		visible: hovered,
 		label,
 		className: "timeline-item-tooltip",
 	}}

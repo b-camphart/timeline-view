@@ -31,7 +31,7 @@
 
 	export let viewModel: NamespacedWritableFactory<ObsidianNoteTimelineViewModel>;
 	export let isNew: boolean = false;
-	export let oncontextmenu: (e: MouseEvent, note: Note) => void = () => {};
+	export let oncontextmenu: (e: MouseEvent, notes: Note[]) => void = () => {};
 
 	const dispatch = createEventDispatcher<{
 		noteSelected: { note: Note; event?: Event };
@@ -342,10 +342,15 @@
 	on:create={(e) => createItem(e.detail)}
 	onMoveItem={moveItem}
 	{onPreviewNewItemValue}
-	oncontextmenu={(e, triggerItem) => {
-		const item = itemsById.get(triggerItem.id());
-		if (item == null) return;
-		oncontextmenu(e, item.note);
+	oncontextmenu={(e, triggerItems) => {
+		const items = triggerItems
+			.map((item) => itemsById.get(item.id()))
+			.filter((it) => it != null);
+		if (items.length === 0) return;
+		oncontextmenu(
+			e,
+			items.map((it) => it.note),
+		);
 	}}
 >
 	<svelte:fragment slot="additional-settings">
@@ -368,10 +373,6 @@
 </TimelineView>
 
 <style>
-	@property --timeline-selection-area-background {
-		syntax: "<color>";
-		initial-value: purple;
-	}
 	:global(body) {
 		--timeline-background: var(--canvas-background);
 

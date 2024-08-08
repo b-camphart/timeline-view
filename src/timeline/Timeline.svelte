@@ -31,7 +31,7 @@
 	) => boolean = () => true;
 	export let oncontextmenu: (
 		e: MouseEvent,
-		item: TimelineItem,
+		items: TimelineItem[],
 	) => void = () => {};
 
 	let sortedItems: TimelineItem[] = [];
@@ -115,14 +115,15 @@
 		}
 	}
 
-	function moveItem(
-		event: CustomEvent<{ item: TimelineItem; value: number }>,
+	function moveItems(
+		event: CustomEvent<{ item: TimelineItem; value: number }[]>,
 	) {
-		if (!onMoveItem(event.detail.item, event.detail.value)) {
-			return;
-		}
-
-		event.detail.item.value = () => event.detail.value;
+		event.detail.forEach(({ item, value }) => {
+			if (!onMoveItem(item, value)) {
+				return;
+			}
+			item.value = () => value;
+		});
 		sortedItems = sortedItems.toSorted((a, b) => a.value() - b.value());
 	}
 
@@ -158,7 +159,7 @@
 		on:select
 		on:focus
 		on:create
-		on:moveItem={moveItem}
+		on:moveItems={moveItems}
 		{onPreviewNewItemValue}
 		{oncontextmenu}
 	/>

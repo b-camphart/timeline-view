@@ -1,10 +1,11 @@
-import { Menu, Workspace, type TFile } from "obsidian";
+import { FileManager, Menu, Workspace, type TFile } from "obsidian";
 import { warningItem } from "./Menu";
 
 export function openFileContextMenu(
 	e: MouseEvent,
 	file: TFile,
 	workspace: Workspace,
+	fileManager: FileManager,
 ) {
 	const menu = new Menu();
 
@@ -33,7 +34,7 @@ export function openFileContextMenu(
 				});
 		});
 
-	workspace.trigger("file-menu", menu, file, "timeline-item-context-menu");
+	workspace.trigger("file-menu", menu, file, "timeline-view-context-menu");
 
 	menu.addItem(item => {
 		warningItem(item)
@@ -41,7 +42,51 @@ export function openFileContextMenu(
 			.setTitle("Delete")
 			.setIcon("lucide-trash-2")
 			.onClick(() => {
-				file.vault.delete(file);
+				if (
+					"promptForDeletion" in fileManager &&
+					typeof fileManager.promptForDeletion === "function"
+				) {
+					fileManager.promptForDeletion(file);
+				} else {
+					file.vault.delete(file);
+				}
+			});
+	});
+
+	menu.showAtMouseEvent(e);
+}
+
+export function openMultipleFileContextMenu(
+	e: MouseEvent,
+	files: TFile[],
+	workspace: Workspace,
+	fileManager: FileManager,
+) {
+	const menu = new Menu();
+
+	workspace.trigger("files-menu", menu, files, "timeline-view-context-menu");
+
+	menu.addItem(item => {
+		warningItem(item)
+			.setSection("danger")
+			.setTitle("Delete")
+			.setIcon("lucide-trash-2")
+			.onClick(() => {
+				let deleteFunction: (file: TFile) => void;
+
+				if (
+					"promptForDeletion" in fileManager &&
+					typeof fileManager.promptForDeletion === "function"
+				) {
+					deleteFunction =
+						fileManager.promptForDeletion.bind(fileManager);
+				} else {
+					deleteFunction = files[0].vault.delete.bind(files[0].vault);
+				}
+
+				for (const file of files) {
+					deleteFunction(file);
+				}
 			});
 	});
 

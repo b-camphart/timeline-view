@@ -5,19 +5,37 @@ export interface OffsetBox {
 	readonly offsetLeft: number;
 	readonly offsetWidth: number;
 	readonly offsetHeight: number;
+}
 
+export interface ExtendedOffsetBox extends OffsetBox {
 	readonly offsetBottom: number;
 	readonly offsetRight: number;
 	readonly offsetCenterX: number;
 	readonly offsetCenterY: number;
 }
 
+export function offsetBottom(box: OffsetBox) {
+	return box.offsetTop + box.offsetHeight;
+}
+
+export function offsetRight(box: OffsetBox) {
+	return box.offsetLeft + box.offsetWidth;
+}
+
+export function offsetCenterX(box: OffsetBox) {
+	return box.offsetLeft + box.offsetWidth / 2;
+}
+
+export function offsetCenterY(box: OffsetBox) {
+	return box.offsetTop + box.offsetHeight / 2;
+}
+
 export function boxContainsPoint(box: OffsetBox, x: number, y: number) {
 	return (
 		box.offsetLeft <= x &&
-		x < box.offsetRight &&
+		x < offsetRight(box) &&
 		box.offsetTop <= y &&
-		y < box.offsetBottom
+		y < offsetBottom(box)
 	);
 }
 
@@ -43,6 +61,30 @@ export class TimelineLayoutItem {
 
 	bottom() {
 		return this.centerY + this.radius;
+	}
+}
+
+export class TimelineItemElementStyle {
+	public fill;
+	public stroke;
+	public strokeWidth;
+
+	constructor(css: CSSStyleDeclaration) {
+		this.fill = css.backgroundColor;
+		this.stroke = css.borderColor;
+		this.strokeWidth = parseFloat(css.borderWidth);
+	}
+
+	equals(other: unknown) {
+		if (!(other instanceof TimelineItemElementStyle)) {
+			return false;
+		}
+
+		return (
+			other.fill === this.fill &&
+			other.stroke === this.stroke &&
+			other.strokeWidth === this.strokeWidth
+		);
 	}
 }
 
@@ -79,6 +121,12 @@ export class TimelineItemElement {
 		);
 	}
 
+	#style: TimelineItemElementStyle | undefined = undefined;
+
+	set style(style: TimelineItemElementStyle) {
+		this.#style = style;
+	}
+
 	#layoutItem: TimelineLayoutItem;
 	get layoutItem() {
 		return this.#layoutItem;
@@ -86,20 +134,20 @@ export class TimelineItemElement {
 
 	set layoutItem(item: TimelineLayoutItem) {
 		this.#layoutItem = item;
-		this.#color = undefined;
-		this.borderColor = undefined;
+		this.visible = undefined;
 	}
 
-	#color: string | CanvasGradient | CanvasPattern | undefined;
+	visible: boolean | undefined;
+
 	get backgroundColor(): string | CanvasGradient | CanvasPattern | undefined {
-		return this.#color ?? this.layoutItem.item.color();
+		return this.layoutItem.item.color() ?? this.#style?.fill;
 	}
 
-	set backgroundColor(
-		color: string | CanvasGradient | CanvasPattern | undefined,
-	) {
-		this.#color = color;
+	get borderColor() {
+		return this.#style?.stroke;
 	}
 
-	borderColor: string | CanvasGradient | CanvasPattern | undefined;
+	get strokeWidth() {
+		return this.#style?.strokeWidth;
+	}
 }

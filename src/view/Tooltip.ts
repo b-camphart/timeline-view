@@ -2,7 +2,7 @@
 import _tooltipStyles from "./Tooltip.css";
 
 type Tooltip = {
-	hovered: boolean;
+	visible: boolean;
 	label: string;
 
 	elementPosition?: (rect: DOMRect) => { x: number; y: number };
@@ -34,12 +34,16 @@ export function hoverTooltip(element: HTMLElement, args: Tooltip) {
 	}
 
 	position(args);
-	if (args.hovered) {
+	if (args.visible) {
 		document.body.appendChild(tooltip);
 	}
 
+	let observer = new MutationObserver(() => position(args));
+	observer.observe(element, { attributes: true });
+
 	return {
 		destroy() {
+			observer.disconnect();
 			tooltip.remove();
 		},
 		update(args: Tooltip) {
@@ -49,10 +53,13 @@ export function hoverTooltip(element: HTMLElement, args: Tooltip) {
 			}
 			tooltip.className = "tooltip " + args.className;
 			position(args);
-			if (args.hovered && tooltip.parentElement != document.body) {
+			observer.disconnect();
+			observer = new MutationObserver(() => position(args));
+			observer.observe(element, { attributes: true });
+			if (args.visible && tooltip.parentElement != document.body) {
 				document.body.appendChild(tooltip);
 			} else if (
-				!args.hovered &&
+				!args.visible &&
 				tooltip.parentElement == document.body
 			) {
 				tooltip.remove();

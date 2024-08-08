@@ -57,15 +57,21 @@ export class ObsidianNoteRepository implements MutableNoteRepository {
 			return;
 		}
 
-		if (modification.created != null) {
-			tFile.stat.ctime = Math.trunc(modification.created);
-		}
-		if (modification.modified != null) {
-			tFile.stat.mtime = Math.trunc(modification.modified);
+		if (modification.created != null || modification.modified != null) {
+			// just modifying the tFile.ctime and tFile.mtime didn't actually
+			// persist the changes.  Writing is the only way to do so.
+			await this.#vault.adapter.write(
+				tFile.path,
+				await this.#vault.adapter.read(tFile.path),
+				{
+					ctime: truncate(modification.created),
+					mtime: truncate(modification.modified),
+				},
+			);
 		}
 		if (modification.property != null) {
 			const property = modification.property;
-			this.#files.processFrontMatter(tFile, frontmatter => {
+			await this.#files.processFrontMatter(tFile, frontmatter => {
 				for (const [key, value] of Object.entries(property)) {
 					frontmatter[key] = value;
 				}

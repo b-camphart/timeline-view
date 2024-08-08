@@ -51,6 +51,7 @@ export default class ObsidianTimelinePlugin extends Plugin {
 				this.app.vault,
 				this.app.metadataCache,
 				this.app.workspace,
+				this.app.fileManager,
 				notes,
 				properties,
 			);
