@@ -1,6 +1,10 @@
+<!-- 
+@component
+Offsers a select element with a completely customizable dropdown
+-->
 <script lang="ts">
-	/// <reference types="vite/client" />
-	import { createEventDispatcher } from "svelte";
+	import { range } from "src/utils/range";
+	import { createEventDispatcher, onDestroy, setContext } from "svelte";
 	import type { DOMAttributes, HTMLAttributes } from "svelte/elements";
 
 	const dispatch = createEventDispatcher<{
@@ -21,7 +25,13 @@
 		 */
 		hidden: Event | undefined;
 
-		change: number;
+		changing: number;
+
+		/**
+		 * Fired when the selected index changes.  The selection cannot be
+		 * cancelled, but the hiding of the menu can be cancelled.
+		 */
+		changed: number;
 	}>();
 
 	interface $$Props
@@ -31,6 +41,12 @@
 		> {
 		selectedIndex?: number;
 		itemCount: number;
+	}
+
+	interface $$Slots {
+		item: {
+			index: number;
+		};
 	}
 
 	export let selectedIndex: number = -1;
@@ -78,12 +94,34 @@
 		}
 	}
 
+	function changedWithEffect(index: number, effect: () => void) {
+		selectedIndex = index;
+		if (dispatch("changed", index, { cancelable: true })) {
+			effect();
+		}
+	}
+
+	export function change(index: number) {
+		if (dispatch("changing", index, { cancelable: true })) {
+			changed(index);
+		}
+	}
+	function changed(index: number) {
+		changedWithEffect(index, () => hide());
+	}
+	setContext("change", change);
+
 	let dialog: HTMLDialogElement | undefined;
 	export function getDialog() {
 		return open ? dialog : undefined;
 	}
 
 	$: if (open && dialog != null) positionDialog(dialog);
+	onDestroy(() => {
+		if (dialog != null) {
+			dialog.parentElement?.removeChild(dialog);
+		}
+	});
 
 	function positionDialog(dialog: HTMLDialogElement) {
 		if (dialog.parentElement != document.body) {
@@ -157,17 +195,41 @@
 <select
 	{...$$restProps}
 	class:dropdown={true}
-	on:mousedown|preventDefault|stopPropagation={trigger}
-	on:keydown={(event) => (event.key === "Enter" ? trigger(event) : null)}
+	on:mousedown|preventDefault|stopPropagation={(e) => {
+		e.currentTarget.focus();
+		trigger(e);
+	}}
+	on:keydown={(event) => {
+		if (event.key === "Enter") {
+			trigger(event);
+		} else if (event.key === "Escape") {
+			hide();
+			event.preventDefault();
+			event.stopPropagation();
+		} else if (event.key === "ArrowUp") {
+			if (open) {
+				changedWithEffect(Math.max(0, selectedIndex - 1), () => {});
+				event.preventDefault();
+			}
+		} else if (event.key === "ArrowDown") {
+			if (open) {
+				changedWithEffect(
+					Math.min(itemCount - 1, selectedIndex + 1),
+					() => {},
+				);
+				event.preventDefault();
+			}
+		}
+	}}
 	on:focusout={onFocusOut}
-	on:change={(event) => dispatch("change", event.currentTarget.selectedIndex)}
+	on:change={(e) => changed(e.currentTarget.selectedIndex)}
 	role="combobox"
 	aria-expanded={open}
 	aria-owns={dialogId}
 	aria-controls={dialogId}
 	bind:this={element}
 >
-	{#each new Array(itemCount).fill(0) as _, itemIndex}
+	{#each range(itemCount) as itemIndex}
 		<option value={itemIndex} selected={selectedIndex === itemIndex}>
 			<slot name="item" index={itemIndex}></slot>
 		</option>
@@ -199,7 +261,7 @@
 		data-popupfor={$$restProps.id}
 	>
 		<ul role="listbox">
-			{#each new Array(itemCount).fill(0) as _, itemIndex}
+			{#each range(itemCount) as itemIndex}
 				<slot name="item" index={itemIndex}></slot>
 			{/each}
 		</ul>

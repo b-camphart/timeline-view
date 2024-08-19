@@ -1,31 +1,19 @@
-import {
-	FileManager,
-	ItemView,
-	Menu,
-	MetadataCache,
-	TFile,
-	Vault,
-	Workspace,
-	WorkspaceLeaf,
-	type ViewStateResult,
-} from "obsidian";
-import { LUCID_ICON, OBSIDIAN_LEAF_VIEW_TYPE } from "./main";
-import type { ObsidianNoteRepository } from "src/note/obsidian-repository";
-import type { ObsidianNotePropertyRepository } from "src/note/property/obsidian-repository";
-import { get, writable } from "svelte/store";
-import type { Note } from "src/note";
-import { titleEl } from "../ItemVIew";
-import { preventOpenFileWhen, workspaceLeafExt } from "../WorkspaceLeaf";
-import { writableProperties } from "src/timeline/Persistence";
+import * as obsidian from "obsidian";
+import {LUCID_ICON, OBSIDIAN_LEAF_VIEW_TYPE} from "./main";
+import type {ObsidianNoteRepository} from "src/note/obsidian-repository";
+import type {ObsidianNotePropertyRepository} from "src/note/property/obsidian-repository";
+import {get, writable} from "svelte/store";
+import type {Note} from "src/note";
+import {titleEl} from "../ItemVIew";
+import {preventOpenFileWhen, workspaceLeafExt} from "../WorkspaceLeaf";
+import {writableProperties} from "src/timeline/Persistence";
 import NoteTimeline from "../timeline/NoteTimeline.svelte";
-import {
-	openFileContextMenu,
-	openMultipleFileContextMenu,
-} from "../FileExporer";
-import type { ObsidianNoteTimelineViewModel } from "../timeline/viewModel";
-import { openNewLeafFromEvent } from "../Workspace";
+import {openFileContextMenu, openMultipleFileContextMenu} from "../FileExporer";
+import {openNewLeafFromEvent} from "../Workspace";
+import {exists} from "src/utils/null";
+import * as json from "src/utils/json";
 
-export class TimelineItemView extends ItemView {
+export class TimelineItemView extends obsidian.ItemView {
 	getIcon(): string {
 		return LUCID_ICON;
 	}
@@ -37,11 +25,11 @@ export class TimelineItemView extends ItemView {
 	private group: string | undefined;
 
 	constructor(
-		leaf: WorkspaceLeaf,
-		vault: Vault,
-		metadata: MetadataCache,
-		private workspace: Workspace,
-		private fileManager: FileManager,
+		leaf: obsidian.WorkspaceLeaf,
+		vault: obsidian.Vault,
+		metadata: obsidian.MetadataCache,
+		private workspace: obsidian.Workspace,
+		private fileManager: obsidian.FileManager,
 		private notes: ObsidianNoteRepository,
 		private noteProperties: ObsidianNotePropertyRepository,
 	) {
@@ -55,12 +43,12 @@ export class TimelineItemView extends ItemView {
 		// events
 		[
 			vault.on("create", file => {
-				if (file instanceof TFile) {
+				if (file instanceof obsidian.TFile) {
 					this.component?.addFile(this.notes.getNoteForFile(file));
 				}
 			}),
 			vault.on("rename", (file, oldPath) => {
-				if (file instanceof TFile) {
+				if (file instanceof obsidian.TFile) {
 					this.component?.renameFile(
 						this.notes.getNoteForFile(file),
 						oldPath,
@@ -68,12 +56,12 @@ export class TimelineItemView extends ItemView {
 				}
 			}),
 			metadata.on("changed", file => {
-				if (file instanceof TFile) {
+				if (file instanceof obsidian.TFile) {
 					this.component?.modifyFile(this.notes.getNoteForFile(file));
 				}
 			}),
 			vault.on("delete", file => {
-				if (file instanceof TFile) {
+				if (file instanceof obsidian.TFile) {
 					this.component?.deleteFile(this.notes.getNoteForFile(file));
 				}
 			}),
@@ -103,7 +91,7 @@ export class TimelineItemView extends ItemView {
 				}
 
 				const file = vault.getAbstractFileByPath(state.file);
-				if (file instanceof TFile) {
+				if (file instanceof obsidian.TFile) {
 					const note = this.notes.getNoteForFile(file);
 					if (!note) {
 						return;
@@ -126,7 +114,7 @@ export class TimelineItemView extends ItemView {
 	private mode = writable(this.$mode);
 
 	onPaneMenu(
-		menu: Menu,
+		menu: obsidian.Menu,
 		source: "more-options" | "tab-header" | string,
 	): void {
 		if (this.$mode === EditMode.Edit) {
@@ -213,13 +201,16 @@ export class TimelineItemView extends ItemView {
 	private completeInitialization(_state: TimelineItemViewState) {}
 
 	private state: TimelineItemViewState | undefined;
-	setState(state: unknown, result: ViewStateResult): Promise<void> {
-		this.state = state as TimelineItemViewState;
+	setState(state: unknown, result: obsidian.ViewStateResult): Promise<void> {
+		this.state = timelineItemViewStateSchema.parseOrDefault(state);
 		this.completeInitialization(this.state);
 		return super.setState(state, result);
 	}
 
 	getState() {
+		if (this.state != null && "isNew" in this.state) {
+			delete this.state.isNew;
+		}
 		return this.state;
 	}
 
@@ -237,7 +228,6 @@ export class TimelineItemView extends ItemView {
 			);
 
 			const isNew = state.isNew;
-			delete state.isNew;
 
 			const viewModel = writableProperties(state, (key, newValue) => {
 				state[key] = newValue;
@@ -245,18 +235,13 @@ export class TimelineItemView extends ItemView {
 				this.workspace.requestSaveLayout();
 			});
 
-			const persistedMode = viewModel.make(
-				"mode",
-				this.$mode === EditMode.Edit ? "edit" : "view",
-			);
+			const persistedMode = viewModel.make("mode", this.$mode);
 			if (get(persistedMode) === "edit") {
 				this.mode.set(EditMode.Edit);
 			} else if (get(persistedMode) === "view") {
 				this.mode.set(EditMode.View);
 			}
-			this.mode.subscribe(mode =>
-				persistedMode.set(mode === EditMode.Edit ? "edit" : "view"),
-			);
+			this.mode.subscribe(mode => persistedMode.set(mode));
 			const switchToViewMode = this.addAction(
 				"book-open",
 				"Current view: editing\nClick to view-only",
@@ -291,9 +276,9 @@ export class TimelineItemView extends ItemView {
 								this.fileManager,
 							);
 						} else if (notes.length > 1) {
-							const files = notes
+							const files: obsidian.TFile[] = notes
 								.map(it => this.notes.getFileFromNote(it))
-								.filter(it => it != null);
+								.filter(exists);
 							if (files.length === 0) return;
 							if (files.length === 1)
 								openFileContextMenu(
@@ -364,11 +349,45 @@ export class TimelineItemView extends ItemView {
 	}
 }
 
-type TimelineItemViewState = {
-	isNew?: boolean;
-} & ObsidianNoteTimelineViewModel;
-
-const enum EditMode {
-	View,
-	Edit,
+enum EditMode {
+	View = "view",
+	Edit = "edit",
 }
+
+const timelineItemViewStateSchema = json.expectObject({
+	isNew: json.optional(json.expectBoolean(false)),
+	focalValue: json.expectNumber(0),
+	vScroll: json.expectNumber(0),
+	mode: json.expectEnum(EditMode, EditMode.Edit),
+	scale: json.expectNumber(1),
+	settings: json.expectObject({
+		isOpen: json.expectBoolean(false),
+		property: json.expectObject({
+			collapsed: json.expectBoolean(true),
+			property: json.expectString("created"),
+			propertiesUseWholeNumbers: json.expectRecord({
+				key: json.expectString(""),
+				value: json.expectBoolean(true),
+			}),
+		}),
+		filter: json.expectObject({
+			collapsed: json.expectBoolean(true),
+			query: json.expectString(""),
+		}),
+		groups: json.expectObject({
+			collapsed: json.expectBoolean(true),
+			groups: json.expectArray(
+				json.expectObject({
+					query: json.expectString(""),
+					color: json.expectString(""),
+				}),
+			),
+		}),
+		display: json.expectObject({
+			collapsed: json.expectBoolean(true),
+			names: json.expectBoolean(false),
+		}),
+	}),
+});
+
+type TimelineItemViewState = json.Parsed<typeof timelineItemViewStateSchema>;

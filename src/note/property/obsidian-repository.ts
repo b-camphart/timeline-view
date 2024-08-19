@@ -1,14 +1,12 @@
-import { normalizePath, type DataAdapter } from "obsidian";
-import type { NotePropertyRepository } from "./repository";
-import type { MetadataTypeManager } from "src/obsidian/MetadataTypeManager";
-import { NoteProperty } from ".";
+import type {NotePropertyRepository} from "./repository";
+import type {MetadataTypeManager} from "src/obsidian/MetadataTypeManager";
+import {NoteProperty} from ".";
 
-const REGISTERED_PROPERTY_JSON_PATH = normalizePath(`.obsidian/types.json`);
 export class ObsidianNotePropertyRepository implements NotePropertyRepository {
 	#getMetadataTypeManager: () => MetadataTypeManager | undefined;
 
 	constructor(
-		private fs: Pick<DataAdapter, "read">,
+		private readPropertyTypes: () => Promise<string>,
 		getMetadataTypeManager: () => MetadataTypeManager | undefined,
 	) {
 		this.#getMetadataTypeManager = () => {
@@ -54,10 +52,10 @@ export class ObsidianNotePropertyRepository implements NotePropertyRepository {
 	async #loadRegisteredProperties(): Promise<NoteProperty<string>[]> {
 		let json: object = {};
 		try {
-			const rawText = await this.fs.read(REGISTERED_PROPERTY_JSON_PATH);
+			const rawText = await this.readPropertyTypes();
 			json = JSON.parse(rawText);
 		} catch (err) {
-			console.error("[Timline View]", err);
+			console.error("[Timeline View]", err);
 		}
 
 		const registeredProperties: NoteProperty<string>[] = [];

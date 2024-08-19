@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SvgIcon from "../../view/SvgIcon.svelte";
+	import LucideIcon from "src/obsidian/view/LucideIcon.svelte";
 	import ActionButton from "../../view/inputs/ActionButton.svelte";
 	import type { TimelineNavigation } from "./TimelineNavigation";
 
@@ -33,10 +33,7 @@
 			on:action={triggerZoomIn}
 			class="clickable-icon"
 		>
-			<SvgIcon>
-				<line x1="12" y1="5" x2="12" y2="19" />
-				<line x1="5" y1="12" x2="19" y2="12" />
-			</SvgIcon>
+			<LucideIcon id="plus" />
 		</ActionButton>
 	</li>
 	<li class="control-item">
@@ -45,9 +42,7 @@
 			on:action={triggerZoomOut}
 			class="clickable-icon"
 		>
-			<SvgIcon>
-				<line x1="5" y1="12" x2="19" y2="12" />
-			</SvgIcon>
+			<LucideIcon id="minus" />
 		</ActionButton>
 	</li>
 	<li class="control-item">
@@ -56,12 +51,7 @@
 			on:action={triggerZoomToFit}
 			class="clickable-icon"
 		>
-			<SvgIcon>
-				<path d="M8 3H5a2 2 0 0 0-2 2v3" />
-				<path d="M21 8V5a2 2 0 0 0-2-2h-3" />
-				<path d="M3 16v3a2 2 0 0 0 2 2h3" />
-				<path d="M16 21h3a2 2 0 0 0 2-2v-3" />
-			</SvgIcon>
+			<LucideIcon id="scan" />
 		</ActionButton>
 	</li>
 	<li class="control-item">
@@ -70,11 +60,7 @@
 			on:action={triggerScrollToZero}
 			class="clickable-icon"
 		>
-			<SvgIcon>
-				<path d="M3 19V5" />
-				<path d="m13 6-6 6 6 6" />
-				<path d="M7 12h14" />
-			</SvgIcon>
+			<LucideIcon id="arrow-left-to-line" />
 		</ActionButton>
 	</li>
 	<li class="control-item">
@@ -83,10 +69,7 @@
 			on:action={triggerScrollToFirst}
 			class="clickable-icon"
 		>
-			<SvgIcon>
-				<path d="m12 19-7-7 7-7" />
-				<path d="M19 12H5" />
-			</SvgIcon>
+			<LucideIcon id="arrow-left" />
 		</ActionButton>
 	</li>
 </menu>

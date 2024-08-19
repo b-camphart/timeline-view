@@ -1,13 +1,13 @@
-import { FileManager, Menu, Workspace, type TFile } from "obsidian";
+import * as obsidian from "obsidian";
 import { warningItem } from "./Menu";
 
 export function openFileContextMenu(
 	e: MouseEvent,
-	file: TFile,
-	workspace: Workspace,
-	fileManager: FileManager,
+	file: obsidian.TFile,
+	workspace: obsidian.Workspace,
+	fileManager: obsidian.FileManager,
 ) {
-	const menu = new Menu();
+	const menu = new obsidian.Menu();
 
 	menu.addItem(item => {
 		item.setSection("open")
@@ -58,11 +58,11 @@ export function openFileContextMenu(
 
 export function openMultipleFileContextMenu(
 	e: MouseEvent,
-	files: TFile[],
-	workspace: Workspace,
-	fileManager: FileManager,
+	files: obsidian.TFile[],
+	workspace: obsidian.Workspace,
+	fileManager: obsidian.FileManager,
 ) {
-	const menu = new Menu();
+	const menu = new obsidian.Menu();
 
 	workspace.trigger("files-menu", menu, files, "timeline-view-context-menu");
 
@@ -72,7 +72,7 @@ export function openMultipleFileContextMenu(
 			.setTitle("Delete")
 			.setIcon("lucide-trash-2")
 			.onClick(() => {
-				let deleteFunction: (file: TFile) => void;
+				let deleteFunction: (file: obsidian.TFile) => void;
 
 				if (
 					"promptForDeletion" in fileManager &&

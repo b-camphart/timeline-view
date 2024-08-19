@@ -1,52 +1,52 @@
 <script lang="ts">
-	import { type NamespacedWritableFactory } from "../../Persistence";
-	import CollapsableSection from "../../../view/CollapsableSection.svelte";
-	import SvgIcon from "../../../view/SvgIcon.svelte";
 	import ActionButton from "../../../view/inputs/ActionButton.svelte";
-	import TimelineDisplaySettings from "./display/TimelineDisplaySettings.svelte";
-	import type { TimelineSettingsViewModel } from "./viewModel";
+	import LucideIcon from "src/obsidian/view/LucideIcon.svelte";
+	import type { Collapsable } from "src/view/collapsable";
 
-	export let namespacedWritable: NamespacedWritableFactory<TimelineSettingsViewModel>;
-
-	const isOpen = namespacedWritable.make("isOpen", false);
-
-	function close() {
-		$isOpen = false;
+	interface $$Props {
+		collapsable: Collapsable;
 	}
-	function open() {
-		$isOpen = true;
+
+	export let collapsable: $$Props["collapsable"];
+
+	let isOpen = !collapsable.isCollapsed();
+	function onNewCollapsable(collapsable: $$Props["collapsable"]) {
+		isOpen = !collapsable.isCollapsed();
 	}
+	function onOpenChanged(collapsed: boolean) {
+		if (collapsed) {
+			collapsable.collapse();
+		} else {
+			collapsable.expand();
+		}
+		isOpen = !collapsable.isCollapsed();
+	}
+
+	$: onNewCollapsable(collapsable);
+	$: onOpenChanged(!isOpen);
 </script>
 
 <form
-	class="timeline-settings control-group{$isOpen ? ' open' : ' closed'}"
+	class="timeline-settings control-group{isOpen ? ' open' : ' closed'}"
 	on:submit|preventDefault|stopPropagation
 >
-	{#if !$isOpen}
+	{#if !isOpen}
 		<ActionButton
 			id="toggle-button"
 			class="open-button clickable-icon"
 			aria-label="Open"
-			on:action={open}
+			on:action={() => (isOpen = true)}
 		>
-			<SvgIcon>
-				<path
-					d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
-				/>
-				<circle cx="12" cy="12" r="3" />
-			</SvgIcon>
+			<LucideIcon id="settings" />
 		</ActionButton>
 	{:else}
 		<ActionButton
 			id="toggle-button"
 			class="close-button clickable-icon"
 			aria-label="Close"
-			on:action={close}
+			on:action={() => (isOpen = false)}
 		>
-			<SvgIcon>
-				<line x1="18" y1="6" x2="6" y2="18" />
-				<line x1="6" y1="6" x2="18" y2="18" />
-			</SvgIcon>
+			<LucideIcon id="x" />
 		</ActionButton>
 	{/if}
 	<slot />

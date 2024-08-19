@@ -20,6 +20,7 @@
 	import SelectionArea from "./CanvasSelectionArea.svelte";
 	import SelectedBounds from "./SelectedBounds.svelte";
 	import DraggedItem from "./DraggedItem.svelte";
+	import type { SortedArray } from "src/utils/collections";
 
 	type ZoomEvent = {
 		keepValue: number;
@@ -39,7 +40,7 @@
 	}>();
 
 	export let display: ValueDisplay;
-	export let sortedItems: TimelineItem[];
+	export let sortedItems: SortedArray<TimelineItem>;
 	export let scale: Scale;
 	export let focalValue: number;
 	export let width: number = 0;
@@ -732,9 +733,12 @@
 		hover = null;
 	}
 
-	function onPointsOrScaleChanged(points: TimelineItem[], scale: Scale) {
+	function onPointsOrScaleChanged(
+		points: SortedArray<TimelineItem>,
+		scale: Scale,
+	) {
 		if (focus) {
-			const index = points.findIndex(
+			const index = points.items.findIndex(
 				(item) => item === focus!.element.layoutItem.item,
 			);
 			if (index >= 0) {
@@ -827,7 +831,7 @@
 					viewport,
 					item,
 					scale,
-					sortedItems,
+					sortedItems.items,
 					layout,
 				);
 
@@ -897,11 +901,11 @@
 				hScrollValue = focalValue - scale.toValue(viewport.width / 2);
 
 				const leftMostValue =
-					(sortedItems[0]?.value() ?? 0) -
+					(sortedItems.items[0]?.value() ?? 0) -
 					scale.toValue(viewport.padding.left + item.width / 2);
 
 				const rightMostValue =
-					(sortedItems[sortedItems.length - 1]?.value() ?? 0) -
+					(sortedItems.items[sortedItems.length - 1]?.value() ?? 0) -
 					scale.toValue(viewport.padding.left + item.width / 2);
 
 				minHScrollValue = Math.min(

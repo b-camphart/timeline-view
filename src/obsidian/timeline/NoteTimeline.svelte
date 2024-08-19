@@ -7,24 +7,21 @@
 	} from "../../timeline/Timeline";
 	import { type NamespacedWritableFactory } from "../../timeline/Persistence";
 	import { createEventDispatcher, onMount } from "svelte";
-	import { writable } from "svelte/store";
-	import Groups from "./settings/groups/Groups.svelte";
-	import {
-		makeTimelineItemGroups,
-		type TimelineItemGroups,
-	} from "./settings/groups/Groups";
-	import { GroupRepository } from "./settings/groups/persistence";
-	import { selectGroupForFile } from "./settings/groups/selectGroupForFile";
-	import TimelinePropertySetting from "./settings/property/TimelinePropertySetting.svelte";
+	import { get } from "svelte/store";
+	import TimelinePropertySection from "../../timeline/property/TimelinePropertySection.svelte";
 	import type { ObsidianNoteTimelineViewModel } from "./viewModel";
-	import TimelineFilterSetting from "./settings/filter/TimelineFilterSetting.svelte";
+	import TimelineFilterSection from "../../timeline/filter/TimelineFilterSection.svelte";
 	import type { NotePropertyRepository } from "src/note/property/repository";
 	import type { MutableNoteRepository } from "src/note/repository";
 	import type { Note } from "src/note";
-	import {
-		TimelineOrderByNoteProperty,
-		TimelineOrderNoteProperty,
-	} from "src/timeline/order/ByNoteProperty";
+	import { exists } from "src/utils/null";
+	import { TimelinePropertySelector } from "src/timeline/property/TimelinePropertySelector";
+	import type { TimelineProperty } from "src/timeline/property/TimelineProperty";
+	import { TimelineItemQueryFilter } from "src/timeline/filter/TimelineItemQueryFilter";
+	import { TimelineGroups } from "src/timeline/group/groups";
+	import * as timelineGroup from "src/timeline/group/group";
+	import type { TimelineItemColorSupplier } from "src/timeline/item/color";
+	import { MutableSortedArray } from "src/utils/collections";
 
 	export let noteRepository: MutableNoteRepository;
 	export let notePropertyRepository: NotePropertyRepository;
@@ -52,62 +49,58 @@
 
 	const settings = viewModel.namespace("settings");
 
-	let filterSection = settings.namespace("filter");
-
-	const filterText = filterSection.make("query", "");
-	const activeFilter = writable(
-		noteRepository.getInclusiveNoteFilterForQuery($filterText),
-	);
-	filterText.subscribe((newFilterText) =>
-		activeFilter.set(
-			noteRepository.getInclusiveNoteFilterForQuery(newFilterText),
-		),
-	);
-
 	let itemsById: Map<string, TimelineNoteItem> = new Map();
-	let items: TimelineNoteItem[] = [];
+	let items: MutableSortedArray<TimelineNoteItem> = new MutableSortedArray(
+		(item) => item.value(),
+	);
+
+	let currentFilteringId = 0;
+	const filterQuery = settings.namespace("filter").make("query", "");
+	let filter = new TimelineItemQueryFilter(
+		noteRepository,
+		$filterQuery,
+		async (query) => {
+			filterQuery.set(query);
+
+			const filteringId = currentFilteringId + 1;
+			currentFilteringId = filteringId;
+			const newItems = [];
+			for (const item of Array.from(itemsById.values())) {
+				if (currentFilteringId !== filteringId) break;
+				if (await filter.accepts(item)) {
+					newItems.push(item);
+				}
+			}
+			items = new MutableSortedArray((item) => item.value(), ...newItems);
+		},
+	);
 
 	const groupsNamespace = settings.namespace("groups");
-	const groupsRepo = new GroupRepository(
-		groupsNamespace.make("groups", []),
-		noteRepository,
-	);
-	let groupsView: Groups | undefined;
 
-	const timelineItemGroups: TimelineItemGroups = makeTimelineItemGroups(
-		{
-			groups: groupsRepo,
-			items: {
-				list() {
-					return items;
-				},
-			},
-			recolorProcess: undefined,
-		},
-		{
-			presentNewGroup(group) {
-				groupsView?.addGroup(group);
-			},
-			presentReorderedGroups(groups) {
-				groupsView?.newOrder(groups);
-			},
-			presentRecoloredGroup(group) {
-				groupsView?.recolorGroup(group);
-			},
-			presentRecoloredItem(item) {
-				timelineView?.invalidateColors();
-			},
-			presentRecoloredItems(items) {
-				timelineView?.invalidateColors();
-			},
-			presentRequeriedGroup(group) {
-				groupsView?.changeGroupQuery(group);
-			},
-			hideGroup(groupId) {
-				groupsView?.removeGroup(groupId);
-			},
-		},
+	function saveGroups() {
+		groupsNamespace.make("groups", []).set(
+			timelineGroups.groups().map((group) => ({
+				query: group.query(),
+				color: group.color(),
+			})),
+		);
+	}
+	function createGroup(query: string, color: string) {
+		const group = new timelineGroup.TimelineGroup(
+			noteRepository,
+			query,
+			color,
+		);
+		group.onChanged = saveGroups;
+		return group;
+	}
+	const timelineGroups = new TimelineGroups(
+		get(groupsNamespace.make("groups", []))
+			.map((group) => timelineGroup.schema.parseOrDefault(group))
+			.map(({ query, color }) => createGroup(query, color)),
+		(color) => createGroup("", color),
 	);
+	timelineGroups.onChanged = saveGroups;
 
 	function openFile(event: Event | undefined, item: TimelineItem) {
 		const note = itemsById.get(item.id())?.note;
@@ -118,17 +111,14 @@
 		dispatch("noteSelected", { note, event });
 	}
 
-	let order: TimelineOrderByNoteProperty;
+	let propertySelector: TimelinePropertySelector;
 
-	function selectedProperty() {
-		return order.selectedProperty();
-	}
 	async function createItem(item: { value: number }) {
-		const property = order.selectedProperty();
+		const property = propertySelector.selectedProperty();
 		let creation;
-		if (property === TimelineOrderNoteProperty.Created) {
+		if (property.isCreatedProperty()) {
 			creation = { created: item.value };
-		} else if (property === TimelineOrderNoteProperty.Modified) {
+		} else if (property.isModifiedProperty()) {
 			creation = { modified: item.value };
 		} else {
 			creation = {
@@ -147,10 +137,10 @@
 			return false;
 		}
 
-		const property = order.selectedProperty();
+		const property = propertySelector.selectedProperty();
 		value = property.sanitizeValue(value);
 
-		if (property === TimelineOrderNoteProperty.Created) {
+		if (property.isCreatedProperty()) {
 			return dispatch(
 				"modifyNote",
 				{
@@ -159,7 +149,7 @@
 				},
 				{ cancelable: true },
 			);
-		} else if (property === TimelineOrderNoteProperty.Modified) {
+		} else if (property.isModifiedProperty()) {
 			return dispatch(
 				"modifyNote",
 				{
@@ -189,95 +179,154 @@
 			.namespace("settings")
 			.namespace("property");
 
-		order = await TimelineOrderByNoteProperty.create(
-			notePropertyRepository,
-			orderSettings,
+		const selectedPropertyName = orderSettings.make("property", "created");
+		const propertyPreferences = orderSettings.make(
+			"propertiesUseWholeNumbers",
+			{},
 		);
 
-		display = order.selectedProperty().displayAs();
+		propertySelector = await TimelinePropertySelector.sanitize(
+			notePropertyRepository,
+			{
+				selectedPropertyName: get(selectedPropertyName),
+				propertyPreferences: get(propertyPreferences),
+			},
+			(state) => {
+				selectedPropertyName.set(state.selectedPropertyName);
+				propertyPreferences.set(state.propertyPreferences);
+			},
+		);
 
-		items = (
-			await Promise.all(
-				(await noteRepository.listAll()).map(async (note) => {
-					const item = new TimelineNoteItem(note, selectedProperty);
-					itemsById.set(item.id(), item);
-					if (await $activeFilter.matches(item.note)) {
-						return item;
-					}
-				}),
-			)
-		).filter((item) => !!item);
+		display = propertySelector.selectedProperty().displayedAs();
 
-		const groups = timelineItemGroups.listGroups();
-		if (groups.length > 0) {
-			timelineItemGroups.applyFileToGroup(groups[0].id, groups[0].query);
+		for (const note of await noteRepository.listAll()) {
+			const item = new TimelineNoteItem(
+				note,
+				getValueSelector,
+				itemColorSupplier,
+			);
+			itemsById.set(item.id(), item);
+			enqueueItemColorUpdate(item);
 		}
 
-		let currentFilteringId = 0;
-
-		activeFilter.subscribe(async (newFilter) => {
-			const filteringId = currentFilteringId + 1;
-			currentFilteringId = filteringId;
-			const newItems = [];
-			for (const item of Array.from(itemsById.values())) {
-				if (currentFilteringId !== filteringId) break;
-				if (await newFilter.matches(item.note)) {
-					newItems.push(item);
-				}
-			}
-			items = newItems;
-		});
+		items = new MutableSortedArray(
+			(item) => item.value(),
+			...(await filter.filteredItems(itemsById.values())),
+		);
 
 		if (isNew) {
 			timelineView.zoomToFit(items);
 		}
 	});
 
-	let groupUpdates: TimelineNoteItem[] = [];
-	let scheduledUpdate: ((listener: () => void) => void) | undefined;
-	function scheduleItemUpdate() {
-		if (scheduledUpdate != null) return scheduledUpdate;
+	const enqueueItemUpdate = (() => {
+		const queue: (() => void)[] = [];
+		let timer: null | ReturnType<typeof setTimeout> = null;
 
-		let updateListeners: (() => void)[] = [];
-		setTimeout(async () => {
-			scheduledUpdate = undefined;
-			if (groupUpdates.length > 0) {
-				const groups = groupsRepo.list();
-				const tasks = groupUpdates.map(async (item) => {
-					item._invalidateValueCache();
-					const group = await selectGroupForFile(groups, item.note);
-					item.applyGroup(group);
-				});
-				groupUpdates = [];
+		return (update: () => void) => {
+			queue.push(update);
+			if (timer != null) return;
+
+			timer = setTimeout(() => {
+				timer = null;
+				while (queue.length > 0) {
+					queue.shift()!();
+				}
+				items = items;
+			}, 250);
+		};
+	})();
+	const itemColorSupplier = {
+		cache: new Map<string, { index: number; color: string }>(),
+		itemColorForNote(note: Note): string | undefined {
+			return this.cache.get(note.id())?.color ?? undefined;
+		},
+	};
+	itemColorSupplier satisfies TimelineItemColorSupplier;
+
+	let itemRecolorQueueLength = 0;
+	const enqueueItemColorUpdate = (() => {
+		const queue: TimelineNoteItem[] = [];
+		const uniqueQueue = new Set<TimelineNoteItem>();
+		let timer: null | ReturnType<typeof setTimeout> = null;
+		let tasks: Promise<void>[] = [];
+
+		async function processBatch() {
+			timer = null;
+
+			const start = performance.now();
+			if (tasks.length > 0) {
 				await Promise.all(tasks);
 			}
-			timelineView?.refresh();
-			updateListeners.forEach((listener) => listener());
-		}, 250);
+			tasks = [];
 
-		scheduledUpdate = (listener) => {
-			updateListeners.push(listener);
+			while (
+				queue.length > 0 &&
+				performance.now() - start < 16 /* 1/60 */
+			) {
+				const item = queue.shift()!;
+				uniqueQueue.delete(item);
+				const groups = timelineGroups.groups();
+				tasks.push(
+					(async () => {
+						for (let i = 0; i < groups.length; i++) {
+							const group = groups[i];
+							if (await group.noteFilter().matches(item.note)) {
+								itemColorSupplier.cache.set(item.id(), {
+									color: group.color(),
+									index: i,
+								});
+								break;
+							}
+						}
+						timelineView.invalidateColors();
+					})(),
+				);
+			}
+			itemRecolorQueueLength = queue.length;
+
+			if (queue.length > 0) {
+				timer = setTimeout(processBatch, 0);
+			}
+		}
+
+		return (item: TimelineNoteItem) => {
+			if (uniqueQueue.has(item)) return;
+			uniqueQueue.add(item);
+			queue.push(item);
+			itemColorSupplier.cache.delete(item.id());
+			itemRecolorQueueLength = queue.length;
+			if (timer != null) return;
+
+			timer = setTimeout(processBatch, 0);
 		};
+	})();
 
-		return scheduledUpdate;
-	}
-
-	async function onItemAdded(item: TimelineNoteItem) {
-		if (await $activeFilter.matches(item.note)) {
-			items.push(item);
-			return scheduleItemUpdate();
+	function enqueueItemRecolorMatching(
+		predicate: (item: TimelineNoteItem) => boolean,
+	) {
+		for (const item of itemsById.values()) {
+			if (predicate(item)) {
+				enqueueItemColorUpdate(item);
+			}
 		}
 	}
 
 	function getValueSelector(this: void) {
-		return order.selectedProperty();
+		return propertySelector.selectedProperty();
 	}
 	export async function addFile(file: Note) {
 		if (timelineView == null) return;
 		if (itemsById.has(file.id())) return;
-		const item = new TimelineNoteItem(file, getValueSelector);
+		const item = new TimelineNoteItem(
+			file,
+			getValueSelector,
+			itemColorSupplier,
+		);
 		itemsById.set(file.id(), item);
-		return onItemAdded(item);
+		if (await filter.accepts(item)) {
+			enqueueItemUpdate(() => items.add(item));
+		}
 	}
 
 	export function deleteFile(file: Note) {
@@ -285,8 +334,7 @@
 		const item = itemsById.get(file.id());
 		if (item == null) return;
 		if (itemsById.delete(file.id())) {
-			items.remove(item);
-			scheduleItemUpdate();
+			enqueueItemUpdate(() => items.remove(item));
 		}
 	}
 
@@ -295,8 +343,11 @@
 		const item = itemsById.get(file.id());
 		if (item == null) return;
 
-		groupUpdates.push(item);
-		scheduleItemUpdate();
+		enqueueItemColorUpdate(item);
+		enqueueItemUpdate(() => {
+			items.remove(item);
+			items.add(item);
+		});
 	}
 
 	export async function renameFile(file: Note, oldPath: string) {
@@ -306,8 +357,11 @@
 		itemsById.delete(oldPath);
 		itemsById.set(file.id(), item);
 
-		groupUpdates.push(item);
-		scheduleItemUpdate();
+		enqueueItemColorUpdate(item);
+		enqueueItemUpdate(() => {
+			items.remove(item);
+			items.add(item);
+		});
 	}
 
 	export function focusOnNote(note: Note) {
@@ -316,18 +370,18 @@
 		timelineView?.focusOnItem(item);
 	}
 
-	function onPropertySelected(property: TimelineOrderNoteProperty) {
-		order.selectProperty(property);
-		order = order;
-
-		order.sortItems(items);
-		items = items;
+	function onPropertySelected(property: TimelineProperty) {
+		propertySelector = propertySelector;
+		for (const item of itemsById.values()) {
+			item._invalidateValueCache();
+		}
+		items = new MutableSortedArray((item) => item.value(), ...items);
+		display = property.displayedAs();
 		timelineView.zoomToFit(items);
-		display = property.displayAs();
 	}
 
 	function onPreviewNewItemValue(item: TimelineItem, value: number): number {
-		return order.selectedProperty().sanitizeValue(value);
+		return propertySelector.selectedProperty().sanitizeValue(value);
 	}
 </script>
 
@@ -335,6 +389,67 @@
 	{items}
 	namespacedWritable={viewModel}
 	{display}
+	groups={timelineGroups}
+	pendingGroupUpdates={itemRecolorQueueLength}
+	groupEvents={{
+		onGroupAppended(group, groups) {
+			// no-op
+		},
+		onGroupColored(index, group) {
+			let effectCount = 0;
+			for (const item of itemColorSupplier.cache.values()) {
+				if (item.index === index) {
+					item.color = group.color();
+					effectCount++;
+				}
+			}
+			if (effectCount > 0) {
+				timelineView.invalidateColors();
+			}
+		},
+		onGroupQueried(index, _group) {
+			enqueueItemRecolorMatching((item) => {
+				const def = itemColorSupplier.cache.get(item.id());
+				// a new query could impact items that have no group, but not
+				// items that have a group of a higher priority
+				return def == null || def.index >= index;
+			});
+		},
+		onGroupsReordered(from, to, _group, _groups) {
+			// maintain consistency with group order
+			for (const def of itemColorSupplier.cache.values()) {
+				if (def.index >= from) {
+					def.index -= 1;
+				}
+			}
+			for (const def of itemColorSupplier.cache.values()) {
+				if (def.index >= to) {
+					def.index += 1;
+				}
+			}
+
+			const minAffectedIndex = Math.min(from, to);
+			enqueueItemRecolorMatching((item) => {
+				const def = itemColorSupplier.cache.get(item.id());
+				// re-order can't impact items that have no group
+				return def != null && def.index >= minAffectedIndex;
+			});
+		},
+		onGroupRemoved(index, _group, _groups) {
+			// maintain consistency with group order
+			for (const def of itemColorSupplier.cache.values()) {
+				if (def.index >= index) {
+					def.index -= 1;
+				}
+			}
+
+			enqueueItemRecolorMatching((item) => {
+				const def = itemColorSupplier.cache.get(item.id());
+				// removing a group can't impact items that have no group
+				return def != null && def.index >= index;
+			});
+		},
+	}}
 	bind:this={timelineView}
 	on:select={(e) => openFile(e.detail.causedBy, e.detail.item)}
 	on:focus={(e) =>
@@ -345,7 +460,7 @@
 	oncontextmenu={(e, triggerItems) => {
 		const items = triggerItems
 			.map((item) => itemsById.get(item.id()))
-			.filter((it) => it != null);
+			.filter(exists);
 		if (items.length === 0) return;
 		oncontextmenu(
 			e,
@@ -354,20 +469,19 @@
 	}}
 >
 	<svelte:fragment slot="additional-settings">
-		{#if order}
-			<TimelinePropertySetting
-				viewModel={settings.namespace("property")}
-				{order}
+		{#if propertySelector}
+			<TimelinePropertySection
+				collapsed={settings
+					.namespace("property")
+					.make("collapsed", true)}
+				selector={propertySelector}
 				on:propertySelected={(event) =>
 					onPropertySelected(event.detail)}
 			/>
 		{/if}
-		<TimelineFilterSetting viewModel={settings.namespace("filter")} />
-		<Groups
-			bind:this={groupsView}
-			{timelineItemGroups}
-			name="Groups"
-			viewModel={settings.namespace("groups")}
+		<TimelineFilterSection
+			collapsed={settings.namespace("filter").make("collapsed", true)}
+			{filter}
 		/>
 	</svelte:fragment>
 </TimelineView>

@@ -1,4 +1,4 @@
-import type { App } from "obsidian";
+import type {App} from "obsidian";
 
 /**
  * Property of obsidian that is undocumented.  Allows access to properties in
@@ -108,35 +108,47 @@ function validMetadataTypeManager(
 function validMetadataTypeProperties(
 	properties: object,
 ): properties is MetadataTypeManager["properties"] {
-    if (!("aliases" in properties) || properties.aliases === null) {
-        console.warn(`[Timeline View] MetadataTypeManager.properties.aliases is null or undefined`);
-        return false;
-    }
-    if (!validProperty("aliases", properties.aliases)) {
-        console.warn(`[Timeline View] MetadataTypeManager.properties.aliases is not of expected shape`);
-        return false;
-    }
-    properties.aliases satisfies MetadataTypeManager["properties"]["aliases"];
-    
-    if (!("cssclasses" in properties) || properties.cssclasses === null) {
-        console.warn(`[Timeline View] MetadataTypeManager.properties.cssclasses is null or undefined`);
-        return false;
-    }
-    if (!validProperty("cssclasses", properties.cssclasses)) {
-        console.warn(`[Timeline View] MetadataTypeManager.properties.cssclasses is not of expected shape`);
-        return false;
-    }
-    properties.cssclasses satisfies MetadataTypeManager["properties"]["cssclasses"];
+	if (!("aliases" in properties) || properties.aliases === null) {
+		console.warn(
+			`[Timeline View] MetadataTypeManager.properties.aliases is null or undefined`,
+		);
+		return false;
+	}
+	if (!validProperty("aliases", properties.aliases)) {
+		console.warn(
+			`[Timeline View] MetadataTypeManager.properties.aliases is not of expected shape`,
+		);
+		return false;
+	}
+	properties.aliases satisfies MetadataTypeManager["properties"]["aliases"];
 
-    if (!("tags" in properties) || properties.tags === null) {
-        console.warn(`[Timeline View] MetadataTypeManager.properties.tags is null or undefined`);
-        return false;
-    }
-    if (!validProperty("tags", properties.tags )) {
-        console.warn(`[Timeline View] MetadataTypeManager.properties.tags is not of expected shape`);
-        return false;
-    }
-    properties.tags satisfies MetadataTypeManager["properties"]["tags"];
+	if (!("cssclasses" in properties) || properties.cssclasses === null) {
+		console.warn(
+			`[Timeline View] MetadataTypeManager.properties.cssclasses is null or undefined`,
+		);
+		return false;
+	}
+	if (!validProperty("cssclasses", properties.cssclasses)) {
+		console.warn(
+			`[Timeline View] MetadataTypeManager.properties.cssclasses is not of expected shape`,
+		);
+		return false;
+	}
+	properties.cssclasses satisfies MetadataTypeManager["properties"]["cssclasses"];
+
+	if (!("tags" in properties) || properties.tags === null) {
+		console.warn(
+			`[Timeline View] MetadataTypeManager.properties.tags is null or undefined`,
+		);
+		return false;
+	}
+	if (!validProperty("tags", properties.tags)) {
+		console.warn(
+			`[Timeline View] MetadataTypeManager.properties.tags is not of expected shape`,
+		);
+		return false;
+	}
+	properties.tags satisfies MetadataTypeManager["properties"]["tags"];
 
 	for (const [key, value] of Object.entries(properties)) {
 		if (!validProperty(key, value)) {

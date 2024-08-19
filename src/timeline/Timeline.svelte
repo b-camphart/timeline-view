@@ -11,15 +11,23 @@
 	import TimelineNavigationControls from "./controls/TimelineNavigationControls.svelte";
 	import TimelineSettings from "./controls/settings/TimelineSettings.svelte";
 	import type { RulerValueDisplay } from "src/timeline/Timeline";
+	import type { TimelineGroups } from "src/timeline/group/groups";
+	import TimelineGroupsList from "src/timeline/group/TimelineGroupsList.svelte";
+	import type { ComponentProps } from "svelte";
+	import { SortedArray } from "src/utils/collections";
+	import TimelineGroupsSettingsSection from "src/timeline/group/TimelineGroupsSettingsSection.svelte";
+	import { ObservableCollapsable } from "src/view/collapsable";
 
 	export let namespacedWritable: NamespacedWritableFactory<TimelineViewModel>;
+	export let groups: TimelineGroups;
+	export let groupEvents: Omit<ComponentProps<TimelineGroupsList>, "groups">;
 	export let display: RulerValueDisplay;
 
 	const focalValue = namespacedWritable.make("focalValue", 0);
 	const persistedValuePerPixel = namespacedWritable.make("scale", 1);
 
-	let unsortedItems: TimelineItem[] = [];
-	export { unsortedItems as items };
+	export let items: SortedArray<TimelineItem>;
+	export let pendingGroupUpdates: number;
 
 	export let onPreviewNewItemValue: (
 		item: TimelineItem,
@@ -33,9 +41,6 @@
 		e: MouseEvent,
 		items: TimelineItem[],
 	) => void = () => {};
-
-	let sortedItems: TimelineItem[] = [];
-	$: sortedItems = unsortedItems.toSorted((a, b) => a.value() - b.value());
 
 	const stageWidth = writable(0);
 	let stageClientWidth = 0;
@@ -70,7 +75,7 @@
 		scale,
 		{
 			get() {
-				return sortedItems;
+				return items;
 			},
 		},
 		(updater) => {
@@ -82,7 +87,7 @@
 		() => $stageWidth,
 	);
 
-	export function zoomToFit(items?: readonly TimelineItem[]) {
+	export function zoomToFit(items?: SortedArray<TimelineItem>) {
 		if (initialized) {
 			navigation.zoomToFit(items, $stageWidth);
 		} else {
@@ -96,7 +101,7 @@
 	}
 
 	export function refresh() {
-		sortedItems = sortedItems;
+		items = items;
 	}
 
 	export function focusOnItem(item: TimelineItem) {
@@ -124,11 +129,30 @@
 			}
 			item.value = () => value;
 		});
-		sortedItems = sortedItems.toSorted((a, b) => a.value() - b.value());
+		items = new SortedArray((item) => item.value(), ...items);
 	}
 
 	let rulerHeight = 0;
 	$: mode = namespacedWritable?.make("mode", "edit");
+
+	const settingsOpen = namespacedWritable
+		.namespace("settings")
+		.make("isOpen", false);
+	const settingsCollapable = new ObservableCollapsable(!$settingsOpen);
+	settingsCollapable.onChange = () => {
+		$settingsOpen = !settingsCollapable.isCollapsed();
+	};
+
+	const groupsSectionCollapsed = namespacedWritable
+		.namespace("settings")
+		.namespace("groups")
+		.make("collapsed", true);
+	const groupsSectionCollapable = new ObservableCollapsable(
+		$groupsSectionCollapsed,
+	);
+	groupsSectionCollapable.onChange = () => {
+		$groupsSectionCollapsed = groupsSectionCollapable.isCollapsed();
+	};
 </script>
 
 <div
@@ -145,7 +169,7 @@
 	<CanvasStage
 		bind:this={canvasStage}
 		{display}
-		{sortedItems}
+		sortedItems={items}
 		scale={$scale}
 		focalValue={$focalValue}
 		bind:width={$stageWidth}
@@ -165,10 +189,14 @@
 	/>
 	<menu class="timeline-controls">
 		<TimelineNavigationControls {navigation} />
-		<TimelineSettings
-			namespacedWritable={namespacedWritable.namespace("settings")}
-		>
+		<TimelineSettings collapsable={settingsCollapable}>
 			<slot name="additional-settings" />
+			<TimelineGroupsSettingsSection
+				collapsable={groupsSectionCollapable}
+				{groups}
+				{pendingGroupUpdates}
+				{...groupEvents}
+			/>
 		</TimelineSettings>
 	</menu>
 </div>
@@ -222,6 +250,10 @@
 	}
 	:global(.timeline-controls > * > *) {
 		background-color: var(--timeline-settings-background);
+	}
+
+	:global(.timeline-settings-groups-section) {
+		position: relative;
 	}
 
 	div menu {

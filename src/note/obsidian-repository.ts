@@ -1,10 +1,10 @@
-import type { FileManager, MetadataCache, TFile, Vault } from "obsidian";
-import type { Note } from "src/note";
-import type { MutableNoteRepository } from "src/note/repository";
-import { EmtpyFilter, parse, type FileFilter } from "obsidian-search";
-import { MatchAllEmptyQuery } from "src/obsidian/timeline/settings/filter/DefaultFileFilter";
-import type { NoteFilter } from "src/note/filter";
-import { truncate } from "src/utils/number";
+import type {FileManager, MetadataCache, TFile, Vault} from "obsidian";
+import type {Note} from "src/note";
+import type {MutableNoteRepository} from "src/note/repository";
+import {EmtpyFilter, parse, type FileFilter} from "obsidian-search";
+import type {NoteFilter} from "src/note/filter";
+import {truncate} from "src/utils/number";
+import {exists} from "src/utils/null";
 
 export class ObsidianNoteRepository implements MutableNoteRepository {
 	#vault;
@@ -49,7 +49,7 @@ export class ObsidianNoteRepository implements MutableNoteRepository {
 		modification: {
 			created?: number;
 			modified?: number;
-			property?: { [name: string]: unknown };
+			property?: {[name: string]: unknown};
 		},
 	) {
 		const tFile = this.getFileFromNote(note);
@@ -90,12 +90,40 @@ export class ObsidianNoteRepository implements MutableNoteRepository {
 		return null;
 	}
 
-	listAll(): Promise<Note[]> {
-		return Promise.resolve(
-			this.#vault
-				.getMarkdownFiles()
-				.map(tFile => new ObsidianNote(tFile, this.#metadata)),
+	listAll(): Iterable<Note> {
+		const vault = this.#vault;
+		const metadata = this.#metadata;
+		return (function* () {
+			for (const tFile of vault.getMarkdownFiles()) {
+				yield new ObsidianNote(tFile, metadata);
+			}
+		})();
+	}
+
+	async listAllMatchingFilter(filter: NoteFilter): Promise<ObsidianNote[]> {
+		const vault = this.#vault;
+		const metadata = this.#metadata;
+
+		const processFile =
+			filter instanceof ObsidianNoteFilter
+				? async (tFile: TFile) => {
+						if (await filter.fileFilter().appliesTo(tFile)) {
+							return new ObsidianNote(tFile, metadata);
+						}
+						return null;
+					}
+				: async (tFile: TFile) => {
+						const note = new ObsidianNote(tFile, metadata);
+						if (await filter.matches(note)) {
+							return note;
+						}
+						return null;
+					};
+
+		const notesOrNull = await Promise.all(
+			vault.getMarkdownFiles().map(processFile),
 		);
+		return notesOrNull.filter(exists);
 	}
 
 	getNoteFilterForQuery(query: string): NoteFilter {
@@ -126,6 +154,10 @@ class ObsidianNoteFilter implements NoteFilter {
 	constructor(filter: FileFilter, query: string) {
 		this.#filter = filter;
 		this.#query = query;
+	}
+
+	fileFilter() {
+		return this.#filter;
 	}
 
 	#query;
@@ -174,3 +206,15 @@ export class ObsidianNote implements Note {
 		return this.#metadata.getFileCache(this.#tFile)?.frontmatter ?? {};
 	}
 }
+
+export const MatchAllEmptyQuery: FileFilter = {
+	async appliesTo(file) {
+		return true;
+	},
+	and(filter) {
+		return filter;
+	},
+	or(filter) {
+		return filter;
+	},
+};

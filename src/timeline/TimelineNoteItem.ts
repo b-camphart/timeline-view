@@ -1,13 +1,14 @@
-import type { NoteTimelineValueSelector } from "src/timeline/order/ByNoteProperty";
-import type { ItemGroup } from "../obsidian/timeline/settings/groups/FileGroup";
-import type { Note } from "src/note";
+import type * as valueSelector from "src/note/property/valueSelector";
+import type * as note_1 from "src/note";
+import type * as color from "src/timeline/item/color";
 
 export class TimelineNoteItem {
-	private _group: ItemGroup | undefined;
-
 	constructor(
-		public note: Note,
-		private getValueSelector: (this: void) => NoteTimelineValueSelector,
+		public note: note_1.Note,
+		private getValueSelector: (
+			this: void,
+		) => valueSelector.NumericNoteValueSelector,
+		private colorSupplier: color.TimelineItemColorSupplier,
 	) {
 		this.value = this.#calculateValue;
 	}
@@ -40,19 +41,7 @@ export class TimelineNoteItem {
 		return this.note.name();
 	}
 
-	applyGroup(group: ItemGroup | undefined) {
-		this._group = group;
-	}
-
 	color(): string | undefined {
-		return this._group?.color;
-	}
-
-	group(): string | undefined {
-		return this._group?.id;
-	}
-
-	forgetGroup(): void {
-		this._group = undefined;
+		return this.colorSupplier.itemColorForNote(this.note);
 	}
 }

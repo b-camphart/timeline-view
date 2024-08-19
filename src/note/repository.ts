@@ -1,11 +1,12 @@
-import type { Note } from ".";
-import type { NoteFilter } from "./filter";
+import type {Note} from ".";
+import type {NoteFilter} from "./filter";
 
 /**
  * Some external system that provides notes
  */
 export interface NoteRepository {
-	listAll(): Promise<Note[]>;
+	listAll(): Iterable<Note>;
+	listAllMatchingFilter(filter: NoteFilter): Promise<Iterable<Note>>;
 	getNoteFilterForQuery(query: string): NoteFilter;
 
 	/**

@@ -10,25 +10,3 @@ export type TimelineSettingsViewModel = {
 	groups: TimelineGroupsSettingViewModel;
 	display: TimelineDisplaySettingViewModel;
 };
-
-export function initialTimelineSettingsViewModel(): TimelineSettingsViewModel {
-	return {
-		isOpen: false,
-		display: {
-			collapsed: true,
-			names: false,
-		},
-		property: {
-			collapsed: true,
-			property: "created",
-		},
-		filter: {
-			collapsed: true,
-			query: "",
-		},
-		groups: {
-			collapsed: true,
-			groups: [],
-		},
-	};
-}

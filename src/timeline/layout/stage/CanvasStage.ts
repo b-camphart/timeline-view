@@ -1,6 +1,6 @@
-import type { Scale } from "src/timeline/scale";
-import type { TimelineItem } from "../../Timeline";
-import { TimelineLayoutItem } from "./TimelineItemElement";
+import type {Scale} from "src/timeline/scale";
+import type {TimelineItem} from "../../Timeline";
+import {TimelineLayoutItem} from "./TimelineItemElement";
 
 export type BackgroundColor = string | CanvasGradient | CanvasPattern;
 
@@ -120,7 +120,7 @@ export function layoutPoints(
 		};
 	},
 	scale: Scale,
-	sortedItems: TimelineItem[],
+	sortedItems: readonly TimelineItem[],
 	previousLayout: TimelineLayoutItem[] = [],
 ) {
 	const pointRadius = Math.floor(point.width / 2);
@@ -128,7 +128,7 @@ export function layoutPoints(
 	const lastXByRow: number[] = [];
 
 	let prev:
-		| { relativeLeftMargin: number; row: number; value: number }
+		| {relativeLeftMargin: number; row: number; value: number}
 		| undefined;
 
 	if (previousLayout.length > sortedItems.length) {
@@ -165,7 +165,7 @@ export function layoutPoints(
 
 		lastXByRow[row] = layoutItem.centerX + layoutItem.radius;
 
-		prev = { relativeLeftMargin, row, value: item.value() };
+		prev = {relativeLeftMargin, row, value: item.value()};
 
 		previousLayout[i] = layoutItem;
 	}

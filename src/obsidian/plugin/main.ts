@@ -1,39 +1,73 @@
 /// <reference types="vite/client" />
-import { Plugin, WorkspaceLeaf } from "obsidian";
-import { getMetadataTypeManager } from "../MetadataTypeManager";
-import { ObsidianNotePropertyRepository } from "src/note/property/obsidian-repository";
-import { ObsidianNoteRepository } from "src/note/obsidian-repository";
-import { createNewTimeline } from "src/timeline/create";
-import { TimelineNoteOrder } from "src/timeline/order/ByNoteProperty";
-import { TimelineItemView } from "./timeline-item-view";
+import * as obsidian from "obsidian";
+import * as MetadataTypeManager from "src/obsidian/MetadataTypeManager";
+import * as property from "src/note/property/obsidian-repository";
+import * as note from "src/note/obsidian-repository";
+import * as createTimeline from "src/timeline/create";
+import * as timelineItemView from "./timeline-item-view";
+import * as timelineSettingsTab from "./timeline-settings-tab";
 
 export const OBSIDIAN_LEAF_VIEW_TYPE: string = "VIEW_TYPE_TIMELINE_VIEW";
 export const LUCID_ICON = "waypoints";
 
-export default class ObsidianTimelinePlugin extends Plugin {
+export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 	async onload(): Promise<void> {
-		const notes = new ObsidianNoteRepository(
+		const notes = new note.ObsidianNoteRepository(
 			this.app.vault,
 			this.app.metadataCache,
 			this.app.fileManager,
 		);
-		const properties = new ObsidianNotePropertyRepository(
-			this.app.vault.adapter,
-			() => getMetadataTypeManager(this.app),
+		const properties = new property.ObsidianNotePropertyRepository(
+			() =>
+				this.app.vault.adapter.read(
+					obsidian.normalizePath(".obsidian/types.json"),
+				),
+			() => MetadataTypeManager.getMetadataTypeManager(this.app),
 		);
 
-		const openTimelineView = async (
-			leaf: WorkspaceLeaf,
-			group?: WorkspaceLeaf,
-		) => {
-			const timeline = await createNewTimeline(
+		const timelineSettings =
+			new timelineSettingsTab.ObsidianSettingsTimelineTab(
+				this.app,
+				this,
+				properties,
 				notes,
-				TimelineNoteOrder.ByNoteCreated,
+			);
+		this.addSettingTab(timelineSettings);
+
+		const openTimelineView = async (
+			leaf: obsidian.WorkspaceLeaf,
+			group?: obsidian.WorkspaceLeaf,
+		) => {
+			const sorter = (
+				await timelineSettings.noteOrder()
+			).selectedProperty();
+			const filter = await timelineSettings.noteFilter();
+			const groups = await timelineSettings.groups();
+			const timeline = await createTimeline.createNewTimeline(
+				notes,
+				sorter,
+				filter.noteFilter(),
 			);
 			leaf.setViewState({
 				type: OBSIDIAN_LEAF_VIEW_TYPE,
 				active: true,
 				state: {
+					settings: {
+						property: {
+							property: sorter.name(),
+						},
+						filter: {
+							query: filter.query(),
+						},
+						groups: {
+							groups: groups.groups().map(group => {
+								return {
+									query: group.query(),
+									color: group.color(),
+								};
+							}),
+						},
+					},
 					focalValue: timeline.focalValue,
 					isNew: true,
 				},
@@ -46,7 +80,7 @@ export default class ObsidianTimelinePlugin extends Plugin {
 		};
 
 		this.registerView(OBSIDIAN_LEAF_VIEW_TYPE, leaf => {
-			const view = new TimelineItemView(
+			const view = new timelineItemView.TimelineItemView(
 				leaf,
 				this.app.vault,
 				this.app.metadataCache,
