@@ -86,13 +86,13 @@
 		list-style-type: none;
 	}
 
-	:global(.timeline-navigation-controls .control-item button) {
+	.timeline-navigation-controls .control-item :global(button) {
 		padding: var(--timeline-settings-button-padding);
 		border-bottom: 1px solid var(--background-modifier-border);
 		border-radius: 0;
 		background-color: var(--interactive-normal);
 	}
-	:global(.timeline-navigation-controls .control-item:last-child button) {
+	.timeline-navigation-controls .control-item:last-child :global(button) {
 		border-bottom: none;
 	}
 </style>

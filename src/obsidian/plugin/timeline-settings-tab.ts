@@ -77,7 +77,6 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 	async groups(): Promise<TimelineGroups> {
 		const loadedSettings = await this.#getSettings();
 
-		let groups: TimelineGroups;
 		const updateGroups = () => {
 			this.#updateSettings(settings => {
 				settings.openWith.groups = groups.groups().map(g => {
@@ -95,7 +94,7 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 			return group;
 		};
 
-		groups = new TimelineGroups(
+		const groups = new TimelineGroups(
 			loadedSettings.openWith.groups.map(({query, color}) =>
 				makeGroup(query, color),
 			),
@@ -112,6 +111,10 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 		const order = await this.noteOrder();
 		const filter = await this.noteFilter();
 		const groups = await this.groups();
+
+		new obsidian.Setting(containerEl)
+			.setName("Defaults")
+			.setClass("setting-item-heading");
 
 		const propertySetting = new obsidian.Setting(containerEl)
 			.setName("Default Ordering Property")
@@ -143,7 +146,6 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 
 		new obsidian.Setting(containerEl)
 			.setName("Default Groups")
-			.setClass("setting-item-heading")
 			.setDesc(
 				"The default set of groups to use in the timeline when it's first opened.",
 			);

@@ -21,6 +21,7 @@
 	import SelectedBounds from "./SelectedBounds.svelte";
 	import DraggedItem from "./DraggedItem.svelte";
 	import type { SortedArray } from "src/utils/collections";
+	import Background from "src/timeline/layout/stage/Background.svelte";
 
 	type ZoomEvent = {
 		keepValue: number;
@@ -85,6 +86,8 @@
 		},
 	};
 
+	let itemVSpacing = 0;
+	let itemRowCenterOffset = 0;
 	const item = {
 		width: 0,
 		height: 0,
@@ -117,18 +120,23 @@
 			return;
 		}
 
-		item.width = pointElements.base!.clientWidth;
-		item.height = pointElements.base!.clientHeight;
-		item.margin.horizontal = Math.max(
-			0,
-			pointElements.nextCol!.offsetLeft -
-				(pointElements.base!.offsetLeft + item.width),
+		item.width = Math.round(pointElements.base!.clientWidth);
+		item.height = Math.round(pointElements.base!.clientHeight);
+		item.margin.horizontal = Math.round(
+			Math.max(
+				0,
+				pointElements.nextCol!.offsetLeft -
+					(pointElements.base!.offsetLeft + item.width),
+			),
 		);
-		item.margin.vertical = Math.max(
-			0,
-			pointElements.nextRow!.offsetTop -
-				(pointElements.base!.offsetTop + item.height),
+		item.margin.vertical = Math.round(
+			Math.max(
+				0,
+				pointElements.nextRow!.offsetTop -
+					(pointElements.base!.offsetTop + item.height),
+			),
 		);
+		itemVSpacing = item.height + item.margin.vertical;
 
 		(viewport.padding.top = Math.max(
 			0,
@@ -148,6 +156,8 @@
 				innerHeight),
 			(viewport.width = stageCSSTarget.clientWidth);
 		viewport.height = stageCSSTarget.clientHeight;
+		itemRowCenterOffset =
+			viewport.padding.top + item.height / 2 + item.margin.vertical / 2;
 
 		const reportedWidth =
 			viewport.width -
@@ -187,7 +197,7 @@
 				});
 			}
 		} else {
-			const newScroll = Math.max(0, scrollTop + event.deltaY);
+			const newScroll = Math.max(0, scrollTop + event.deltaY / 16);
 			if (scrollTop != newScroll) {
 				scrollTop = newScroll;
 				scrollNeeded = true;
@@ -1000,6 +1010,7 @@
 	class:has-hover={hover != null}
 	class:editable
 >
+	<Background {scrollTop} itemDimensions={item} {viewport} />
 	<div style="display: flex;flex-direction: row;">
 		<div class="timeline-item" bind:this={pointElements.base}></div>
 		<div class="timeline-item" bind:this={pointElements.nextCol}></div>

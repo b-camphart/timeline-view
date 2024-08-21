@@ -1,4 +1,5 @@
 <script lang="ts">
+	import * as obsidian from "obsidian";
 	import TimelineView from "../../timeline/Timeline.svelte";
 	import { TimelineNoteItem } from "../../timeline/TimelineNoteItem";
 	import type {
@@ -25,6 +26,9 @@
 
 	export let noteRepository: MutableNoteRepository;
 	export let notePropertyRepository: NotePropertyRepository;
+	export let openModal: (
+		open: (element: obsidian.Modal) => () => void,
+	) => void;
 
 	export let viewModel: NamespacedWritableFactory<ObsidianNoteTimelineViewModel>;
 	export let isNew: boolean = false;
@@ -370,6 +374,10 @@
 		timelineView?.focusOnItem(item);
 	}
 
+	export function zoomToFit() {
+		timelineView?.zoomToFit(items);
+	}
+
 	function onPropertySelected(property: TimelineProperty) {
 		propertySelector = propertySelector;
 		for (const item of itemsById.values()) {
@@ -391,6 +399,7 @@
 	{display}
 	groups={timelineGroups}
 	pendingGroupUpdates={itemRecolorQueueLength}
+	controlBindings={{}}
 	groupEvents={{
 		onGroupAppended(group, groups) {
 			// no-op
@@ -467,6 +476,7 @@
 			items.map((it) => it.note),
 		);
 	}}
+	openDialog={openModal}
 >
 	<svelte:fragment slot="additional-settings">
 		{#if propertySelector}

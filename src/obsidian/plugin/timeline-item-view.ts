@@ -12,6 +12,7 @@ import {openFileContextMenu, openMultipleFileContextMenu} from "../FileExporer";
 import {openNewLeafFromEvent} from "../Workspace";
 import {exists} from "src/utils/null";
 import * as json from "src/utils/json";
+import {openModal} from "src/obsidian/view/Modal";
 
 export class TimelineItemView extends obsidian.ItemView {
 	getIcon(): string {
@@ -35,6 +36,11 @@ export class TimelineItemView extends obsidian.ItemView {
 	) {
 		super(leaf);
 		this.navigation = false;
+
+		this.scope = new obsidian.Scope(this.app.scope);
+		this.scope.register(["Shift"], " ", () => {
+			this.component?.zoomToFit();
+		});
 
 		this.initialization = new Promise(resolve => {
 			this.completeInitialization = resolve;
@@ -295,6 +301,9 @@ export class TimelineItemView extends obsidian.ItemView {
 									this.fileManager,
 								);
 						}
+					},
+					openModal: open => {
+						openModal(this.app, open);
 					},
 				},
 			});

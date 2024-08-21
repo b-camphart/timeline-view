@@ -17,30 +17,49 @@
 	import { SortedArray } from "src/utils/collections";
 	import TimelineGroupsSettingsSection from "src/timeline/group/TimelineGroupsSettingsSection.svelte";
 	import { ObservableCollapsable } from "src/view/collapsable";
+	import LucideIcon from "src/obsidian/view/LucideIcon.svelte";
+	import ActionButton from "src/view/inputs/ActionButton.svelte";
+	import TimelineInteractionsHelp from "./TimelineInteractionsHelp.svelte";
 
-	export let namespacedWritable: NamespacedWritableFactory<TimelineViewModel>;
-	export let groups: TimelineGroups;
-	export let groupEvents: Omit<ComponentProps<TimelineGroupsList>, "groups">;
-	export let display: RulerValueDisplay;
+	interface $$Props {
+		namespacedWritable: NamespacedWritableFactory<TimelineViewModel>;
+		groups: TimelineGroups;
+		groupEvents: Omit<ComponentProps<TimelineGroupsList>, "groups">;
+		display: RulerValueDisplay;
+		controlBindings: {};
+
+		items: SortedArray<TimelineItem>;
+		pendingGroupUpdates: number;
+		openDialog(
+			callback: (modal: {
+				containerEl: HTMLElement;
+				modalEl: HTMLElement;
+				titleEl: HTMLElement;
+				contentEl: HTMLElement;
+			}) => () => void,
+		): void;
+
+		onPreviewNewItemValue(item: TimelineItem, value: number): number;
+		onMoveItem(item: TimelineItem, value: number): boolean;
+		oncontextmenu?(e: MouseEvent, items: TimelineItem[]): void;
+	}
+
+	export let namespacedWritable: $$Props["namespacedWritable"];
+	export let groups: $$Props["groups"];
+	export let groupEvents: $$Props["groupEvents"];
+	export let display: $$Props["display"];
+	export let controlBindings: $$Props["controlBindings"];
 
 	const focalValue = namespacedWritable.make("focalValue", 0);
 	const persistedValuePerPixel = namespacedWritable.make("scale", 1);
 
-	export let items: SortedArray<TimelineItem>;
-	export let pendingGroupUpdates: number;
+	export let items: $$Props["items"];
+	export let pendingGroupUpdates: $$Props["pendingGroupUpdates"];
+	export let openDialog: $$Props["openDialog"];
 
-	export let onPreviewNewItemValue: (
-		item: TimelineItem,
-		value: number,
-	) => number = (_, value) => value;
-	export let onMoveItem: (
-		item: TimelineItem,
-		value: number,
-	) => boolean = () => true;
-	export let oncontextmenu: (
-		e: MouseEvent,
-		items: TimelineItem[],
-	) => void = () => {};
+	export let onPreviewNewItemValue: $$Props["onPreviewNewItemValue"];
+	export let onMoveItem: $$Props["onMoveItem"];
+	export let oncontextmenu: $$Props["oncontextmenu"] = () => {};
 
 	const stageWidth = writable(0);
 	let stageClientWidth = 0;
@@ -153,6 +172,19 @@
 	groupsSectionCollapable.onChange = () => {
 		$groupsSectionCollapsed = groupsSectionCollapable.isCollapsed();
 	};
+
+	function openHelpDialog() {
+		openDialog((modal) => {
+			modal.modalEl.addClass("timeline-help");
+			modal.titleEl.setText("Timeline Help");
+			const component = new TimelineInteractionsHelp({
+				target: modal.contentEl,
+				props: {},
+			});
+
+			return () => component.$destroy();
+		});
+	}
 </script>
 
 <div
@@ -198,6 +230,14 @@
 				{...groupEvents}
 			/>
 		</TimelineSettings>
+		<div class="control-group">
+			<ActionButton
+				class="clickable-icon control-item"
+				on:action={openHelpDialog}
+			>
+				<LucideIcon id="help" />
+			</ActionButton>
+		</div>
 	</menu>
 </div>
 
@@ -254,6 +294,17 @@
 
 	:global(.timeline-settings-groups-section) {
 		position: relative;
+	}
+
+	.control-group :global(.control-item) {
+		padding: var(--timeline-settings-button-padding);
+	}
+
+	.control-group :global(button.control-item.clickable-icon) {
+		background-color: var(--interactive-normal);
+	}
+	.control-group :global(button.control-item.clickable-icon:hover) {
+		background-color: var(--interactive-normal);
 	}
 
 	div menu {
