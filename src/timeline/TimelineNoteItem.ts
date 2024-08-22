@@ -13,6 +13,10 @@ export class TimelineNoteItem {
 		this.value = this.#calculateValue;
 	}
 
+	toString() {
+		return `TimelineNoteItem{ value: ${this.value()}, id: ${this.id()}, name: ${this.name()} }`;
+	}
+
 	id(): string {
 		return this.note.id();
 	}

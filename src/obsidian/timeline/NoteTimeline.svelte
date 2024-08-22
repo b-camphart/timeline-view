@@ -229,7 +229,9 @@
 
 		return (update: () => void) => {
 			queue.push(update);
-			if (timer != null) return;
+			if (timer != null) {
+				return;
+			}
 
 			timer = setTimeout(() => {
 				timer = null;
@@ -329,7 +331,9 @@
 		);
 		itemsById.set(file.id(), item);
 		if (await filter.accepts(item)) {
-			enqueueItemUpdate(() => items.add(item));
+			enqueueItemUpdate(() => {
+				items.add(item);
+			});
 		}
 	}
 
@@ -350,6 +354,7 @@
 		enqueueItemColorUpdate(item);
 		enqueueItemUpdate(() => {
 			items.remove(item);
+			item._invalidateValueCache();
 			items.add(item);
 		});
 	}

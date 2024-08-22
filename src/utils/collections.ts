@@ -45,20 +45,34 @@ export class MutableSortedArray<T> extends SortedArray<T> {
 		}
 
 		const findInsertionIndex = (low: number, high: number) => {
+			if (high <= low) {
+				// console.debug("adding item", item, "at", low, {
+				// 	items: this.items,
+				// });
+				return low;
+			}
 			const mid = (low + high) >> 1;
+			// console.log("findInsertionIndex", {low, high, mid});
 			const midItemValue = this.#selector(this._items[mid]);
 			if (midItemValue === itemValue) {
+				// console.debug(
+				// 	`adding item`,
+				// 	item,
+				// 	"at",
+				// 	mid,
+				// 	"because it matches",
+				// 	this._items[mid],
+				// );
 				return mid;
 			}
 
 			if (midItemValue > itemValue) {
-				return findInsertionIndex(low, mid - 1);
-			} else {
-				return findInsertionIndex(mid + 1, high);
+				return findInsertionIndex(low, mid);
 			}
+			return findInsertionIndex(mid + 1, high);
 		};
 
-		const insertionIndex = findInsertionIndex(0, this._items.length - 1);
+		const insertionIndex = findInsertionIndex(0, this._items.length);
 		this._items.splice(insertionIndex, 0, item);
 	}
 
@@ -106,7 +120,7 @@ export class MutableSortedArray<T> extends SortedArray<T> {
 			}
 		};
 
-		const removeIndex = findRemoveIndex(0, this._items.length - 1);
+		const removeIndex = findRemoveIndex(0, this._items.length);
 		if (removeIndex >= 0) {
 			this._items.splice(removeIndex, 1);
 		}
