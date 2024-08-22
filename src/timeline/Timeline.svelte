@@ -1,10 +1,6 @@
 <script lang="ts">
 	import { type TimelineNavigation } from "./controls/TimelineNavigation";
-	import {
-		timelineDateValueDisplay,
-		type TimelineItem,
-		timelineNumericValueDisplay,
-	} from "./Timeline";
+	import { type TimelineItem } from "./Timeline";
 	import { writable as makeWritable, writable } from "svelte/store";
 	import { timelineNavigation } from "./controls/TimelineNavigation";
 	import TimelineRuler from "./layout/ruler/TimelineRuler.svelte";
@@ -14,18 +10,56 @@
 	import { ValuePerPixelScale, type Scale } from "./scale";
 	import TimelineNavigationControls from "./controls/TimelineNavigationControls.svelte";
 	import TimelineSettings from "./controls/settings/TimelineSettings.svelte";
+	import type { RulerValueDisplay } from "src/timeline/Timeline";
+	import type { TimelineGroups } from "src/timeline/group/groups";
+	import TimelineGroupsList from "src/timeline/group/TimelineGroupsList.svelte";
+	import type { ComponentProps } from "svelte";
+	import { SortedArray } from "src/utils/collections";
+	import TimelineGroupsSettingsSection from "src/timeline/group/TimelineGroupsSettingsSection.svelte";
+	import { ObservableCollapsable } from "src/view/collapsable";
+	import LucideIcon from "src/obsidian/view/LucideIcon.svelte";
+	import ActionButton from "src/view/inputs/ActionButton.svelte";
+	import TimelineInteractionsHelp from "./TimelineInteractionsHelp.svelte";
 
-	export let namespacedWritable: NamespacedWritableFactory<TimelineViewModel>;
-	export let displayPropertyAs: "numeric" | "date";
+	interface $$Props {
+		namespacedWritable: NamespacedWritableFactory<TimelineViewModel>;
+		groups: TimelineGroups;
+		groupEvents: Omit<ComponentProps<TimelineGroupsList>, "groups">;
+		display: RulerValueDisplay;
+		controlBindings: {};
+
+		items: SortedArray<TimelineItem>;
+		pendingGroupUpdates: number;
+		openDialog(
+			callback: (modal: {
+				containerEl: HTMLElement;
+				modalEl: HTMLElement;
+				titleEl: HTMLElement;
+				contentEl: HTMLElement;
+			}) => () => void,
+		): void;
+
+		onPreviewNewItemValue(item: TimelineItem, value: number): number;
+		onMoveItem(item: TimelineItem, value: number): boolean;
+		oncontextmenu?(e: MouseEvent, items: TimelineItem[]): void;
+	}
+
+	export let namespacedWritable: $$Props["namespacedWritable"];
+	export let groups: $$Props["groups"];
+	export let groupEvents: $$Props["groupEvents"];
+	export let display: $$Props["display"];
+	export let controlBindings: $$Props["controlBindings"];
 
 	const focalValue = namespacedWritable.make("focalValue", 0);
 	const persistedValuePerPixel = namespacedWritable.make("scale", 1);
 
-	let unsortedItems: TimelineItem[] = [];
-	export { unsortedItems as items };
+	export let items: $$Props["items"];
+	export let pendingGroupUpdates: $$Props["pendingGroupUpdates"];
+	export let openDialog: $$Props["openDialog"];
 
-	let sortedItems: TimelineItem[] = [];
-	$: sortedItems = unsortedItems.toSorted((a, b) => a.value() - b.value());
+	export let onPreviewNewItemValue: $$Props["onPreviewNewItemValue"];
+	export let onMoveItem: $$Props["onMoveItem"];
+	export let oncontextmenu: $$Props["oncontextmenu"] = () => {};
 
 	const stageWidth = writable(0);
 	let stageClientWidth = 0;
@@ -60,7 +94,7 @@
 		scale,
 		{
 			get() {
-				return sortedItems;
+				return items;
 			},
 		},
 		(updater) => {
@@ -72,7 +106,7 @@
 		() => $stageWidth,
 	);
 
-	export function zoomToFit(items?: readonly TimelineItem[]) {
+	export function zoomToFit(items?: SortedArray<TimelineItem>) {
 		if (initialized) {
 			navigation.zoomToFit(items, $stageWidth);
 		} else {
@@ -86,7 +120,7 @@
 	}
 
 	export function refresh() {
-		sortedItems = sortedItems;
+		items = items;
 	}
 
 	export function focusOnItem(item: TimelineItem) {
@@ -105,12 +139,52 @@
 		}
 	}
 
-	$: display =
-		displayPropertyAs === "date"
-			? timelineDateValueDisplay()
-			: timelineNumericValueDisplay();
+	function moveItems(
+		event: CustomEvent<{ item: TimelineItem; value: number }[]>,
+	) {
+		event.detail.forEach(({ item, value }) => {
+			if (!onMoveItem(item, value)) {
+				return;
+			}
+			item.value = () => value;
+		});
+		items = new SortedArray((item) => item.value(), ...items);
+	}
 
 	let rulerHeight = 0;
+	$: mode = namespacedWritable?.make("mode", "edit");
+
+	const settingsOpen = namespacedWritable
+		.namespace("settings")
+		.make("isOpen", false);
+	const settingsCollapable = new ObservableCollapsable(!$settingsOpen);
+	settingsCollapable.onChange = () => {
+		$settingsOpen = !settingsCollapable.isCollapsed();
+	};
+
+	const groupsSectionCollapsed = namespacedWritable
+		.namespace("settings")
+		.namespace("groups")
+		.make("collapsed", true);
+	const groupsSectionCollapable = new ObservableCollapsable(
+		$groupsSectionCollapsed,
+	);
+	groupsSectionCollapable.onChange = () => {
+		$groupsSectionCollapsed = groupsSectionCollapable.isCollapsed();
+	};
+
+	function openHelpDialog() {
+		openDialog((modal) => {
+			modal.modalEl.addClass("timeline-help");
+			modal.titleEl.setText("Timeline Help");
+			const component = new TimelineInteractionsHelp({
+				target: modal.contentEl,
+				props: {},
+			});
+
+			return () => component.$destroy();
+		});
+	}
 </script>
 
 <div
@@ -127,11 +201,12 @@
 	<CanvasStage
 		bind:this={canvasStage}
 		{display}
-		{sortedItems}
+		sortedItems={items}
 		scale={$scale}
 		focalValue={$focalValue}
 		bind:width={$stageWidth}
 		bind:clientWidth={stageClientWidth}
+		editable={mode != null ? $mode === "edit" : false}
 		on:scrollToValue={(event) => navigation.scrollToValue(event.detail)}
 		on:scrollX={({ detail }) =>
 			navigation.scrollToValue($focalValue + detail)}
@@ -139,14 +214,30 @@
 		on:zoomOut={({ detail }) => navigation.zoomOut(detail)}
 		on:select
 		on:focus
+		on:create
+		on:moveItems={moveItems}
+		{onPreviewNewItemValue}
+		{oncontextmenu}
 	/>
 	<menu class="timeline-controls">
 		<TimelineNavigationControls {navigation} />
-		<TimelineSettings
-			namespacedWritable={namespacedWritable.namespace("settings")}
-		>
+		<TimelineSettings collapsable={settingsCollapable}>
 			<slot name="additional-settings" />
+			<TimelineGroupsSettingsSection
+				collapsable={groupsSectionCollapable}
+				{groups}
+				{pendingGroupUpdates}
+				{...groupEvents}
+			/>
 		</TimelineSettings>
+		<div class="control-group">
+			<ActionButton
+				class="clickable-icon control-item"
+				on:action={openHelpDialog}
+			>
+				<LucideIcon id="help" />
+			</ActionButton>
+		</div>
 	</menu>
 </div>
 
@@ -199,6 +290,21 @@
 	}
 	:global(.timeline-controls > * > *) {
 		background-color: var(--timeline-settings-background);
+	}
+
+	:global(.timeline-settings-groups-section) {
+		position: relative;
+	}
+
+	.control-group :global(.control-item) {
+		padding: var(--timeline-settings-button-padding);
+	}
+
+	.control-group :global(button.control-item.clickable-icon) {
+		background-color: var(--interactive-normal);
+	}
+	.control-group :global(button.control-item.clickable-icon:hover) {
+		background-color: var(--interactive-normal);
 	}
 
 	div menu {

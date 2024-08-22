@@ -1,61 +1,116 @@
-import type { Scale } from "src/timeline/scale";
-import type { TimelineItem } from "../../Timeline";
-import { TimelineLayoutItem, type OffsetBox } from "./TimelineItemElement";
+import type {Scale} from "src/timeline/scale";
+import type {TimelineItem} from "../../Timeline";
+import {TimelineLayoutItem} from "./TimelineItemElement";
+
+export type BackgroundColor = string | CanvasGradient | CanvasPattern;
 
 export function renderLayout(
 	context: CanvasRenderingContext2D,
-	viewport: {
-		height: number;
-		width: number;
-	},
-	point: {
-		width: number;
-	},
-	layout: readonly (OffsetBox & { backgroundColor?: string })[],
+	viewport: CanvasViewport,
+	layout: CanvasElementCollection,
+	dragPreview: CanvasElementCollection | null,
 ) {
-	const pointRadius = point.width / 2;
-	const PI2 = 2 * Math.PI;
-	const renderHeight = viewport.height + point.width;
-
-	const defaultColor = context.fillStyle;
-
 	context.beginPath();
 	context.clearRect(0, 0, viewport.width, viewport.height);
 
-	let currentColor = context.fillStyle;
+	renderItems(context, viewport, layout);
+	if (dragPreview != null && dragPreview.getCount() > 0) {
+		renderItems(context, viewport, dragPreview);
+	}
+}
 
-	for (const item of layout) {
-		if (item.offsetTop > renderHeight || item.offsetBottom < 0) continue;
+export interface CanvasViewport {
+	readonly width: number;
+	readonly height: number;
+}
+
+export interface CanvasElement {
+	readonly offsetTop: number;
+	readonly offsetBottom: number;
+	readonly offsetLeft: number;
+	readonly offsetRight: number;
+	readonly offsetCenterY: number;
+	readonly offsetCenterX: number;
+	readonly offsetWidth: number;
+
+	readonly visible?: boolean;
+	readonly backgroundColor: BackgroundColor | undefined;
+	readonly borderColor: BackgroundColor | undefined;
+	readonly strokeWidth: number | undefined;
+}
+
+export interface CanvasElementCollection extends Iterable<CanvasElement> {
+	getCount(): number;
+}
+
+function renderItems(
+	context: CanvasRenderingContext2D,
+	viewport: CanvasViewport,
+	items: CanvasElementCollection,
+) {
+	const PI2 = 2 * Math.PI;
+
+	const defaultColor = context.fillStyle;
+	const defaultBorderColor = context.strokeStyle;
+	const defaultStrokeWidth = 0;
+
+	let currentBorderColor = defaultBorderColor;
+	let currentFillColor = defaultColor;
+	let currentStrokeWidth = 2;
+
+	context.beginPath();
+
+	for (const item of items) {
+		if (item.visible === false) continue;
+		if (item.offsetTop > viewport.height || item.offsetBottom < 0) continue;
+		if (item.offsetLeft > viewport.width || item.offsetRight < 0) continue;
 
 		const color = item.backgroundColor ?? defaultColor;
+		const borderColor = item.borderColor ?? defaultBorderColor;
+		const strokeWidth = item.strokeWidth ?? defaultStrokeWidth;
 
-		if (color !== currentColor) {
-			context.closePath();
+		if (
+			color !== currentFillColor ||
+			borderColor !== currentBorderColor ||
+			strokeWidth !== currentStrokeWidth
+		) {
 			context.fill();
+			if (currentStrokeWidth > 0) {
+				context.stroke();
+			}
 			context.beginPath();
-			currentColor = color;
+
+			context.fillStyle = color;
+			currentFillColor = color;
+
+			context.strokeStyle = borderColor;
+			currentBorderColor = borderColor;
+
+			context.lineWidth = strokeWidth;
+			currentStrokeWidth = strokeWidth;
 		}
 
-		context.fillStyle = color;
-
-		context.moveTo(item.offsetRight, item.offsetTop);
+		context.moveTo(item.offsetRight, item.offsetCenterY);
 		context.arc(
 			item.offsetCenterX,
 			item.offsetCenterY,
-			pointRadius,
+			item.offsetWidth / 2,
 			0,
 			PI2,
 		);
 	}
 	context.closePath();
 	context.fill();
+	if (currentStrokeWidth > 0) {
+		context.stroke();
+	}
 }
 
 export function layoutPoints(
 	viewport: {
 		padding: {
 			top: number;
-		}
+		};
 	},
 	point: {
 		width: number;
@@ -65,7 +120,7 @@ export function layoutPoints(
 		};
 	},
 	scale: Scale,
-	sortedItems: TimelineItem[],
+	sortedItems: readonly TimelineItem[],
 	previousLayout: TimelineLayoutItem[] = [],
 ) {
 	const pointRadius = Math.floor(point.width / 2);
@@ -73,7 +128,7 @@ export function layoutPoints(
 	const lastXByRow: number[] = [];
 
 	let prev:
-		| { relativeLeftMargin: number; row: number; value: number }
+		| {relativeLeftMargin: number; row: number; value: number}
 		| undefined;
 
 	if (previousLayout.length > sortedItems.length) {
@@ -110,7 +165,7 @@ export function layoutPoints(
 
 		lastXByRow[row] = layoutItem.centerX + layoutItem.radius;
 
-		prev = { relativeLeftMargin, row, value: item.value() };
+		prev = {relativeLeftMargin, row, value: item.value()};
 
 		previousLayout[i] = layoutItem;
 	}

@@ -6,14 +6,14 @@
 
 	let tooltip = {
 		label,
-		hovered: true,
+		visible: true,
 		className: "mod-top",
 		elementPosition: hoverTooltip.top,
 	};
 	$: x,
 		(tooltip = {
 			label,
-			hovered: true,
+			visible: true,
 			className: "mod-top",
 			elementPosition: hoverTooltip.top,
 		});

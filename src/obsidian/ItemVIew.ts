@@ -1,4 +1,4 @@
-import type { ItemView } from "obsidian";
+import type {ItemView} from "obsidian";
 
 declare module "obsidian" {
 	interface ItemView {

@@ -23,6 +23,6 @@
 		class="control-item display-notes-input"
 		name="Names Below Points"
 		bind:checked={$displayNames}
-		tabIndex={0}
+		tabindex={0}
 	/>
 </CollapsableSection>
