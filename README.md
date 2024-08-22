@@ -16,11 +16,11 @@ Transform the way you explore your notes with the Obsidian Timeline View Plugin!
 
 #### Light Theme
 
-![Light Theme Overview](docs\resources\Light-Theme%20Overview.PNG)
+![Light Theme Overview](docs/resources/Light-Theme%20Overview.PNG)
 
 #### Dark Theme
 
-![Dark Theme Overview](docs\resources\Dark-Theme%20Overview.PNG)
+![Dark Theme Overview](docs/resources/Dark-Theme%20Overview.PNG)
 
 The view should work with any theme you apply.
 
