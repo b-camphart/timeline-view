@@ -81,10 +81,6 @@ export class MutableSortedArray<T> extends SortedArray<T> {
 			return;
 		}
 
-		if (this.items.length <= 10) {
-			this._items.remove(item);
-		}
-
 		const itemValue = this.#selector(item);
 		const findRemoveIndex = (low: number, high: number) => {
 			const mid = (low + high) >> 1;

@@ -45,4 +45,34 @@ describe("SortedArray", () => {
 			}
 		});
 	}
+	for (let i = 0; i < 10; i++) {
+		it("removes items in order", () => {
+			const items = Array<{value: number}>(10);
+			for (let i = 0; i < 10; i++) {
+				items[i] = {value: i};
+			}
+			const sorted = new MutableSortedArray<{value: number}>(
+				it => it.value,
+				...items,
+			);
+
+			for (let i = 9; i >= 0; i--) {
+				const j = Math.floor(Math.random() * 10);
+				const temp = items[j];
+				items[j] = items[i];
+				items[i] = temp;
+			}
+
+			for (const item of items) {
+				sorted.remove(item);
+				if (sorted.items.indexOf(item) >= 0) {
+					throw new Error("Item not removed");
+				}
+			}
+
+			if (sorted.items.length !== 0) {
+				throw new Error("Unexpected length");
+			}
+		});
+	}
 });
