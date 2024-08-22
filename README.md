@@ -40,7 +40,7 @@ When a property is selected, the notes will automatically be re-arranged, and th
 
 Double-click anywhere on the timeline to instantly create a new note. The property value for this note will be automatically set based on where you clicked on the timeline.
 
-![create note and open](docs\resources\create-note-example.gif)
+![create note and open](docs/resources/create-note-example.gif)
 
 ### 📌 Drag & Drop Reordering
 
