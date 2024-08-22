@@ -89,7 +89,7 @@ class TimelineNavigationSvelteImpl implements TimelineNavigation {
 		}
 
 		this.scaleProperty.set(new ValuePerPixelScale(span / width));
-		const centerValue = this.centerValue();
+		const centerValue = this.centerValue(items);
 		this.setFocalValue(() => centerValue);
 	}
 

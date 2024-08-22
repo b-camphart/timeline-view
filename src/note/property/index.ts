@@ -1,4 +1,4 @@
-import type { Note } from "src/note";
+import type {Note} from "src/note";
 
 export class NoteProperty<T extends string> {
 	constructor(name: string, type: T) {
@@ -16,25 +16,33 @@ export class NoteProperty<T extends string> {
 		return this.#type;
 	}
 
-	selectFrom(note: Note): any | undefined {
+	selectFrom(note: Note): unknown {
 		return note.properties()[this.#name];
 	}
+}
 
-	static #Created: NoteProperty<"datetime"> | null = null;
-	static get Created() {
-		if (!this.#Created) {
-			this.#Created = new NoteProperty("created", "datetime");
-			this.#Created.selectFrom = (note: Note) => note.created();
-		}
-		return this.#Created;
-	}
+export interface NotePropertyValueSelector {
+	selectValueFromNote(note: Note): unknown;
+}
 
-	static #Modified: NoteProperty<"datetime"> | null = null;
-	static get Modified() {
-		if (!this.#Modified) {
-			this.#Modified = new NoteProperty("modified", "datetime");
-			this.#Modified.selectFrom = (note: Note) => note.modified();
-		}
-		return this.#Modified;
-	}
+export function isTypeOf<S extends string>(
+	types: readonly S[],
+	type: string,
+): type is S {
+	return types.includes(type as S);
+}
+
+export function isNotePropertyOfType<S extends string>(
+	types: readonly S[],
+	property: NoteProperty<string>,
+): property is NoteProperty<S> {
+	return isTypeOf(types, property.type());
+}
+
+export interface Repository {
+	listPropertiesOfTypes<T extends string>(
+		types: readonly T[],
+	): Promise<NoteProperty<T>[]>;
+
+	getPropertyByName(name: string): Promise<NoteProperty<string> | null>;
 }

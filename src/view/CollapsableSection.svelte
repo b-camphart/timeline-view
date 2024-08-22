@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { quintOut } from "svelte/easing";
-	import SvgIcon from "./SvgIcon.svelte";
 	import { slide } from "svelte/transition";
 	import ActionButton from "./inputs/ActionButton.svelte";
+	import LucideIcon from "src/obsidian/view/LucideIcon.svelte";
 
 	export let name: string;
 	let className: string = "";
@@ -23,9 +23,7 @@
 			? 'is-collapsed'
 			: ''}"
 	>
-		<SvgIcon>
-			<path d="M3 8L12 17L21 8" />
-		</SvgIcon>
+		<LucideIcon id="right-triangle" />
 		{name}
 	</ActionButton>
 	{#if !collapsed}

@@ -1,108 +1,113 @@
 <script lang="ts">
+	import * as obsidian from "obsidian";
 	import TimelineView from "../../timeline/Timeline.svelte";
-	import { TimelineFileItem } from "./TimelineFileItem";
-	import type { TimelineItem } from "../../timeline/Timeline";
-	import {
-		getPropertySelector,
-		type FilePropertySelector,
-	} from "./settings/property/NotePropertySelector";
+	import { TimelineNoteItem } from "../../timeline/TimelineNoteItem";
+	import type {
+		RulerValueDisplay,
+		TimelineItem,
+	} from "../../timeline/Timeline";
 	import { type NamespacedWritableFactory } from "../../timeline/Persistence";
 	import { createEventDispatcher, onMount } from "svelte";
-	import { get, writable } from "svelte/store";
-	import Groups from "./settings/groups/Groups.svelte";
-	import {
-		makeTimelineItemGroups,
-		type TimelineItemGroups,
-	} from "./settings/groups/Groups";
-	import { GroupRepository } from "./settings/groups/persistence";
-	import { selectGroupForFile } from "./settings/groups/selectGroupForFile";
-	import TimelinePropertySetting from "./settings/property/TimelinePropertySetting.svelte";
+	import { get } from "svelte/store";
+	import TimelinePropertySection from "../../timeline/property/TimelinePropertySection.svelte";
 	import type { ObsidianNoteTimelineViewModel } from "./viewModel";
-	import TimelineFilterSetting from "./settings/filter/TimelineFilterSetting.svelte";
-	import { getPropertyDisplayType } from "src/obsidian/timeline/settings/property/display";
+	import TimelineFilterSection from "../../timeline/filter/TimelineFilterSection.svelte";
 	import type { NotePropertyRepository } from "src/note/property/repository";
-	import { NoteProperty } from "src/note/property";
-	import {
-		isTimelinePropertyType,
-		type TimelinePropertyType,
-	} from "./settings/property/TimelineProperties";
-	import type { NoteRepository } from "src/note/repository";
+	import type { MutableNoteRepository } from "src/note/repository";
 	import type { Note } from "src/note";
+	import { exists } from "src/utils/null";
+	import { TimelinePropertySelector } from "src/timeline/property/TimelinePropertySelector";
+	import type { TimelineProperty } from "src/timeline/property/TimelineProperty";
+	import { TimelineItemQueryFilter } from "src/timeline/filter/TimelineItemQueryFilter";
+	import { TimelineGroups } from "src/timeline/group/groups";
+	import * as timelineGroup from "src/timeline/group/group";
+	import type { TimelineItemColorSupplier } from "src/timeline/item/color";
+	import { MutableSortedArray } from "src/utils/collections";
 
-	export let notes: Map<string, TimelineFileItem>;
-	export let noteRepository: NoteRepository;
-	export let propertySelection: FilePropertySelector & {
-		selector: FilePropertySelector;
-	};
+	export let noteRepository: MutableNoteRepository;
+	export let notePropertyRepository: NotePropertyRepository;
+	export let openModal: (
+		open: (element: obsidian.Modal) => () => void,
+	) => void;
+
 	export let viewModel: NamespacedWritableFactory<ObsidianNoteTimelineViewModel>;
 	export let isNew: boolean = false;
-	export let notePropertyRepository: NotePropertyRepository;
+	export let oncontextmenu: (e: MouseEvent, notes: Note[]) => void = () => {};
 
 	const dispatch = createEventDispatcher<{
 		noteSelected: { note: Note; event?: Event };
-		noteFocused: TimelineFileItem | undefined;
+		noteFocused: Note | undefined;
+		createNote: {
+			created?: number;
+			modified?: number;
+			properties?: Record<string, number>;
+		};
+		modifyNote: {
+			note: Note;
+			modification:
+				| { created: number }
+				| { modified: number }
+				| { property: { name: string; value: number } };
+		};
 	}>();
 
 	const settings = viewModel.namespace("settings");
 
-	let filterSection = settings.namespace("filter");
-
-	const filterText = filterSection.make("query", "");
-	const activeFilter = writable(
-		noteRepository.getInclusiveNoteFilterForQuery($filterText),
-	);
-	filterText.subscribe((newFilterText) =>
-		activeFilter.set(
-			noteRepository.getInclusiveNoteFilterForQuery(newFilterText),
-		),
+	let itemsById: Map<string, TimelineNoteItem> = new Map();
+	let items: MutableSortedArray<TimelineNoteItem> = new MutableSortedArray(
+		(item) => item.value(),
 	);
 
-	let items: TimelineFileItem[] = [];
+	let currentFilteringId = 0;
+	const filterQuery = settings.namespace("filter").make("query", "");
+	let filter = new TimelineItemQueryFilter(
+		noteRepository,
+		$filterQuery,
+		async (query) => {
+			filterQuery.set(query);
+
+			const filteringId = currentFilteringId + 1;
+			currentFilteringId = filteringId;
+			const newItems = [];
+			for (const item of Array.from(itemsById.values())) {
+				if (currentFilteringId !== filteringId) break;
+				if (await filter.accepts(item)) {
+					newItems.push(item);
+				}
+			}
+			items = new MutableSortedArray((item) => item.value(), ...newItems);
+		},
+	);
 
 	const groupsNamespace = settings.namespace("groups");
-	const groupsRepo = new GroupRepository(
-		groupsNamespace.make("groups", []),
-		noteRepository,
-	);
-	let groupsView: Groups | undefined;
 
-	const timelineItemGroups: TimelineItemGroups = makeTimelineItemGroups(
-		{
-			groups: groupsRepo,
-			items: {
-				list() {
-					return items;
-				},
-			},
-			recolorProcess: undefined,
-		},
-		{
-			presentNewGroup(group) {
-				groupsView?.addGroup(group);
-			},
-			presentReorderedGroups(groups) {
-				groupsView?.newOrder(groups);
-			},
-			presentRecoloredGroup(group) {
-				groupsView?.recolorGroup(group);
-			},
-			presentRecoloredItem(item) {
-				timelineView?.invalidateColors();
-			},
-			presentRecoloredItems(items) {
-				timelineView?.invalidateColors();
-			},
-			presentRequeriedGroup(group) {
-				groupsView?.changeGroupQuery(group);
-			},
-			hideGroup(groupId) {
-				groupsView?.removeGroup(groupId);
-			},
-		},
+	function saveGroups() {
+		groupsNamespace.make("groups", []).set(
+			timelineGroups.groups().map((group) => ({
+				query: group.query(),
+				color: group.color(),
+			})),
+		);
+	}
+	function createGroup(query: string, color: string) {
+		const group = new timelineGroup.TimelineGroup(
+			noteRepository,
+			query,
+			color,
+		);
+		group.onChanged = saveGroups;
+		return group;
+	}
+	const timelineGroups = new TimelineGroups(
+		get(groupsNamespace.make("groups", []))
+			.map((group) => timelineGroup.schema.parseOrDefault(group))
+			.map(({ query, color }) => createGroup(query, color)),
+		(color) => createGroup("", color),
 	);
+	timelineGroups.onChanged = saveGroups;
 
 	function openFile(event: Event | undefined, item: TimelineItem) {
-		const note = notes.get(item.id())?.obsidianFile;
+		const note = itemsById.get(item.id())?.note;
 		if (note == null) {
 			return;
 		}
@@ -110,171 +115,388 @@
 		dispatch("noteSelected", { note, event });
 	}
 
+	let propertySelector: TimelinePropertySelector;
+
+	async function createItem(item: { value: number }) {
+		const property = propertySelector.selectedProperty();
+		let creation;
+		if (property.isCreatedProperty()) {
+			creation = { created: item.value };
+		} else if (property.isModifiedProperty()) {
+			creation = { modified: item.value };
+		} else {
+			creation = {
+				properties: {
+					[property.name()]: property.sanitizeValue(item.value),
+				},
+			};
+		}
+
+		dispatch("createNote", creation);
+	}
+
+	function moveItem(item: TimelineItem, value: number) {
+		const noteItem = itemsById.get(item.id());
+		if (noteItem == null) {
+			return false;
+		}
+
+		const property = propertySelector.selectedProperty();
+		value = property.sanitizeValue(value);
+
+		if (property.isCreatedProperty()) {
+			return dispatch(
+				"modifyNote",
+				{
+					note: noteItem.note,
+					modification: { created: value },
+				},
+				{ cancelable: true },
+			);
+		} else if (property.isModifiedProperty()) {
+			return dispatch(
+				"modifyNote",
+				{
+					note: noteItem.note,
+					modification: { modified: value },
+				},
+				{ cancelable: true },
+			);
+		} else {
+			return dispatch(
+				"modifyNote",
+				{
+					note: noteItem.note,
+					modification: {
+						property: { name: property.name(), value: value },
+					},
+				},
+				{ cancelable: true },
+			);
+		}
+	}
+
 	let timelineView: TimelineView;
-	let displayItemsAs: "numeric" | "date" = "date";
+	let display: RulerValueDisplay;
 	onMount(async () => {
-		items = (
-			await Promise.all(
-				Array.from(notes.values()).map(async (item) => {
-					if (await $activeFilter.matches(item.obsidianFile)) {
-						return item;
-					}
-				}),
-			)
-		).filter((item) => !!item);
+		const orderSettings = viewModel
+			.namespace("settings")
+			.namespace("property");
 
-		const orderPropertyName = get(
-			viewModel
-				.namespace("settings")
-				.namespace("property")
-				.make("property", "created"),
+		const selectedPropertyName = orderSettings.make("property", "created");
+		const propertyPreferences = orderSettings.make(
+			"propertiesUseWholeNumbers",
+			{},
 		);
 
-		let orderProperty: NoteProperty<string> | null =
-			await notePropertyRepository.getPropertyByName(orderPropertyName);
-
-		if (!orderProperty || !isTimelinePropertyType(orderProperty.type())) {
-			orderProperty = NoteProperty.Created;
-		}
-
-		propertySelection.selector = getPropertySelector(
-			orderProperty as NoteProperty<TimelinePropertyType>,
+		propertySelector = await TimelinePropertySelector.sanitize(
+			notePropertyRepository,
+			{
+				selectedPropertyName: get(selectedPropertyName),
+				propertyPreferences: get(propertyPreferences),
+			},
+			(state) => {
+				selectedPropertyName.set(state.selectedPropertyName);
+				propertyPreferences.set(state.propertyPreferences);
+			},
 		);
-		displayItemsAs = getPropertyDisplayType(
-			orderProperty as NoteProperty<TimelinePropertyType>,
+
+		display = propertySelector.selectedProperty().displayedAs();
+
+		for (const note of await noteRepository.listAll()) {
+			const item = new TimelineNoteItem(
+				note,
+				getValueSelector,
+				itemColorSupplier,
+			);
+			itemsById.set(item.id(), item);
+			enqueueItemColorUpdate(item);
+		}
+
+		items = new MutableSortedArray(
+			(item) => item.value(),
+			...(await filter.filteredItems(itemsById.values())),
 		);
-		for (const item of items) {
-			item._invalidateValueCache();
-		}
-		items = items;
-
-		const groups = timelineItemGroups.listGroups();
-		if (groups.length > 0) {
-			timelineItemGroups.applyFileToGroup(groups[0].id, groups[0].query);
-		}
-
-		let currentFilteringId = 0;
-
-		activeFilter.subscribe(async (newFilter) => {
-			const filteringId = currentFilteringId + 1;
-			currentFilteringId = filteringId;
-			const newItems = [];
-			for (const item of Array.from(notes.values())) {
-				if (currentFilteringId !== filteringId) break;
-				if (await newFilter.matches(item.obsidianFile)) {
-					newItems.push(item);
-				}
-			}
-			items = newItems;
-		});
 
 		if (isNew) {
 			timelineView.zoomToFit(items);
 		}
 	});
 
-	let groupUpdates: TimelineFileItem[] = [];
-	let itemUpdateTimeout: ReturnType<typeof setTimeout> | undefined;
-	function scheduleItemUpdate() {
-		if (itemUpdateTimeout != null) return;
+	const enqueueItemUpdate = (() => {
+		const queue: (() => void)[] = [];
+		let timer: null | ReturnType<typeof setTimeout> = null;
 
-		itemUpdateTimeout = setTimeout(async () => {
-			itemUpdateTimeout = undefined;
-			if (groupUpdates.length > 0) {
-				const groups = groupsRepo.list();
-				for (const item of groupUpdates) {
-					item._invalidateValueCache();
-					const group = await selectGroupForFile(
-						groups,
-						item.obsidianFile,
-					);
-					item.applyGroup(group);
-				}
-				groupUpdates = [];
+		return (update: () => void) => {
+			queue.push(update);
+			if (timer != null) {
+				return;
 			}
-			timelineView?.refresh();
-		}, 250);
+
+			timer = setTimeout(() => {
+				timer = null;
+				while (queue.length > 0) {
+					queue.shift()!();
+				}
+				items = items;
+			}, 250);
+		};
+	})();
+	const itemColorSupplier = {
+		cache: new Map<string, { index: number; color: string }>(),
+		itemColorForNote(note: Note): string | undefined {
+			return this.cache.get(note.id())?.color ?? undefined;
+		},
+	};
+	itemColorSupplier satisfies TimelineItemColorSupplier;
+
+	let itemRecolorQueueLength = 0;
+	const enqueueItemColorUpdate = (() => {
+		const queue: TimelineNoteItem[] = [];
+		const uniqueQueue = new Set<TimelineNoteItem>();
+		let timer: null | ReturnType<typeof setTimeout> = null;
+		let tasks: Promise<void>[] = [];
+
+		async function processBatch() {
+			timer = null;
+
+			const start = performance.now();
+			if (tasks.length > 0) {
+				await Promise.all(tasks);
+			}
+			tasks = [];
+
+			while (
+				queue.length > 0 &&
+				performance.now() - start < 16 /* 1/60 */
+			) {
+				const item = queue.shift()!;
+				uniqueQueue.delete(item);
+				const groups = timelineGroups.groups();
+				tasks.push(
+					(async () => {
+						for (let i = 0; i < groups.length; i++) {
+							const group = groups[i];
+							if (await group.noteFilter().matches(item.note)) {
+								itemColorSupplier.cache.set(item.id(), {
+									color: group.color(),
+									index: i,
+								});
+								break;
+							}
+						}
+						timelineView.invalidateColors();
+					})(),
+				);
+			}
+			itemRecolorQueueLength = queue.length;
+
+			if (queue.length > 0) {
+				timer = setTimeout(processBatch, 0);
+			}
+		}
+
+		return (item: TimelineNoteItem) => {
+			if (uniqueQueue.has(item)) return;
+			uniqueQueue.add(item);
+			queue.push(item);
+			itemColorSupplier.cache.delete(item.id());
+			itemRecolorQueueLength = queue.length;
+			if (timer != null) return;
+
+			timer = setTimeout(processBatch, 0);
+		};
+	})();
+
+	function enqueueItemRecolorMatching(
+		predicate: (item: TimelineNoteItem) => boolean,
+	) {
+		for (const item of itemsById.values()) {
+			if (predicate(item)) {
+				enqueueItemColorUpdate(item);
+			}
+		}
 	}
 
+	function getValueSelector(this: void) {
+		return propertySelector.selectedProperty();
+	}
 	export async function addFile(file: Note) {
 		if (timelineView == null) return;
-		const item = new TimelineFileItem(file, propertySelection);
-		notes.set(file.id(), item);
-		if (await $activeFilter.matches(file)) {
-			items.push(item);
-			scheduleItemUpdate();
+		if (itemsById.has(file.id())) return;
+		const item = new TimelineNoteItem(
+			file,
+			getValueSelector,
+			itemColorSupplier,
+		);
+		itemsById.set(file.id(), item);
+		if (await filter.accepts(item)) {
+			enqueueItemUpdate(() => {
+				items.add(item);
+			});
 		}
 	}
 
 	export function deleteFile(file: Note) {
 		if (timelineView == null) return;
-		const item = notes.get(file.id());
+		const item = itemsById.get(file.id());
 		if (item == null) return;
-		if (notes.delete(file.id())) {
-			items.remove(item);
-			scheduleItemUpdate();
+		if (itemsById.delete(file.id())) {
+			enqueueItemUpdate(() => items.remove(item));
 		}
 	}
 
 	export async function modifyFile(file: Note) {
 		if (timelineView == null) return;
-		const item = notes.get(file.id());
+		const item = itemsById.get(file.id());
 		if (item == null) return;
 
-		groupUpdates.push(item);
-		scheduleItemUpdate();
+		enqueueItemColorUpdate(item);
+		enqueueItemUpdate(() => {
+			items.remove(item);
+			item._invalidateValueCache();
+			items.add(item);
+		});
 	}
 
 	export async function renameFile(file: Note, oldPath: string) {
 		if (timelineView == null) return;
-		const item = notes.get(oldPath);
+		const item = itemsById.get(oldPath);
 		if (item == null) return;
-		notes.delete(oldPath);
-		notes.set(file.id(), item);
+		itemsById.delete(oldPath);
+		itemsById.set(file.id(), item);
 
-		groupUpdates.push(item);
-		scheduleItemUpdate();
+		enqueueItemColorUpdate(item);
+		enqueueItemUpdate(() => {
+			items.remove(item);
+			items.add(item);
+		});
 	}
 
 	export function focusOnNote(note: Note) {
-		const item = notes.get(note.id());
+		const item = itemsById.get(note.id());
 		if (item == null) return;
 		timelineView?.focusOnItem(item);
 	}
 
-	function onPropertySelected(property: NoteProperty<TimelinePropertyType>) {
-		if (timelineView == null) return;
+	export function zoomToFit() {
+		timelineView?.zoomToFit(items);
+	}
 
-		propertySelection.selector = getPropertySelector(property);
-		for (const item of items) {
+	function onPropertySelected(property: TimelineProperty) {
+		propertySelector = propertySelector;
+		for (const item of itemsById.values()) {
 			item._invalidateValueCache();
 		}
-		items = items;
+		items = new MutableSortedArray((item) => item.value(), ...items);
+		display = property.displayedAs();
 		timelineView.zoomToFit(items);
-		displayItemsAs = getPropertyDisplayType(property);
+	}
+
+	function onPreviewNewItemValue(item: TimelineItem, value: number): number {
+		return propertySelector.selectedProperty().sanitizeValue(value);
 	}
 </script>
 
 <TimelineView
 	{items}
 	namespacedWritable={viewModel}
-	displayPropertyAs={displayItemsAs}
+	{display}
+	groups={timelineGroups}
+	pendingGroupUpdates={itemRecolorQueueLength}
+	controlBindings={{}}
+	groupEvents={{
+		onGroupAppended(group, groups) {
+			// no-op
+		},
+		onGroupColored(index, group) {
+			let effectCount = 0;
+			for (const item of itemColorSupplier.cache.values()) {
+				if (item.index === index) {
+					item.color = group.color();
+					effectCount++;
+				}
+			}
+			if (effectCount > 0) {
+				timelineView.invalidateColors();
+			}
+		},
+		onGroupQueried(index, _group) {
+			enqueueItemRecolorMatching((item) => {
+				const def = itemColorSupplier.cache.get(item.id());
+				// a new query could impact items that have no group, but not
+				// items that have a group of a higher priority
+				return def == null || def.index >= index;
+			});
+		},
+		onGroupsReordered(from, to, _group, _groups) {
+			// maintain consistency with group order
+			for (const def of itemColorSupplier.cache.values()) {
+				if (def.index >= from) {
+					def.index -= 1;
+				}
+			}
+			for (const def of itemColorSupplier.cache.values()) {
+				if (def.index >= to) {
+					def.index += 1;
+				}
+			}
+
+			const minAffectedIndex = Math.min(from, to);
+			enqueueItemRecolorMatching((item) => {
+				const def = itemColorSupplier.cache.get(item.id());
+				// re-order can't impact items that have no group
+				return def != null && def.index >= minAffectedIndex;
+			});
+		},
+		onGroupRemoved(index, _group, _groups) {
+			// maintain consistency with group order
+			for (const def of itemColorSupplier.cache.values()) {
+				if (def.index >= index) {
+					def.index -= 1;
+				}
+			}
+
+			enqueueItemRecolorMatching((item) => {
+				const def = itemColorSupplier.cache.get(item.id());
+				// removing a group can't impact items that have no group
+				return def != null && def.index >= index;
+			});
+		},
+	}}
 	bind:this={timelineView}
 	on:select={(e) => openFile(e.detail.causedBy, e.detail.item)}
-	on:focus={(e) => dispatch("noteFocused", notes.get(e.detail.id()))}
+	on:focus={(e) =>
+		dispatch("noteFocused", itemsById.get(e.detail.id())?.note)}
+	on:create={(e) => createItem(e.detail)}
+	onMoveItem={moveItem}
+	{onPreviewNewItemValue}
+	oncontextmenu={(e, triggerItems) => {
+		const items = triggerItems
+			.map((item) => itemsById.get(item.id()))
+			.filter(exists);
+		if (items.length === 0) return;
+		oncontextmenu(
+			e,
+			items.map((it) => it.note),
+		);
+	}}
+	openDialog={openModal}
 >
 	<svelte:fragment slot="additional-settings">
-		<TimelinePropertySetting
-			viewModel={settings.namespace("property")}
-			properties={notePropertyRepository}
-			on:propertySelected={(event) => onPropertySelected(event.detail)}
-		/>
-		<TimelineFilterSetting viewModel={settings.namespace("filter")} />
-		<Groups
-			bind:this={groupsView}
-			{timelineItemGroups}
-			name="Groups"
-			viewModel={settings.namespace("groups")}
+		{#if propertySelector}
+			<TimelinePropertySection
+				collapsed={settings
+					.namespace("property")
+					.make("collapsed", true)}
+				selector={propertySelector}
+				on:propertySelected={(event) =>
+					onPropertySelected(event.detail)}
+			/>
+		{/if}
+		<TimelineFilterSection
+			collapsed={settings.namespace("filter").make("collapsed", true)}
+			{filter}
 		/>
 	</svelte:fragment>
 </TimelineView>
@@ -305,6 +527,12 @@
 		--timeline-item-border-focused: var(--graph-node-focused);
 
 		--timeline-item-tooltip-background: var(--background-modifier-message);
+
+		--timeline-selection-area-background: hsla(
+			var(--color-accent-hsl),
+			0.1
+		);
+		--timeline-selection-area-border: var(--timeline-item-color-hover);
 
 		--timeline-settings-background: var(--background-primary);
 		--timeline-settings-width: var(--graph-controls-width);
