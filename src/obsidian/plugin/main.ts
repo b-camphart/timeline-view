@@ -7,7 +7,7 @@ import * as createTimeline from "src/timeline/create";
 import * as timelineItemView from "./timeline-item-view";
 import * as timelineSettingsTab from "./timeline-settings-tab";
 
-export const OBSIDIAN_LEAF_VIEW_TYPE: string = "VIEW_TYPE_TIMELINE_VIEW";
+export const OBSIDIAN_LEAF_VIEW_TYPE = "VIEW_TYPE_TIMELINE_VIEW";
 export const LUCID_ICON = "waypoints";
 
 export default class ObsidianTimelinePlugin extends obsidian.Plugin {
@@ -37,6 +37,9 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 		const openTimelineView = async (
 			leaf: obsidian.WorkspaceLeaf,
 			group?: obsidian.WorkspaceLeaf,
+			overrides?: {
+				filterQuery?: string;
+			},
 		) => {
 			const sorter = (
 				await timelineSettings.noteOrder()
@@ -46,7 +49,11 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 			const timeline = await createTimeline.createNewTimeline(
 				notes,
 				sorter,
-				filter.noteFilter(),
+				overrides?.filterQuery
+					? notes.getInclusiveNoteFilterForQuery(
+							overrides.filterQuery,
+					  )
+					: filter.noteFilter(),
 			);
 			leaf.setViewState({
 				type: OBSIDIAN_LEAF_VIEW_TYPE,
@@ -54,10 +61,10 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 				state: {
 					settings: {
 						property: {
-							property: sorter.name(),
+							property: timeline.order.name(),
 						},
 						filter: {
-							query: filter.query(),
+							query: timeline.filter.query(),
 						},
 						groups: {
 							groups: groups.groups().map(group => {
@@ -75,8 +82,14 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 			});
 		};
 
-		const openTimelineViewInNewLeaf = () => {
-			openTimelineView(this.app.workspace.getLeaf(true));
+		const openTimelineViewInNewLeaf = (overrides?: {
+			filterQuery?: string;
+		}) => {
+			openTimelineView(
+				this.app.workspace.getLeaf(true),
+				undefined,
+				overrides,
+			);
 		};
 
 		this.registerView(OBSIDIAN_LEAF_VIEW_TYPE, leaf => {
@@ -103,21 +116,38 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 		});
 
 		this.registerEvent(
-			this.app.workspace.on("file-menu", (menu, editor, info) => {
-				if (info !== "more-options") {
-					return;
-				}
-				menu.addItem(item => {
-					item.setSection("view.linked");
-					item.setTitle("Open timeline view");
-					item.setIcon(LUCID_ICON);
-					item.onClick(() => {
-						openTimelineView(
-							this.app.workspace.getLeaf("split", "horizontal"),
-							this.app.workspace.getMostRecentLeaf() ?? undefined,
-						);
+			this.app.workspace.on("file-menu", (menu, file, info) => {
+				if (info === "more-options") {
+					menu.addItem(item => {
+						item.setSection("view.linked");
+						item.setTitle("Open timeline view");
+						item.setIcon(LUCID_ICON);
+						item.onClick(() => {
+							openTimelineView(
+								this.app.workspace.getLeaf(
+									"split",
+									"horizontal",
+								),
+								this.app.workspace.getMostRecentLeaf() ??
+									undefined,
+							);
+						});
 					});
-				});
+				}
+				if (
+					file instanceof obsidian.TFolder &&
+					info === "file-explorer-context-menu"
+				) {
+					menu.addItem(item => {
+						item.setTitle("View as timeline")
+							.setIcon(LUCID_ICON)
+							.onClick(() => {
+								openTimelineViewInNewLeaf({
+									filterQuery: `path:"${file.path}"`,
+								});
+							});
+					});
+				}
 			}),
 		);
 
