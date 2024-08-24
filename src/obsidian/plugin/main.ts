@@ -6,6 +6,7 @@ import * as note from "src/note/obsidian-repository";
 import * as createTimeline from "src/timeline/create";
 import * as timelineItemView from "./timeline-item-view";
 import * as timelineSettingsTab from "./timeline-settings-tab";
+import {isTagView} from "src/obsidian/TagPlugin";
 
 export const OBSIDIAN_LEAF_VIEW_TYPE = "VIEW_TYPE_TIMELINE_VIEW";
 export const LUCID_ICON = "waypoints";
@@ -150,6 +151,60 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 				}
 			}),
 		);
+
+		this.registerDomEvent(window, "auxclick", event => {
+			if (event.button === 2) {
+				if (event.target instanceof HTMLElement) {
+					const tagDom = event.target.matchParent(
+						"div.tree-item-self.tag-pane-tag.is-clickable",
+					);
+
+					if (tagDom instanceof HTMLElement) {
+						const tagLeaf = this.app.workspace
+							.getLeavesOfType("tag")
+							.at(0)?.view;
+						if (tagLeaf != null && isTagView(tagLeaf)) {
+							const tagDomObj = tagLeaf.tagDoms;
+							if (tagDomObj == null) {
+								return;
+							}
+							for (const [key, value] of Object.entries(
+								tagDomObj,
+							)) {
+								if (value.selfEl === tagDom) {
+									event.preventDefault();
+									event.stopPropagation();
+									event.stopImmediatePropagation();
+									new obsidian.Menu()
+										.addItem(item => {
+											item.setTitle(
+												"View notes with tag in timeline",
+											)
+												.setIcon(LUCID_ICON)
+												.onClick(() => {
+													openTimelineViewInNewLeaf({
+														filterQuery: `tag:${key}`,
+													});
+												});
+										})
+										.showAtMouseEvent(event);
+									return;
+								}
+							}
+						}
+						return;
+					}
+				}
+			}
+		});
+
+		this.app.workspace.onLayoutReady(() => {
+			this.app.workspace
+				.getLeavesOfType("all-properties")
+				.forEach(leaf => {
+					console.log("properties type leaf", leaf);
+				});
+		});
 
 		if (import.meta.env.MODE === "development") {
 			if (await this.app.vault.adapter.exists("___reload.md")) {
