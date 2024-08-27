@@ -3,6 +3,7 @@ import type {ObsidianNotePropertyRepository} from "src/note/property/obsidian-re
 import TimelineNoteSorterPropertySelect from "../../timeline/sorting/TimelineNoteSorterPropertySelect.svelte";
 import {
 	expectArray,
+	expectBoolean,
 	expectObject,
 	expectString,
 	type Parsed,
@@ -181,6 +182,7 @@ function timelineSettingsSchema() {
 					color: expectString(""),
 				}),
 			),
+			previousState: expectBoolean(false),
 		}),
 	});
 }

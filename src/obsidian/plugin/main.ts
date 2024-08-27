@@ -36,6 +36,19 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 			);
 		this.addSettingTab(timelineSettings);
 
+		const assignTimelineViewToLeaf = (
+			leaf: obsidian.WorkspaceLeaf,
+			timeline: timelineItemView.TimelineItemViewState,
+			group?: obsidian.WorkspaceLeaf,
+		) => {
+			leaf.setViewState({
+				type: OBSIDIAN_LEAF_VIEW_TYPE,
+				active: true,
+				state: timeline,
+				group,
+			});
+		};
+
 		const openTimelineView = async (
 			leaf: obsidian.WorkspaceLeaf,
 			group?: obsidian.WorkspaceLeaf,
@@ -57,10 +70,9 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 					  )
 					: filter.noteFilter(),
 			);
-			leaf.setViewState({
-				type: OBSIDIAN_LEAF_VIEW_TYPE,
-				active: true,
-				state: {
+			assignTimelineViewToLeaf(
+				leaf,
+				{
 					settings: {
 						property: {
 							property: timeline.order.name(),
@@ -81,7 +93,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 					isNew: true,
 				},
 				group,
-			});
+			);
 		};
 
 		const openTimelineViewInNewLeaf = (overrides?: {
@@ -108,13 +120,51 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 			return view;
 		});
 
-		this.addRibbonIcon(LUCID_ICON, "Open timeline view", () =>
-			openTimelineViewInNewLeaf(),
-		);
+		this.addRibbonIcon(LUCID_ICON, "Open timeline view", event => {
+			if (event.button === 2) {
+				const menu = new obsidian.Menu().addItem(item => {
+					item.setTitle("Open new timeline view").onClick(() => {
+						openTimelineViewInNewLeaf();
+					});
+				});
+				const previousState =
+					timelineItemView.TimelineItemView.getPreviouslyClosedState();
+				if (previousState != null) {
+					menu.addItem(item => {
+						item.setTitle("Re-open closed timeline view").onClick(
+							() => {
+								assignTimelineViewToLeaf(
+									this.app.workspace.getLeaf(true),
+									{...previousState, isNew: false},
+								);
+							},
+						);
+					});
+				}
+				menu.showAtMouseEvent(event);
+			} else {
+				openTimelineViewInNewLeaf();
+			}
+		});
 		this.addCommand({
 			id: "open-timeline-view",
 			name: "Open timeline view",
 			callback: () => openTimelineViewInNewLeaf(),
+			icon: LUCID_ICON,
+		});
+		this.addCommand({
+			id: "reopen-timeline-view",
+			name: "Re-open timeline view",
+			callback: () => {
+				const previousState =
+					timelineItemView.TimelineItemView.getPreviouslyClosedState();
+				if (previousState != null) {
+					assignTimelineViewToLeaf(this.app.workspace.getLeaf(true), {
+						...previousState,
+						isNew: false,
+					});
+				}
+			},
 			icon: LUCID_ICON,
 		});
 
