@@ -7,6 +7,7 @@ import * as createTimeline from "src/timeline/create";
 import * as timelineItemView from "./timeline-item-view";
 import * as timelineSettingsTab from "./timeline-settings-tab";
 import {isTagView} from "src/obsidian/TagPlugin";
+import type {SearchView} from "src/obsidian/SearchPlugin";
 
 export const OBSIDIAN_LEAF_VIEW_TYPE = "VIEW_TYPE_TIMELINE_VIEW";
 export const LUCID_ICON = "waypoints";
@@ -84,6 +85,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 		};
 
 		const openTimelineViewInNewLeaf = (overrides?: {
+			orderedBy?: string;
 			filterQuery?: string;
 		}) => {
 			openTimelineView(
@@ -197,6 +199,39 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 				}
 			}
 		});
+
+		this.registerEvent(
+			this.app.workspace.on(
+				"search:results-menu",
+				(menu: obsidian.Menu, view: SearchView) => {
+					menu.addItem(item => {
+						item.setSection("timeline")
+							.setTitle("Order results in new timeline view")
+							.setIcon(LUCID_ICON)
+							.onClick(() => {
+								openTimelineViewInNewLeaf({
+									filterQuery: view.searchQuery.query,
+								});
+							});
+					}).addItem(item => {
+						item.setSection("timeline")
+							.setTitle(
+								"Save as default filter for timeline views",
+							)
+							.setIcon(LUCID_ICON)
+							.onClick(() => {
+								timelineSettings
+									.noteFilter()
+									.then(filter =>
+										filter.filterByQuery(
+											view.searchQuery.query,
+										),
+									);
+							});
+					});
+				},
+			),
+		);
 
 		this.app.workspace.onLayoutReady(() => {
 			this.app.workspace
