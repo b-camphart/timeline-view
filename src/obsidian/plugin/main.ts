@@ -219,27 +219,15 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 								"Save as default filter for timeline views",
 							)
 							.setIcon(LUCID_ICON)
-							.onClick(() => {
-								timelineSettings
-									.noteFilter()
-									.then(filter =>
-										filter.filterByQuery(
-											view.searchQuery.query,
-										),
-									);
+							.onClick(async () => {
+								const filter =
+									await timelineSettings.noteFilter();
+								filter.filterByQuery(view.searchQuery.query);
 							});
 					});
 				},
 			),
 		);
-
-		this.app.workspace.onLayoutReady(() => {
-			this.app.workspace
-				.getLeavesOfType("all-properties")
-				.forEach(leaf => {
-					console.log("properties type leaf", leaf);
-				});
-		});
 
 		if (import.meta.env.MODE === "development") {
 			if (await this.app.vault.adapter.exists("___reload.md")) {
