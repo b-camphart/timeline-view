@@ -121,14 +121,14 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 		});
 
 		this.addRibbonIcon(LUCID_ICON, "Open timeline view", event => {
+			const previousState =
+				timelineItemView.TimelineItemView.getPreviouslyClosedState();
 			if (event.button === 2) {
 				const menu = new obsidian.Menu().addItem(item => {
 					item.setTitle("Open new timeline view").onClick(() => {
 						openTimelineViewInNewLeaf();
 					});
 				});
-				const previousState =
-					timelineItemView.TimelineItemView.getPreviouslyClosedState();
 				if (previousState != null) {
 					menu.addItem(item => {
 						item.setTitle("Re-open closed timeline view").onClick(
@@ -143,7 +143,17 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 				}
 				menu.showAtMouseEvent(event);
 			} else {
-				openTimelineViewInNewLeaf();
+				if (
+					timelineSettings.usePreviousState() &&
+					previousState != null
+				) {
+					assignTimelineViewToLeaf(this.app.workspace.getLeaf(true), {
+						...previousState,
+						isNew: false,
+					});
+				} else {
+					openTimelineViewInNewLeaf();
+				}
 			}
 		});
 		this.addCommand({
