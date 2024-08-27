@@ -6,7 +6,7 @@ import * as note from "src/note/obsidian-repository";
 import * as createTimeline from "src/timeline/create";
 import * as timelineItemView from "./timeline-item-view";
 import * as timelineSettingsTab from "./timeline-settings-tab";
-import {isTagView} from "src/obsidian/TagPlugin";
+import * as tags from "src/obsidian/tags";
 import type {SearchView} from "src/obsidian/SearchPlugin";
 
 export const OBSIDIAN_LEAF_VIEW_TYPE = "VIEW_TYPE_TIMELINE_VIEW";
@@ -167,8 +167,8 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 				.getLeavesOfType("tag")
 				.at(0)?.view;
 
-			if (tagLeaf == null || !isTagView(tagLeaf)) return;
-			const tagDomObj = tagLeaf.tagDoms;
+			if (tagLeaf == null) return;
+			const tagDomObj = tags.tagDomRecordInTagView(tagLeaf);
 			if (tagDomObj == null) return;
 
 			const tag = Object.entries(tagDomObj).find(
@@ -192,8 +192,28 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 				.showAtMouseEvent(event);
 		});
 
+		this.app.workspace.on("editor-menu", (menu, editor, info) => {
+			const pos = editor.getCursor();
+			const line = editor.getLine(pos.line);
+
+			const tag = tags.findSurroundingTagInLine(line, pos.ch);
+			if (tag == null) return;
+
+			menu.addItem(item => {
+				item.setSection("selection")
+					.setTitle("View notes with tag in timeline")
+					.setIcon(LUCID_ICON)
+					.onClick(async () => {
+						openTimelineViewInNewLeaf({
+							filterQuery: `tag:${tag}`,
+						});
+					});
+			});
+		});
+
 		this.registerEvent(
 			this.app.workspace.on(
+				// @ts-ignore
 				"search:results-menu",
 				(menu: obsidian.Menu, view: SearchView) => {
 					menu.addItem(item => {
