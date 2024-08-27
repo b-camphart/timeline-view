@@ -155,49 +155,41 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 		);
 
 		this.registerDomEvent(window, "auxclick", event => {
-			if (event.button === 2) {
-				if (event.target instanceof HTMLElement) {
-					const tagDom = event.target.matchParent(
-						"div.tree-item-self.tag-pane-tag.is-clickable",
-					);
+			if (event.button !== 2) return;
+			if (!(event.target instanceof HTMLElement)) return;
 
-					if (tagDom instanceof HTMLElement) {
-						const tagLeaf = this.app.workspace
-							.getLeavesOfType("tag")
-							.at(0)?.view;
-						if (tagLeaf != null && isTagView(tagLeaf)) {
-							const tagDomObj = tagLeaf.tagDoms;
-							if (tagDomObj == null) {
-								return;
-							}
-							for (const [key, value] of Object.entries(
-								tagDomObj,
-							)) {
-								if (value.selfEl === tagDom) {
-									event.preventDefault();
-									event.stopPropagation();
-									event.stopImmediatePropagation();
-									new obsidian.Menu()
-										.addItem(item => {
-											item.setTitle(
-												"View notes with tag in timeline",
-											)
-												.setIcon(LUCID_ICON)
-												.onClick(() => {
-													openTimelineViewInNewLeaf({
-														filterQuery: `tag:${key}`,
-													});
-												});
-										})
-										.showAtMouseEvent(event);
-									return;
-								}
-							}
-						}
-						return;
-					}
-				}
-			}
+			const tagDom = event.target.matchParent(
+				"div.tree-item-self.tag-pane-tag.is-clickable",
+			);
+			if (!(tagDom instanceof HTMLElement)) return;
+
+			const tagLeaf = this.app.workspace
+				.getLeavesOfType("tag")
+				.at(0)?.view;
+
+			if (tagLeaf == null || !isTagView(tagLeaf)) return;
+			const tagDomObj = tagLeaf.tagDoms;
+			if (tagDomObj == null) return;
+
+			const tag = Object.entries(tagDomObj).find(
+				([_, value]) => value.selfEl === tagDom,
+			);
+			if (tag == null) return;
+
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation();
+			new obsidian.Menu()
+				.addItem(item => {
+					item.setTitle("View notes with tag in timeline")
+						.setIcon(LUCID_ICON)
+						.onClick(() => {
+							openTimelineViewInNewLeaf({
+								filterQuery: `tag:${tag[0]}`,
+							});
+						});
+				})
+				.showAtMouseEvent(event);
 		});
 
 		this.registerEvent(
