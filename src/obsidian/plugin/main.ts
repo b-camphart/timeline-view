@@ -165,7 +165,10 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 		this.addCommand({
 			id: "reopen-timeline-view",
 			name: "Re-open timeline view",
-			callback: () => {
+			checkCallback: checking => {
+				if (checking)
+					return timelineItemView.TimelineItemView.hasClosedState();
+
 				const previousState =
 					timelineItemView.TimelineItemView.getPreviouslyClosedState();
 				if (previousState != null) {
@@ -173,7 +176,9 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 						...previousState,
 						isNew: false,
 					});
+					return true;
 				}
+				return false;
 			},
 			icon: LUCID_ICON,
 		});
