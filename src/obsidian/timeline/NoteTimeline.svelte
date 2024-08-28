@@ -352,11 +352,15 @@
 		const item = itemsById.get(file.id());
 		if (item == null) return;
 
+		const keep = await filter.accepts(item);
+
 		enqueueItemColorUpdate(item);
 		enqueueItemUpdate(() => {
 			items.remove(item);
 			item._invalidateValueCache();
-			items.add(item);
+			if (keep) {
+				items.add(item);
+			}
 		});
 	}
 
@@ -367,10 +371,12 @@
 		itemsById.delete(oldPath);
 		itemsById.set(file.id(), item);
 
+		const keep = await filter.accepts(item);
+
 		enqueueItemColorUpdate(item);
 		enqueueItemUpdate(() => {
 			items.remove(item);
-			items.add(item);
+			if (keep) items.add(item);
 		});
 	}
 
