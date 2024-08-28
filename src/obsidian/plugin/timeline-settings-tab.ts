@@ -3,6 +3,7 @@ import type {ObsidianNotePropertyRepository} from "src/note/property/obsidian-re
 import TimelineNoteSorterPropertySelect from "../../timeline/sorting/TimelineNoteSorterPropertySelect.svelte";
 import {
 	expectArray,
+	expectBoolean,
 	expectObject,
 	expectString,
 	type Parsed,
@@ -105,12 +106,29 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 		return groups;
 	}
 
+	usePreviousState(): boolean {
+		return this.#loadedSettings?.openWith?.previousState ?? false;
+	}
+
 	async display() {
 		const containerEl = this.containerEl;
 
 		const order = await this.noteOrder();
 		const filter = await this.noteFilter();
 		const groups = await this.groups();
+
+		new obsidian.Setting(containerEl)
+			.setName("Ribbon Re-opens Timeline")
+			.setDesc(
+				"When clicking the ribbon icon, should it attempt to re-open the previously closed timeline?  This is not persisted across obsidian restarts.",
+			)
+			.addToggle(toggle => {
+				toggle.setValue(this.usePreviousState()).onChange(value => {
+					this.#updateSettings(
+						settings => (settings.openWith.previousState = value),
+					);
+				});
+			});
 
 		new obsidian.Setting(containerEl)
 			.setName("Defaults")
@@ -181,6 +199,7 @@ function timelineSettingsSchema() {
 					color: expectString(""),
 				}),
 			),
+			previousState: expectBoolean(false),
 		}),
 	});
 }

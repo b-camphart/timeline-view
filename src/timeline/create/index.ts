@@ -6,7 +6,11 @@ export async function createNewTimeline(
 	notes: NoteRepository,
 	order: TimelineNoteSorterProperty,
 	filter: NoteFilter,
-): Promise<{focalValue: number}> {
+): Promise<{
+	focalValue: number;
+	filter: NoteFilter;
+	order: TimelineNoteSorterProperty;
+}> {
 	const includedNotes = Array.from(await notes.listAllMatchingFilter(filter));
 	order.sortNotes(includedNotes);
 
@@ -22,5 +26,7 @@ export async function createNewTimeline(
 
 	return {
 		focalValue,
+		filter,
+		order,
 	};
 }

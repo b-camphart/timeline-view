@@ -275,6 +275,7 @@
 				const groups = timelineGroups.groups();
 				tasks.push(
 					(async () => {
+						itemColorSupplier.cache.delete(item.id());
 						for (let i = 0; i < groups.length; i++) {
 							const group = groups[i];
 							if (await group.noteFilter().matches(item.note)) {
@@ -300,7 +301,7 @@
 			if (uniqueQueue.has(item)) return;
 			uniqueQueue.add(item);
 			queue.push(item);
-			itemColorSupplier.cache.delete(item.id());
+			// itemColorSupplier.cache.delete(item.id());
 			itemRecolorQueueLength = queue.length;
 			if (timer != null) return;
 
@@ -351,11 +352,15 @@
 		const item = itemsById.get(file.id());
 		if (item == null) return;
 
+		const keep = await filter.accepts(item);
+
 		enqueueItemColorUpdate(item);
 		enqueueItemUpdate(() => {
 			items.remove(item);
 			item._invalidateValueCache();
-			items.add(item);
+			if (keep) {
+				items.add(item);
+			}
 		});
 	}
 
@@ -366,10 +371,12 @@
 		itemsById.delete(oldPath);
 		itemsById.set(file.id(), item);
 
+		const keep = await filter.accepts(item);
+
 		enqueueItemColorUpdate(item);
 		enqueueItemUpdate(() => {
 			items.remove(item);
-			items.add(item);
+			if (keep) items.add(item);
 		});
 	}
 
@@ -430,6 +437,12 @@
 			});
 		},
 		onGroupsReordered(from, to, _group, _groups) {
+			const minAffectedIndex = Math.min(from, to);
+			enqueueItemRecolorMatching((item) => {
+				const def = itemColorSupplier.cache.get(item.id());
+				// re-order can't impact items that have no group
+				return def != null && def.index >= minAffectedIndex;
+			});
 			// maintain consistency with group order
 			for (const def of itemColorSupplier.cache.values()) {
 				if (def.index >= from) {
@@ -441,27 +454,19 @@
 					def.index += 1;
 				}
 			}
-
-			const minAffectedIndex = Math.min(from, to);
-			enqueueItemRecolorMatching((item) => {
-				const def = itemColorSupplier.cache.get(item.id());
-				// re-order can't impact items that have no group
-				return def != null && def.index >= minAffectedIndex;
-			});
 		},
 		onGroupRemoved(index, _group, _groups) {
+			enqueueItemRecolorMatching((item) => {
+				const def = itemColorSupplier.cache.get(item.id());
+				// removing a group can't impact items that have no group
+				return def != null && def.index >= index;
+			});
 			// maintain consistency with group order
 			for (const def of itemColorSupplier.cache.values()) {
 				if (def.index >= index) {
 					def.index -= 1;
 				}
 			}
-
-			enqueueItemRecolorMatching((item) => {
-				const def = itemColorSupplier.cache.get(item.id());
-				// removing a group can't impact items that have no group
-				return def != null && def.index >= index;
-			});
 		},
 	}}
 	bind:this={timelineView}

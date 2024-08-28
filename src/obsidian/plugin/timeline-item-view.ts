@@ -209,11 +209,12 @@ export class TimelineItemView extends obsidian.ItemView {
 	private state: TimelineItemViewState | undefined;
 	setState(state: unknown, result: obsidian.ViewStateResult): Promise<void> {
 		this.state = timelineItemViewStateSchema.parseOrDefault(state);
+		this.displayText = this.computeDisplayText();
 		this.completeInitialization(this.state);
 		return super.setState(state, result);
 	}
 
-	getState() {
+	getState(): Omit<TimelineItemViewState, "isNew"> | undefined {
 		if (this.state != null && "isNew" in this.state) {
 			delete this.state.isNew;
 		}
@@ -352,7 +353,16 @@ export class TimelineItemView extends obsidian.ItemView {
 		});
 	}
 
+	private static closedState?: Omit<TimelineItemViewState, "isNew">;
+	static hasClosedState() {
+		return !!this.closedState;
+	}
+	static getPreviouslyClosedState() {
+		return this.closedState;
+	}
+
 	protected onClose(): Promise<void> {
+		TimelineItemView.closedState = this.getState();
 		this.component?.$destroy();
 		return super.onClose();
 	}
@@ -399,4 +409,6 @@ const timelineItemViewStateSchema = json.expectObject({
 	}),
 });
 
-type TimelineItemViewState = json.Parsed<typeof timelineItemViewStateSchema>;
+export type TimelineItemViewState = json.Parsed<
+	typeof timelineItemViewStateSchema
+>;
