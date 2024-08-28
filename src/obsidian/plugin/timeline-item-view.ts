@@ -209,6 +209,7 @@ export class TimelineItemView extends obsidian.ItemView {
 	private state: TimelineItemViewState | undefined;
 	setState(state: unknown, result: obsidian.ViewStateResult): Promise<void> {
 		this.state = timelineItemViewStateSchema.parseOrDefault(state);
+		this.displayText = this.computeDisplayText();
 		this.completeInitialization(this.state);
 		return super.setState(state, result);
 	}
