@@ -87,6 +87,9 @@ export class MutableSortedArray<T> extends SortedArray<T> {
 				return -1;
 			}
 			const mid = (low + high) >> 1;
+			if (mid < 0 || mid >= this._items.length) {
+				return -1;
+			}
 			const midItemValue = this.#selector(this._items[mid]);
 			if (midItemValue === itemValue) {
 				let checkStart = mid;
