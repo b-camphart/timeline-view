@@ -1086,7 +1086,7 @@
 					break;
 			}
 		}}
-	/>
+	></canvas>
 	<SelectedBounds
 		dragging={dragPreview != null}
 		bounds={selection.bounds}

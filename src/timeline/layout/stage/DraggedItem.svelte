@@ -22,7 +22,7 @@
 	aria-label={label}
 	style:top="{position.offsetTop}px"
 	style:left="{position.offsetLeft}px"
-/>
+></div>
 
 <style>
 	div {

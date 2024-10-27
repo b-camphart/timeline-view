@@ -15,6 +15,7 @@
 			label,
 			visible: true,
 			className: "mod-top",
+			// svelte-ignore reactive_declaration_non_reactive_property
 			elementPosition: hoverTooltip.top,
 		});
 </script>

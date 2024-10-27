@@ -8,7 +8,7 @@
 <div
 	class="timeline-item focus"
 	style="top: {focus.offsetTop}px; left: {focus.offsetLeft}px;"
-/>
+></div>
 
 <style>
 	:global(.timeline-item.focus) {
