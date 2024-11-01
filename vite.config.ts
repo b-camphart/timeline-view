@@ -121,10 +121,8 @@ function developmentBuild() {
 					exec(`start "" "obsidian://open?path=${process.cwd()}/${vaultDir}"`);
 
 					if (!firstBuild) {
-						writeFileSync(`${process.cwd()}/${vaultDir}/___reload.md`, "");
-
 						// TODO: OS selection
-						exec(`start "" "obsidian://open?vault=testVault&file=___reload"`);
+						exec(`start "" "obsidian://reload?vault=testVault"`);
 					}
 
 					firstBuild = false;

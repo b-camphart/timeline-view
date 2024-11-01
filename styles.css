@@ -513,7 +513,7 @@
 		content: "\200b";
 	} */
 
-	.group-update-progress.svelte-q72r02 {
+	.group-update-progress.svelte-1xuh6y6 {
 		position: absolute;
 		top: var(--size-2-3);
 		right: var(--size-4-3);
@@ -525,9 +525,9 @@
 		align-items: center;
 		gap: var(--size-2-2);
 
-		/* (unused) & > svg {
+		& > svg {
 			animation: 0.5s linear infinite spin;
-		}*/
+		}
 	}
 
 	.timeline-help.svelte-1xilpa8 {

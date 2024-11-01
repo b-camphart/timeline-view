@@ -242,17 +242,31 @@ export class ObsidianTimelinePlugin extends obsidian.Plugin {
 		});
 
 		if (import.meta.env.MODE === "development") {
-			if (await this.app.vault.adapter.exists("___reload.md")) {
-				await this.app.vault.adapter.remove("___reload.md");
-			}
+			const reload = async () => {
+				//@ts-expect-error
+				this.app.workspace.unregisterObsidianProtocolHandler("reload", reload);
 
-			this.registerEvent(
-				this.app.workspace.on("file-open", (file) => {
-					if (file?.path === "___reload.md") {
-						this.app.vault.adapter.remove(file.path).then(() => location.reload());
+				//@ts-expect-error
+				this.app.plugins.disablePlugin(this.manifest.id);
+				console.debug("disabled", this.manifest.id);
+
+				const oldDebug = localStorage.getItem("debug-plugin");
+				localStorage.setItem("debug-plugin", "1");
+				try {
+					//@ts-expect-error
+					await this.app.plugins.enablePlugin(this.manifest.id);
+				} finally {
+					if (oldDebug === null) {
+						localStorage.removeItem("debug-plugin");
+					} else {
+						localStorage.setItem("debug-plugin", oldDebug);
 					}
-				}),
-			);
+				}
+				console.debug("enabled", this.manifest.id);
+				new obsidian.Notice(`Reloaded plugin`);
+			};
+			//@ts-expect-error
+			this.app.workspace.registerObsidianProtocolHandler("reload", reload);
 		}
 	}
 
