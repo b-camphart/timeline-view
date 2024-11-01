@@ -39,7 +39,7 @@ function config(
 					return `main.js`;
 				},
 			},
-			target: "es2018",
+			target: "esnext",
 			minify: false,
 			cssMinify: false,
 			rollupOptions: {
@@ -91,6 +91,7 @@ function productionBuild() {
 	return config({
 		outDir,
 		emptyOutDir: false,
+		minify: "esbuild",
 	});
 }
 
