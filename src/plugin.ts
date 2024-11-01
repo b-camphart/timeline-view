@@ -5,7 +5,7 @@ import * as property from "src/note/property";
 import * as note from "src/note";
 import * as createTimeline from "src/timeline/create";
 import * as view from "src/view";
-import * as timelineSettingsTab from "src/settings";
+import * as settings from "src/settings";
 import * as tags from "src/obsidian/tags";
 import type { SearchView } from "src/obsidian/SearchPlugin";
 
@@ -23,233 +23,223 @@ function assignTimelineViewToLeaf(
 }
 
 export class ObsidianTimelinePlugin extends obsidian.Plugin {
-	async onload(): Promise<void> {
-		const notes = new note.ObsidianRepository(this.app.vault, this.app.metadataCache, this.app.fileManager);
-		const properties = new property.ObsidianRepository(
-			() => this.app.vault.adapter.read(obsidian.normalizePath(`${this.app.vault.configDir}/types.json`)),
-			() => MetadataTypeManager.getMetadataTypeManager(this.app),
-		);
+	#readPropertyTypes = () => {
+		const path = obsidian.normalizePath(`${this.app.vault.configDir}/types.json`);
+		return this.app.vault.adapter.read(path);
+	};
 
-		const timelineSettings = new timelineSettingsTab.ObsidianSettingsTimelineTab(this.app, this, properties, notes);
-		this.addSettingTab(timelineSettings);
+	#getMetadataTypeManager = () => MetadataTypeManager.getMetadataTypeManager(this.app);
 
-		const openTimelineView = async (
-			leaf: obsidian.WorkspaceLeaf,
-			group?: obsidian.WorkspaceLeaf,
-			overrides?: {
-				filterQuery?: string;
-			},
-		) => {
-			const sorter = (await timelineSettings.noteOrder()).selectedProperty();
-			const filter = await timelineSettings.noteFilter();
-			const groups = await timelineSettings.groups();
-			const timeline = await createTimeline.createNewTimeline(
-				notes,
-				sorter,
-				overrides?.filterQuery
-					? notes.getInclusiveNoteFilterForQuery(overrides.filterQuery)
-					: filter.noteFilter(),
-			);
-			assignTimelineViewToLeaf(
-				leaf,
-				{
-					settings: {
-						// @ts-expect-error
-						property: {
-							property: timeline.order.name(),
-						},
-						// @ts-expect-error
-						filter: {
-							query: timeline.filter.query(),
-						},
-						// @ts-expect-error
-						groups: {
-							groups: groups.groups().map((group) => {
-								return {
-									query: group.query(),
-									color: group.color(),
-								};
-							}),
-						},
-					},
-					focalValue: timeline.focalValue,
-					isNew: true,
+	#notes: note.ObsidianRepository = new note.ObsidianRepository(
+		this.app.vault,
+		this.app.metadataCache,
+		this.app.fileManager,
+	);
+	#properties: property.ObsidianRepository = new property.ObsidianRepository(
+		this.#readPropertyTypes,
+		this.#getMetadataTypeManager,
+	);
+	#settingsTab: settings.ObsidianSettingsTab = new settings.ObsidianSettingsTab(
+		this.app,
+		this,
+		this.#properties,
+		this.#notes,
+	);
+
+	async #createNewTimelineWith(init: { filterQuery?: string }): Promise<view.TimelineItemViewState> {
+		const sorter = (await this.#settingsTab.noteOrder()).selectedProperty();
+		const filter = await this.#settingsTab.noteFilter(init.filterQuery);
+		const groups = await this.#settingsTab.groups();
+		const timeline = await createTimeline.createNewTimeline(this.#notes, sorter, filter.noteFilter());
+
+		return {
+			settings: {
+				// @ts-expect-error
+				property: {
+					property: timeline.order.name(),
 				},
-				group,
-			);
+				// @ts-expect-error
+				filter: {
+					query: timeline.filter.query(),
+				},
+				// @ts-expect-error
+				groups: {
+					groups: groups.groups().map((group) => {
+						return {
+							query: group.query(),
+							color: group.color(),
+						};
+					}),
+				},
+			},
+			focalValue: timeline.focalValue,
+			isNew: true,
 		};
+	}
 
-		const openTimelineViewInNewLeaf = (overrides?: { orderedBy?: string; filterQuery?: string }) => {
-			openTimelineView(this.app.workspace.getLeaf(true), undefined, overrides);
-		};
+	async #createNewTimeline() {
+		return this.#createNewTimelineWith({});
+	}
 
-		this.registerView(view.Timeline.TYPE, (leaf) => {
-			return new view.Timeline(leaf, notes, properties);
+	async #openNewTimelineViewWith(state: { filterQuery?: string }) {
+		assignTimelineViewToLeaf(this.app.workspace.getLeaf(true), await this.#createNewTimelineWith(state));
+	}
+
+	async #openNewTimelineView() {
+		this.#openNewTimelineViewWith({});
+	}
+
+	#reopenTimelineView(state: view.TimelineItemViewState) {
+		assignTimelineViewToLeaf(this.app.workspace.getLeaf(true), {
+			...state,
+			isNew: false,
 		});
+	}
 
-		this.addRibbonIcon(view.Timeline.ICON, "Open timeline view", (event) => {
-			const previousState = view.Timeline.getPreviouslyClosedState();
-			if (event.button === 2) {
-				const menu = new obsidian.Menu().addItem((item) => {
-					item.setTitle("Open new timeline view").onClick(() => {
-						openTimelineViewInNewLeaf();
-					});
-				});
-				if (previousState != null) {
-					menu.addItem((item) => {
-						item.setTitle("Re-open closed timeline view").onClick(() => {
-							assignTimelineViewToLeaf(this.app.workspace.getLeaf(true), {
-								...previousState,
-								isNew: false,
-							});
-						});
-					});
-				}
-				menu.showAtMouseEvent(event);
-			} else {
-				if (timelineSettings.usePreviousState() && previousState != null) {
-					assignTimelineViewToLeaf(this.app.workspace.getLeaf(true), {
-						...previousState,
-						isNew: false,
-					});
-				} else {
-					openTimelineViewInNewLeaf();
-				}
-			}
-		});
+	async onload(): Promise<void> {
+		this.registerView(view.Timeline.TYPE, view.Timeline.registration(this.#notes, this.#properties));
+
+		const openNewTimelineView = this.#openNewTimelineView.bind(this);
+		const openNewTimelineViewWith = this.#openNewTimelineViewWith.bind(this);
+		const reopenTimelineView = this.#reopenTimelineView.bind(this);
+
+		const ribbonIcon = new RibbonIcon(openNewTimelineView, reopenTimelineView, this.#settingsTab);
+		ribbonIcon.addToPlugin(this);
+
 		this.addCommand({
 			id: "open-timeline-view",
 			name: "Open timeline view",
-			callback: () => openTimelineViewInNewLeaf(),
 			icon: view.Timeline.ICON,
+			callback: openNewTimelineView,
 		});
 		this.addCommand({
 			id: "reopen-timeline-view",
 			name: "Re-open timeline view",
-			checkCallback: (checking) => {
-				if (checking) return view.Timeline.hasClosedState();
-
-				const previousState = view.Timeline.getPreviouslyClosedState();
-				if (previousState != null) {
-					assignTimelineViewToLeaf(this.app.workspace.getLeaf(true), {
-						...previousState,
-						isNew: false,
-					});
-					return true;
-				}
-				return false;
-			},
 			icon: view.Timeline.ICON,
+			checkCallback: (checking) => {
+				const previousState = view.Timeline.getPreviouslyClosedState();
+				if (previousState === null) return false;
+				if (checking) return true;
+				reopenTimelineView(previousState);
+			},
 		});
+		this.app.workspace.onLayoutReady(() => {
+			this.addSettingTab(this.#settingsTab);
 
-		this.registerEvent(
-			this.app.workspace.on("file-menu", (menu, file, info) => {
-				if (info === "more-options") {
-					menu.addItem((item) => {
-						item.setSection("view.linked");
-						item.setTitle("Open timeline view");
-						item.setIcon(view.Timeline.ICON);
-						item.onClick(() => {
-							openTimelineView(
-								this.app.workspace.getLeaf("split", "horizontal"),
-								this.app.workspace.getMostRecentLeaf() ?? undefined,
-							);
+			this.registerEvent(
+				this.app.workspace.on("file-menu", (menu, _file, info) => {
+					if (info === "more-options") {
+						menu.addItem((item) => {
+							item.setSection("view.linked");
+							item.setTitle("Open timeline view");
+							item.setIcon(view.Timeline.ICON);
+							item.onClick(async () => {
+								assignTimelineViewToLeaf(
+									this.app.workspace.getLeaf("split", "horizontal"),
+									await this.#createNewTimeline(),
+									this.app.workspace.getMostRecentLeaf() ?? undefined,
+								);
+							});
 						});
-					});
-				}
-				if (file instanceof obsidian.TFolder && info === "file-explorer-context-menu") {
-					menu.addItem((item) => {
-						item.setTitle("View as timeline")
-							.setIcon(view.Timeline.ICON)
-							.onClick(() => {
-								openTimelineViewInNewLeaf({
-									filterQuery: `path:"${file.path}"`,
+					}
+				}),
+			);
+			this.registerEvent(
+				this.app.workspace.on("file-menu", (menu, file, info) => {
+					if (file instanceof obsidian.TFolder && info === "file-explorer-context-menu") {
+						menu.addItem((item) => {
+							item.setTitle("View as timeline")
+								.setIcon(view.Timeline.ICON)
+								.onClick(() => {
+									openNewTimelineViewWith({
+										filterQuery: `path:"${file.path}"`,
+									});
 								});
-							});
-					});
-				}
-			}),
-		);
-
-		this.registerDomEvent(window, "auxclick", (event) => {
-			if (event.button !== 2) return;
-			if (!(event.target instanceof HTMLElement)) return;
-
-			const tagDom = event.target.matchParent("div.tree-item-self.tag-pane-tag.is-clickable");
-			if (!(tagDom instanceof HTMLElement)) return;
-
-			const tagLeaf = this.app.workspace.getLeavesOfType("tag").at(0)?.view;
-
-			if (tagLeaf == null) return;
-			const tagDomObj = tags.tagDomRecordInTagView(tagLeaf);
-			if (tagDomObj == null) return;
-
-			const tag = Object.entries(tagDomObj).find(([_, value]) => value.selfEl === tagDom);
-			if (tag == null) return;
-
-			event.preventDefault();
-			event.stopPropagation();
-			event.stopImmediatePropagation();
-			new obsidian.Menu()
-				.addItem((item) => {
-					item.setTitle("View notes with tag in timeline")
-						.setIcon(view.Timeline.ICON)
-						.onClick(() => {
-							openTimelineViewInNewLeaf({
-								filterQuery: `tag:${tag[0]}`,
-							});
 						});
-				})
-				.showAtMouseEvent(event);
-		});
+					}
+				}),
+			);
 
-		this.registerEvent(
-			this.app.workspace.on("editor-menu", (menu, editor, info) => {
-				const pos = editor.getCursor();
-				const line = editor.getLine(pos.line);
+			this.registerDomEvent(window, "auxclick", (event) => {
+				if (event.button !== 2) return;
+				if (!(event.target instanceof HTMLElement)) return;
 
-				const tag = tags.findSurroundingTagInLine(line, pos.ch);
+				const tagDom = event.target.matchParent("div.tree-item-self.tag-pane-tag.is-clickable");
+				if (!(tagDom instanceof HTMLElement)) return;
+
+				const tagLeaf = this.app.workspace.getLeavesOfType("tag").at(0)?.view;
+
+				if (tagLeaf == null) return;
+				const tagDomObj = tags.tagDomRecordInTagView(tagLeaf);
+				if (tagDomObj == null) return;
+
+				const tag = Object.entries(tagDomObj).find(([_, value]) => value.selfEl === tagDom);
 				if (tag == null) return;
 
-				menu.addItem((item) => {
-					item.setSection("selection")
-						.setTitle("View notes with tag in timeline")
-						.setIcon(view.Timeline.ICON)
-						.onClick(async () => {
-							openTimelineViewInNewLeaf({
-								filterQuery: `tag:${tag}`,
-							});
-						});
-				});
-			}),
-		);
-
-		this.registerEvent(
-			this.app.workspace.on(
-				// @ts-ignore
-				"search:results-menu",
-				(menu: obsidian.Menu, searchView: SearchView) => {
-					menu.addItem((item) => {
-						item.setSection("timeline")
-							.setTitle("Order results in new timeline view")
+				event.preventDefault();
+				event.stopPropagation();
+				event.stopImmediatePropagation();
+				new obsidian.Menu()
+					.addItem((item) => {
+						item.setTitle("View notes with tag in timeline")
 							.setIcon(view.Timeline.ICON)
 							.onClick(() => {
-								openTimelineViewInNewLeaf({
-									filterQuery: searchView.searchQuery.query,
+								openNewTimelineViewWith({
+									filterQuery: `tag:${tag[0]}`,
 								});
 							});
-					}).addItem((item) => {
-						item.setSection("timeline")
-							.setTitle("Save as default filter for timeline views")
+					})
+					.showAtMouseEvent(event);
+			});
+
+			this.registerEvent(
+				this.app.workspace.on("editor-menu", (menu, editor, info) => {
+					const pos = editor.getCursor();
+					const line = editor.getLine(pos.line);
+
+					const tag = tags.findSurroundingTagInLine(line, pos.ch);
+					if (tag == null) return;
+
+					menu.addItem((item) => {
+						item.setSection("selection")
+							.setTitle("View notes with tag in timeline")
 							.setIcon(view.Timeline.ICON)
 							.onClick(async () => {
-								const filter = await timelineSettings.noteFilter();
-								filter.filterByQuery(searchView.searchQuery.query);
+								openNewTimelineViewWith({
+									filterQuery: `tag:${tag}`,
+								});
 							});
 					});
-				},
-			),
-		);
+				}),
+			);
+
+			this.registerEvent(
+				this.app.workspace.on(
+					// @ts-expect-error
+					"search:results-menu",
+					(menu: obsidian.Menu, searchView: SearchView) => {
+						menu.addItem((item) => {
+							item.setSection("timeline")
+								.setTitle("Order results in new timeline view")
+								.setIcon(view.Timeline.ICON)
+								.onClick(() => {
+									openNewTimelineViewWith({
+										filterQuery: searchView.searchQuery.query,
+									});
+								});
+						}).addItem((item) => {
+							item.setSection("timeline")
+								.setTitle("Save as default filter for timeline views")
+								.setIcon(view.Timeline.ICON)
+								.onClick(async () => {
+									const filter = await this.#settingsTab.noteFilter();
+									filter.filterByQuery(searchView.searchQuery.query);
+								});
+						});
+					},
+				),
+			);
+		});
 
 		if (import.meta.env.MODE === "development") {
 			if (await this.app.vault.adapter.exists("___reload.md")) {
@@ -268,5 +258,49 @@ export class ObsidianTimelinePlugin extends obsidian.Plugin {
 
 	onunload(): void {
 		this.app.workspace.detachLeavesOfType(view.Timeline.TYPE);
+	}
+}
+
+class RibbonIcon {
+	#openNewTimelineView: () => void;
+	#reopenTimelineView: (state: view.TimelineItemViewState) => void;
+	#settings;
+	constructor(
+		openNewTimelineView: () => void,
+		reopenTimelineView: (state: view.TimelineItemViewState) => void,
+		settings: {
+			usePreviousState(): boolean;
+		},
+	) {
+		this.#openNewTimelineView = openNewTimelineView;
+		this.#reopenTimelineView = reopenTimelineView;
+		this.#settings = settings;
+	}
+
+	#onMouseDown(event: MouseEvent) {
+		const previousState = view.Timeline.getPreviouslyClosedState();
+		if (event.button === 2) {
+			const menu = new obsidian.Menu().addItem((item) => {
+				item.setTitle("Open new timeline view").onClick(this.#openNewTimelineView);
+			});
+			if (previousState != null) {
+				menu.addItem((item) => {
+					item.setTitle("Re-open closed timeline view").onClick(() => {
+						this.#reopenTimelineView(previousState);
+					});
+				});
+			}
+			menu.showAtMouseEvent(event);
+		} else {
+			if (this.#settings.usePreviousState() && previousState !== null) {
+				this.#reopenTimelineView(previousState);
+			} else {
+				this.#openNewTimelineView();
+			}
+		}
+	}
+
+	addToPlugin(plugin: obsidian.Plugin) {
+		plugin.addRibbonIcon(view.Timeline.ICON, "Open timeline view", this.#onMouseDown.bind(this));
 	}
 }

@@ -11,7 +11,7 @@ import { TimelineGroups } from "src/timeline/group/groups";
 import { TimelineGroup } from "src/timeline/group/group";
 import { mount } from "svelte";
 
-export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
+export class ObsidianSettingsTab extends obsidian.PluginSettingTab {
 	#plugin;
 	#noteProperties;
 	#notes;
@@ -53,9 +53,10 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 		);
 	}
 
-	async noteFilter(): Promise<TimelineItemQueryFilter> {
+	async noteFilter(query?: string): Promise<TimelineItemQueryFilter> {
 		const loadedSettings = await this.#getSettings();
-		return new TimelineItemQueryFilter(this.#notes, loadedSettings.openWith.filter.query, async (query) => {
+		const filterQuery = query ?? loadedSettings.openWith.filter.query;
+		return new TimelineItemQueryFilter(this.#notes, filterQuery, async (query) => {
 			this.#updateSettings((settings) => (settings.openWith.filter.query = query));
 		});
 	}

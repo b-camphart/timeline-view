@@ -8,8 +8,8 @@ import { exists } from "src/utils/null";
 
 export class ObsidianNoteRepository implements MutableNoteRepository {
 	#vault;
-	#metadata;
 	#files;
+	#metadata;
 
 	constructor(
 		vault: Pick<Vault, "getMarkdownFiles" | "create" | "adapter">,
@@ -17,8 +17,12 @@ export class ObsidianNoteRepository implements MutableNoteRepository {
 		files: Pick<FileManager, "processFrontMatter">,
 	) {
 		this.#vault = vault;
-		this.#metadata = metadata;
 		this.#files = files;
+		this.#metadata = metadata;
+
+		ObsidianNote.prototype.properties = function (this: ObsidianNote) {
+			return metadata.getFileCache(this.file())?.frontmatter ?? {};
+		};
 	}
 
 	async createNote(note: {
@@ -41,7 +45,7 @@ export class ObsidianNoteRepository implements MutableNoteRepository {
 				Object.assign(frontmatter, note.properties);
 			});
 		}
-		return new ObsidianNote(tFile, this.#metadata);
+		return new ObsidianNote(tFile);
 	}
 
 	async modifyNote(
@@ -76,7 +80,7 @@ export class ObsidianNoteRepository implements MutableNoteRepository {
 	}
 
 	getNoteForFile(file: TFile): Note {
-		return new ObsidianNote(file, this.#metadata);
+		return new ObsidianNote(file);
 	}
 
 	getFileFromNote(note: Note): TFile | null {
@@ -86,30 +90,26 @@ export class ObsidianNoteRepository implements MutableNoteRepository {
 		return null;
 	}
 
-	listAll(): Iterable<Note> {
+	*listAll(): Iterable<Note> {
 		const vault = this.#vault;
-		const metadata = this.#metadata;
-		return (function* () {
-			for (const tFile of vault.getMarkdownFiles()) {
-				yield new ObsidianNote(tFile, metadata);
-			}
-		})();
+		for (const tFile of vault.getMarkdownFiles()) {
+			yield new ObsidianNote(tFile);
+		}
 	}
 
 	async listAllMatchingFilter(filter: NoteFilter): Promise<ObsidianNote[]> {
 		const vault = this.#vault;
-		const metadata = this.#metadata;
 
 		const processFile =
 			filter instanceof ObsidianNoteFilter
 				? async (tFile: TFile) => {
 						if (await filter.fileFilter().appliesTo(tFile)) {
-							return new ObsidianNote(tFile, metadata);
+							return new ObsidianNote(tFile);
 						}
 						return null;
 					}
 				: async (tFile: TFile) => {
-						const note = new ObsidianNote(tFile, metadata);
+						const note = new ObsidianNote(tFile);
 						if (await filter.matches(note)) {
 							return note;
 						}
@@ -132,7 +132,6 @@ export class ObsidianNoteRepository implements MutableNoteRepository {
 		return new ObsidianNoteFilter(parse(query, this.#metadata, EmtpyFilter), query);
 	}
 }
-
 class ObsidianNoteFilter implements NoteFilter {
 	#filter;
 
@@ -157,25 +156,21 @@ class ObsidianNoteFilter implements NoteFilter {
 		return false;
 	}
 }
-
-export class ObsidianNote implements Note {
+class ObsidianNote implements Note {
 	#tFile;
-	#metadata;
-
-	constructor(tFile: TFile, metadata: Pick<MetadataCache, "getFileCache">) {
+	constructor(tFile: TFile) {
 		this.#tFile = tFile;
-		this.#metadata = metadata;
 	}
 
-	id(): string {
+	id() {
 		return this.#tFile.path;
 	}
 
-	file(): TFile {
+	file() {
 		return this.#tFile;
 	}
 
-	name(): string {
+	name() {
 		return this.#tFile.basename;
 	}
 
@@ -188,7 +183,7 @@ export class ObsidianNote implements Note {
 	}
 
 	properties(): Record<string, unknown> {
-		return this.#metadata.getFileCache(this.#tFile)?.frontmatter ?? {};
+		return {};
 	}
 }
 

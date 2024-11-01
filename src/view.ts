@@ -26,6 +26,12 @@ export class Timeline extends obsidian.ItemView {
 		return LUCID_ICON;
 	}
 
+	static registration(notes: note.ObsidianRepository, properties: property.ObsidianRepository) {
+		return (leaf: obsidian.WorkspaceLeaf) => {
+			return new Timeline(leaf, notes, properties);
+		};
+	}
+
 	getIcon(): string {
 		return LUCID_ICON;
 	}
