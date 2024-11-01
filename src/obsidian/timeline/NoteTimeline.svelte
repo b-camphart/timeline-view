@@ -1,5 +1,5 @@
 <script lang="ts">
-	import * as obsidian from "obsidian";
+	import obsidian from "obsidian";
 	import TimelineView from "../../timeline/Timeline.svelte";
 	import { TimelineNoteItem } from "../../timeline/TimelineNoteItem";
 	import type { RulerValueDisplay, TimelineItem } from "../../timeline/Timeline";

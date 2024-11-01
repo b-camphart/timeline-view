@@ -1,4 +1,4 @@
-import * as obsidian from "obsidian";
+import obsidian from "obsidian";
 
 export function openNewLeafFromEvent(workspace: obsidian.Workspace, event: Event | null): obsidian.WorkspaceLeaf {
 	if (event instanceof MouseEvent || event instanceof KeyboardEvent) {

@@ -51,7 +51,7 @@
 		align-items: center;
 		gap: var(--size-2-2);
 
-		& > svg {
+		& > :global(svg) {
 			animation: 0.5s linear infinite spin;
 		}
 	}

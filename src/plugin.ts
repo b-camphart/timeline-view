@@ -1,8 +1,8 @@
 /// <reference types="vite/client" />
-import * as obsidian from "obsidian";
+import obsidian from "obsidian";
 import * as MetadataTypeManager from "src/obsidian/MetadataTypeManager";
-import * as property from "src/note/property/obsidian-repository";
-import * as note from "src/note/obsidian-repository";
+import * as property from "src/note/property";
+import * as note from "src/note";
 import * as createTimeline from "src/timeline/create";
 import * as view from "src/view";
 import * as timelineSettingsTab from "src/settings";
@@ -24,9 +24,9 @@ function assignTimelineViewToLeaf(
 
 export class ObsidianTimelinePlugin extends obsidian.Plugin {
 	async onload(): Promise<void> {
-		const notes = new note.ObsidianNoteRepository(this.app.vault, this.app.metadataCache, this.app.fileManager);
-		const properties = new property.ObsidianNotePropertyRepository(
-			() => this.app.vault.adapter.read(obsidian.normalizePath(".obsidian/types.json")),
+		const notes = new note.ObsidianRepository(this.app.vault, this.app.metadataCache, this.app.fileManager);
+		const properties = new property.ObsidianRepository(
+			() => this.app.vault.adapter.read(obsidian.normalizePath(`${this.app.vault.configDir}/types.json`)),
 			() => MetadataTypeManager.getMetadataTypeManager(this.app),
 		);
 
@@ -84,15 +84,7 @@ export class ObsidianTimelinePlugin extends obsidian.Plugin {
 		};
 
 		this.registerView(view.Timeline.TYPE, (leaf) => {
-			return new view.Timeline(
-				leaf,
-				this.app.vault,
-				this.app.metadataCache,
-				this.app.workspace,
-				this.app.fileManager,
-				notes,
-				properties,
-			);
+			return new view.Timeline(leaf, notes, properties);
 		});
 
 		this.addRibbonIcon(view.Timeline.ICON, "Open timeline view", (event) => {
@@ -211,24 +203,26 @@ export class ObsidianTimelinePlugin extends obsidian.Plugin {
 				.showAtMouseEvent(event);
 		});
 
-		this.app.workspace.on("editor-menu", (menu, editor, info) => {
-			const pos = editor.getCursor();
-			const line = editor.getLine(pos.line);
+		this.registerEvent(
+			this.app.workspace.on("editor-menu", (menu, editor, info) => {
+				const pos = editor.getCursor();
+				const line = editor.getLine(pos.line);
 
-			const tag = tags.findSurroundingTagInLine(line, pos.ch);
-			if (tag == null) return;
+				const tag = tags.findSurroundingTagInLine(line, pos.ch);
+				if (tag == null) return;
 
-			menu.addItem((item) => {
-				item.setSection("selection")
-					.setTitle("View notes with tag in timeline")
-					.setIcon(view.Timeline.ICON)
-					.onClick(async () => {
-						openTimelineViewInNewLeaf({
-							filterQuery: `tag:${tag}`,
+				menu.addItem((item) => {
+					item.setSection("selection")
+						.setTitle("View notes with tag in timeline")
+						.setIcon(view.Timeline.ICON)
+						.onClick(async () => {
+							openTimelineViewInNewLeaf({
+								filterQuery: `tag:${tag}`,
+							});
 						});
-					});
-			});
-		});
+				});
+			}),
+		);
 
 		this.registerEvent(
 			this.app.workspace.on(

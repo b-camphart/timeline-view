@@ -1,9 +1,6 @@
-import * as obsidian from "obsidian";
+import obsidian from "obsidian";
 
-export function openModal(
-	app: obsidian.App,
-	callback: (element: obsidian.Modal) => () => void,
-) {
+export function openModal(app: obsidian.App, callback: (element: obsidian.Modal) => () => void) {
 	new Modal(app, callback).open();
 }
 

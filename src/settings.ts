@@ -1,11 +1,11 @@
-import * as obsidian from "obsidian";
-import type { ObsidianNotePropertyRepository } from "src/note/property/obsidian-repository";
+import obsidian from "obsidian";
+import type * as property from "src/note/property";
 import TimelineNoteSorterPropertySelect from "./timeline/sorting/TimelineNoteSorterPropertySelect.svelte";
 import { expectArray, expectBoolean, expectObject, expectString, type Parsed } from "src/utils/json";
 import { TimelineNoteSorterSelector } from "src/timeline/sorting/TimelineNoteSorterSelector";
 import TimelineQueryFilterInput from "src/timeline/filter/TimelineQueryFilterInput.svelte";
 import { TimelineItemQueryFilter } from "src/timeline/filter/TimelineItemQueryFilter";
-import type { ObsidianNoteRepository } from "src/note/obsidian-repository";
+import * as note from "src/note";
 import Groups from "src/timeline/group/TimelineGroupsList.svelte";
 import { TimelineGroups } from "src/timeline/group/groups";
 import { TimelineGroup } from "src/timeline/group/group";
@@ -19,8 +19,8 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 	constructor(
 		app: obsidian.App,
 		plugin: obsidian.Plugin,
-		noteProperties: ObsidianNotePropertyRepository,
-		notes: ObsidianNoteRepository,
+		noteProperties: property.ObsidianRepository,
+		notes: note.ObsidianRepository,
 	) {
 		super(app, plugin);
 		this.#plugin = plugin;

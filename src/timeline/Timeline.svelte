@@ -1,5 +1,5 @@
 <script lang="ts">
-	import * as obsidian from "obsidian";
+	import obsidian from "obsidian";
 	import { type TimelineNavigation } from "./controls/TimelineNavigation";
 	import { type TimelineItem } from "./Timeline";
 	import { writable as makeWritable, writable } from "svelte/store";

@@ -1,13 +1,7 @@
-import * as obsidian from "obsidian";
+import obsidian from "obsidian";
 
-export function workspaceLeafExt(
-	leaf: obsidian.WorkspaceLeaf,
-): WorkspaceLeafExt | null {
-	if (
-		"updateHeader" in leaf &&
-		typeof leaf.updateHeader === "function" &&
-		leaf.updateHeader != null
-	) {
+export function workspaceLeafExt(leaf: obsidian.WorkspaceLeaf): WorkspaceLeafExt | null {
+	if ("updateHeader" in leaf && typeof leaf.updateHeader === "function" && leaf.updateHeader != null) {
 		return leaf as WorkspaceLeafExt;
 	}
 
@@ -20,10 +14,7 @@ type WorkspaceLeafExt = obsidian.WorkspaceLeaf & {
 
 export function preventOpenFileWhen(
 	component: obsidian.ItemView,
-	condition: (
-		file: obsidian.TFile,
-		openState?: obsidian.OpenViewState,
-	) => boolean,
+	condition: (file: obsidian.TFile, openState?: obsidian.OpenViewState) => boolean,
 ) {
 	const openFile = component.leaf.openFile;
 	component.leaf.openFile = async (file, openState) => {

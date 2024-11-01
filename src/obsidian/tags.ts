@@ -1,13 +1,11 @@
-import type * as obsidian from "obsidian";
+import type obsidian from "obsidian";
 
 export interface TagView extends obsidian.View {
 	/** possibly undefined because the obsidian hidden interface may change */
-	tagDoms?: Record<`#${string}`, {selfEl: HTMLElement}>;
+	tagDoms?: Record<`#${string}`, { selfEl: HTMLElement }>;
 }
 
-export function tagDomRecordInTagView(
-	view: Pick<obsidian.View, "getViewType">,
-) {
+export function tagDomRecordInTagView(view: Pick<obsidian.View, "getViewType">) {
 	if (view.getViewType() !== "tag") return undefined;
 	const tagDoms = (view as TagView).tagDoms;
 	if (tagDoms == null) return undefined;
@@ -15,17 +13,14 @@ export function tagDomRecordInTagView(
 
 	for (const value of Object.values(tagDoms)) {
 		if (typeof value !== "object") return undefined;
-		if (!("selfEl" in value) || typeof value.selfEl !== "object")
-			return undefined;
+		if (!("selfEl" in value) || typeof value.selfEl !== "object") return undefined;
 		if (!(value.selfEl instanceof HTMLElement)) return undefined;
 	}
 
 	return tagDoms;
 }
 
-const tagChars = new Set(
-	"#-_/1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
-);
+const tagChars = new Set("#-_/1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
 export function findSurroundingTagInLine(line: string, pos: number) {
 	let tagStart = pos;
 	for (tagStart; tagStart >= 0; tagStart--) {

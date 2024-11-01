@@ -1,6 +1,6 @@
-import type {NotePropertyRepository} from "./repository";
-import type {MetadataTypeManager} from "src/obsidian/MetadataTypeManager";
-import {NoteProperty} from ".";
+import type { NotePropertyRepository } from "./repository";
+import type { MetadataTypeManager } from "src/obsidian/MetadataTypeManager";
+import { NoteProperty } from ".";
 
 export class ObsidianNotePropertyRepository implements NotePropertyRepository {
 	#getMetadataTypeManager: () => MetadataTypeManager | undefined;
@@ -11,39 +11,30 @@ export class ObsidianNotePropertyRepository implements NotePropertyRepository {
 	) {
 		this.#getMetadataTypeManager = () => {
 			const metadataTypeManager = getMetadataTypeManager();
-			if (metadataTypeManager)
-				this.#getMetadataTypeManager = () => metadataTypeManager;
+			if (metadataTypeManager) this.#getMetadataTypeManager = () => metadataTypeManager;
 			return metadataTypeManager;
 		};
 	}
 
-	async getPropertyByName(
-		name: string,
-	): Promise<NoteProperty<string> | null> {
+	async getPropertyByName(name: string): Promise<NoteProperty<string> | null> {
 		const registeredProperties = await this.#loadRegisteredProperties();
-		return registeredProperties.find(it => it.name() === name) ?? null;
+		return registeredProperties.find((it) => it.name() === name) ?? null;
 	}
 
-	async listPropertiesOfTypes<T extends string>(
-		types: readonly T[],
-	): Promise<NoteProperty<T>[]> {
-		const unregisteredProperties =
-			this.#getMetadataTypeManager()?.properties;
+	async listPropertiesOfTypes<T extends string>(types: readonly T[]): Promise<NoteProperty<T>[]> {
+		const unregisteredProperties = this.#getMetadataTypeManager()?.properties;
 
 		if (unregisteredProperties) {
 			const properties: NoteProperty<T>[] = [];
 			for (const property of Object.values(unregisteredProperties)) {
 				if (types.includes(property.type as T)) {
-					properties.push(
-						new NoteProperty<T>(property.name, property.type as T),
-					);
+					properties.push(new NoteProperty<T>(property.name, property.type as T));
 				}
 			}
 			return properties;
 		} else {
 			const properties = (await this.#loadRegisteredProperties()).filter(
-				(property): property is NoteProperty<T> =>
-					types.includes(property.type() as T),
+				(property): property is NoteProperty<T> => types.includes(property.type() as T),
 			);
 			return properties;
 		}
@@ -71,9 +62,7 @@ export class ObsidianNotePropertyRepository implements NotePropertyRepository {
 
 		for (const [propertyName, maybePropertyType] of Object.entries(types)) {
 			if (typeof maybePropertyType === "string") {
-				registeredProperties.push(
-					new NoteProperty(propertyName, maybePropertyType),
-				);
+				registeredProperties.push(new NoteProperty(propertyName, maybePropertyType));
 			}
 		}
 

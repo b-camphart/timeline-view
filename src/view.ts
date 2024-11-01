@@ -1,6 +1,6 @@
-import * as obsidian from "obsidian";
-import type { ObsidianNoteRepository } from "src/note/obsidian-repository";
-import type { ObsidianNotePropertyRepository } from "src/note/property/obsidian-repository";
+import obsidian from "obsidian";
+import type * as note from "src/note";
+import type * as property from "src/note/property";
 import { get, writable } from "svelte/store";
 import type { Note } from "src/note";
 import { titleEl } from "src/obsidian/ItemVIew";
@@ -38,15 +38,11 @@ export class Timeline extends obsidian.ItemView {
 
 	constructor(
 		leaf: obsidian.WorkspaceLeaf,
-		vault: obsidian.Vault,
-		metadata: obsidian.MetadataCache,
-		private workspace: obsidian.Workspace,
-		private fileManager: obsidian.FileManager,
-		private notes: ObsidianNoteRepository,
-		private noteProperties: ObsidianNotePropertyRepository,
+		private notes: note.ObsidianRepository,
+		private noteProperties: property.ObsidianRepository,
 	) {
 		super(leaf);
-		this.navigation = false;
+		this.navigation = true;
 
 		this.scope = new obsidian.Scope(this.app.scope);
 		this.scope.register(["Shift"], " ", () => {
@@ -59,22 +55,17 @@ export class Timeline extends obsidian.ItemView {
 
 		// events
 		[
-			vault.on("create", (file) => {
-				if (file instanceof obsidian.TFile) {
-					this.component?.addFile(this.notes.getNoteForFile(file));
-				}
-			}),
-			vault.on("rename", (file, oldPath) => {
+			this.app.vault.on("rename", (file, oldPath) => {
 				if (file instanceof obsidian.TFile) {
 					this.component?.renameFile(this.notes.getNoteForFile(file), oldPath);
 				}
 			}),
-			metadata.on("changed", (file) => {
+			this.app.metadataCache.on("changed", (file) => {
 				if (file instanceof obsidian.TFile) {
 					this.component?.modifyFile(this.notes.getNoteForFile(file));
 				}
 			}),
-			vault.on("delete", (file) => {
+			this.app.vault.on("delete", (file) => {
 				if (file instanceof obsidian.TFile) {
 					this.component?.deleteFile(this.notes.getNoteForFile(file));
 				}
@@ -82,7 +73,7 @@ export class Timeline extends obsidian.ItemView {
 			this.leaf.on("group-change", (group) => {
 				this.group = group;
 			}),
-			this.workspace.on("active-leaf-change", (activeLeaf) => {
+			this.app.workspace.on("active-leaf-change", (activeLeaf) => {
 				if (activeLeaf === this.leaf || !activeLeaf) {
 					return;
 				}
@@ -99,12 +90,12 @@ export class Timeline extends obsidian.ItemView {
 					return;
 				}
 
-				const leavesInGroup = this.workspace.getGroupLeaves(this.group);
+				const leavesInGroup = this.app.workspace.getGroupLeaves(this.group);
 				if (!leavesInGroup.includes(activeLeaf)) {
 					return;
 				}
 
-				const file = vault.getAbstractFileByPath(state.file);
+				const file = this.app.vault.getAbstractFileByPath(state.file);
 				if (file instanceof obsidian.TFile) {
 					const note = this.notes.getNoteForFile(file);
 					if (!note) {
@@ -114,10 +105,19 @@ export class Timeline extends obsidian.ItemView {
 				}
 			}),
 		].forEach((eventRef) => this.registerEvent(eventRef));
-
+		this.app.workspace.onLayoutReady(() => {
+			this.registerEvent(
+				this.app.vault.on("create", (file) => {
+					if (file instanceof obsidian.TFile) {
+						this.component?.addFile(this.notes.getNoteForFile(file));
+					}
+				}),
+			);
+		});
 		preventOpenFileWhen(
 			this,
-			() => this.group != null && this.group.length > 0 && this.workspace.getGroupLeaves(this.group).length > 1,
+			() =>
+				this.group != null && this.group.length > 0 && this.app.workspace.getGroupLeaves(this.group).length > 1,
 		);
 	}
 
@@ -149,7 +149,7 @@ export class Timeline extends obsidian.ItemView {
 				.setSection("view.linked")
 				.setTitle("Open linked markdown tab")
 				.onClick(() => {
-					this.workspace.getLeaf("split", "horizontal").setViewState({
+					this.app.workspace.getLeaf("split", "horizontal").setViewState({
 						type: "empty",
 						group: this.leaf,
 					});
@@ -162,7 +162,7 @@ export class Timeline extends obsidian.ItemView {
 		if (!this.group) {
 			return false;
 		}
-		const leavesInGroup = this.workspace.getGroupLeaves(this.group);
+		const leavesInGroup = this.app.workspace.getGroupLeaves(this.group);
 		if (leavesInGroup.length === 1) {
 			return false;
 		}
@@ -219,7 +219,7 @@ export class Timeline extends obsidian.ItemView {
 		return Promise.resolve();
 	}
 
-	private static UNINITIALIZED = {};
+	private static readonly UNINITIALIZED = { s: Symbol() } as const;
 	getState(): TimelineItemViewState | typeof Timeline.UNINITIALIZED {
 		if (this.state !== null && "isNew" in this.state) {
 			delete this.state.isNew;
@@ -242,7 +242,7 @@ export class Timeline extends obsidian.ItemView {
 			const viewModel = writableProperties(state, (key, newValue) => {
 				state[key] = newValue;
 				this.displayText = this.computeDisplayText();
-				this.workspace.requestSaveLayout();
+				this.app.workspace.requestSaveLayout();
 			});
 
 			const persistedMode = viewModel.make("mode", this.$mode);
@@ -275,14 +275,15 @@ export class Timeline extends obsidian.ItemView {
 						if (notes.length === 1) {
 							const file = this.notes.getFileFromNote(notes[0]);
 							if (!file) return;
-							openFileContextMenu(e, file, this.workspace, this.fileManager);
+							openFileContextMenu(e, file, this.app.workspace, this.app.fileManager);
 						} else if (notes.length > 1) {
 							const files: obsidian.TFile[] = notes
 								.map((it) => this.notes.getFileFromNote(it))
 								.filter(exists);
 							if (files.length === 0) return;
-							if (files.length === 1) openFileContextMenu(e, files[0], this.workspace, this.fileManager);
-							else openMultipleFileContextMenu(e, files, this.workspace, this.fileManager);
+							if (files.length === 1)
+								openFileContextMenu(e, files[0], this.app.workspace, this.app.fileManager);
+							else openMultipleFileContextMenu(e, files, this.app.workspace, this.app.fileManager);
 						}
 					},
 					openModal: (open) => {
@@ -291,7 +292,7 @@ export class Timeline extends obsidian.ItemView {
 					onNoteSelected: (note, cause) => {
 						const file = this.notes.getFileFromNote(note);
 						if (!file) return;
-						openNewLeafFromEvent(this.workspace, cause).openFile(file);
+						openNewLeafFromEvent(this.app.workspace, cause).openFile(file);
 					},
 					onNoteFocused: (note) => {
 						this.openNoteInLinkedLeaf(note);
@@ -301,7 +302,7 @@ export class Timeline extends obsidian.ItemView {
 						if (!this.openNoteInLinkedLeaf(note)) {
 							const file = this.notes.getFileFromNote(note);
 							if (!file) return;
-							this.workspace.getLeaf(true).openFile(file);
+							this.app.workspace.getLeaf(true).openFile(file);
 						}
 					},
 					onModifyNote: (note, modification) => {

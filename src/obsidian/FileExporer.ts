@@ -1,4 +1,4 @@
-import * as obsidian from "obsidian";
+import obsidian from "obsidian";
 import { warningItem } from "./Menu";
 
 export function openFileContextMenu(
@@ -9,7 +9,7 @@ export function openFileContextMenu(
 ) {
 	const menu = new obsidian.Menu();
 
-	menu.addItem(item => {
+	menu.addItem((item) => {
 		item.setSection("open")
 			.setTitle("Open in new tab")
 			.setIcon("lucide-file-plus")
@@ -17,7 +17,7 @@ export function openFileContextMenu(
 				workspace.openLinkText(file.path, "", "tab");
 			});
 	})
-		.addItem(item => {
+		.addItem((item) => {
 			item.setSection("open")
 				.setTitle("Open to the right")
 				.setIcon("lucide-separator-vertical")
@@ -25,7 +25,7 @@ export function openFileContextMenu(
 					workspace.openLinkText(file.path, "", "split");
 				});
 		})
-		.addItem(item => {
+		.addItem((item) => {
 			item.setSection("open")
 				.setTitle("Open below")
 				.setIcon("lucide-separator-horizontal")
@@ -36,19 +36,16 @@ export function openFileContextMenu(
 
 	workspace.trigger("file-menu", menu, file, "timeline-view-context-menu");
 
-	menu.addItem(item => {
+	menu.addItem((item) => {
 		warningItem(item)
 			.setSection("danger")
 			.setTitle("Delete")
 			.setIcon("lucide-trash-2")
 			.onClick(() => {
-				if (
-					"promptForDeletion" in fileManager &&
-					typeof fileManager.promptForDeletion === "function"
-				) {
+				if ("promptForDeletion" in fileManager && typeof fileManager.promptForDeletion === "function") {
 					fileManager.promptForDeletion(file);
 				} else {
-					file.vault.delete(file);
+					fileManager.trashFile(file);
 				}
 			});
 	});
@@ -66,7 +63,7 @@ export function openMultipleFileContextMenu(
 
 	workspace.trigger("files-menu", menu, files, "timeline-view-context-menu");
 
-	menu.addItem(item => {
+	menu.addItem((item) => {
 		warningItem(item)
 			.setSection("danger")
 			.setTitle("Delete")
@@ -74,14 +71,10 @@ export function openMultipleFileContextMenu(
 			.onClick(() => {
 				let deleteFunction: (file: obsidian.TFile) => void;
 
-				if (
-					"promptForDeletion" in fileManager &&
-					typeof fileManager.promptForDeletion === "function"
-				) {
-					deleteFunction =
-						fileManager.promptForDeletion.bind(fileManager);
+				if ("promptForDeletion" in fileManager && typeof fileManager.promptForDeletion === "function") {
+					deleteFunction = fileManager.promptForDeletion.bind(fileManager);
 				} else {
-					deleteFunction = files[0].vault.delete.bind(files[0].vault);
+					deleteFunction = fileManager.trashFile.bind(fileManager);
 				}
 
 				for (const file of files) {

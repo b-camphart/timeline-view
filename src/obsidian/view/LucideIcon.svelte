@@ -1,5 +1,5 @@
 <script lang="ts">
-	import * as obsidian from "obsidian";
+	import obsidian from "obsidian";
 
 	interface Props {
 		id: string;
