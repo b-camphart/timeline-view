@@ -3,64 +3,59 @@
 	import { createEventDispatcher } from "svelte";
 	import type { ChangeEventDetail } from "./Scrollbar";
 
-	interface $$Props
-		extends Omit<
-			HTMLAttributes<HTMLDivElement>,
-			// on:* props are not forwarded, remove from interface
-			keyof DOMAttributes<HTMLDivElement>
-		> {
-		orientation?: "horizontal" | "vertical";
-		/**
-		 * The id of the element that the scrollbar controls
-		 */
-		controls: string;
-		tabindex: number;
-
-		/**
-		 * The current value between min and max
-		 */
-		value: number;
-
-		/**
-		 * The span of the total scrollable value (the span between min and max) that is visible
-		 */
-		visibleAmount: number;
-
-		/**
-		 * The minimum value that can be seen (not necessarily scrolled to)
-		 */
-		min?: number;
-
-		/**
-		 * The maximum value that can be seen (not necessarily scrolled to)
-		 */
-		max?: number;
-	}
-
 	const dispatch = createEventDispatcher<{
 		change: ChangeEventDetail;
 		dragstart: void;
 		dragend: void;
 	}>();
 
-	export let orientation: "horizontal" | "vertical" = "vertical";
-	export let controls: string;
-	export let tabindex: number;
-	export let value: number;
-	export let visibleAmount: number;
-	export let min: number = 0;
-	export let max: number = 100;
+	interface Props extends HTMLAttributes<HTMLDivElement> {
+		orientation?: "horizontal" | "vertical";
+		/**
+		 * The id of the element that the scrollbar controls
+		 */
+		controls: string;
+		tabindex: number;
+		/**
+		 * The current value between min and max
+		 */
+		value: number;
+		/**
+		 * The span of the total scrollable value (the span between min and max) that is visible
+		 */
+		visibleAmount: number;
+		/**
+		 * The minimum value that can be seen (not necessarily scrolled to)
+		 */
+		min?: number;
+		/**
+		 * The maximum value that can be seen (not necessarily scrolled to)
+		 */
+		max?: number;
+	}
 
-	$: span = max - min;
+	let {
+		orientation = "vertical",
+		controls,
+		tabindex,
+		value,
+		visibleAmount,
+		min = 0,
+		max = 100,
+		...rest
+	}: Props = $props();
 
-	$: percent = span === 0 ? 1 : visibleAmount / span;
-	$: scrollSpan = Math.max(0, span - visibleAmount);
+	let span = $derived(max - min);
 
-	$: percentValue = scrollSpan === 0 ? 0 : (value - min) / scrollSpan;
+	let percent = $derived(span === 0 ? 1 : visibleAmount / span);
+	let scrollSpan = $derived(Math.max(0, span - visibleAmount));
 
-	let thumb: HTMLDivElement;
-	let dragging = false;
+	let percentValue = $derived(scrollSpan === 0 ? 0 : (value - min) / scrollSpan);
+
+	let thumb: HTMLDivElement | null = $state(null);
+	let dragging = $state(false);
 	function onThumbMouseDown(e: MouseEvent) {
+		e.stopPropagation();
 		const startScreenX = e.screenX;
 		const startScreenY = e.screenY;
 		const startValue = value;
@@ -98,10 +93,7 @@
 			const deltaValue = deltaPixels / startPercent;
 			const deltaValueSinceStart = deltaPixelsSinceStart / startPercent;
 
-			const newValue = Math.max(
-				startMin,
-				Math.min(startMax, startValue + deltaValueSinceStart),
-			);
+			const newValue = Math.max(startMin, Math.min(startMax, startValue + deltaValueSinceStart));
 
 			dispatch("change", {
 				dragging: true,
@@ -128,7 +120,9 @@
 		window.addEventListener("mouseup", mouseUpListener);
 	}
 
-	function onBarMouseDown(e: MouseEvent) {
+	function onBarMouseDown(this: HTMLElement, e: MouseEvent) {
+		if (e.target !== this) return;
+		if (thumb === null) return;
 		// increment the value by the visible amount, and do so while the mouse is down
 		// stop when the mouse is released, or the thumb is now under the mouse
 
@@ -136,27 +130,18 @@
 		const startY = e.offsetY;
 
 		// should only trigger when not already over the thumb
-		const direction = (
-			orientation === "horizontal"
-				? e.offsetX < thumb.offsetLeft
-				: e.offsetY < thumb.offsetTop
-		)
+		const direction = (orientation === "horizontal" ? e.offsetX < thumb.offsetLeft : e.offsetY < thumb.offsetTop)
 			? -1
 			: 1;
 
 		function incrementValue() {
+			if (thumb === null) return;
 			if (orientation === "horizontal") {
-				if (
-					thumb.offsetLeft <= startX &&
-					thumb.offsetLeft + thumb.offsetWidth >= startX
-				) {
+				if (thumb.offsetLeft <= startX && thumb.offsetLeft + thumb.offsetWidth >= startX) {
 					return;
 				}
 			} else {
-				if (
-					thumb.offsetTop <= startY &&
-					thumb.offsetTop + thumb.offsetHeight >= startY
-				) {
+				if (thumb.offsetTop <= startY && thumb.offsetTop + thumb.offsetHeight >= startY) {
 					return;
 				}
 			}
@@ -190,7 +175,7 @@
 </script>
 
 <div
-	{...$$restProps}
+	{...rest}
 	role="scrollbar"
 	class:unneeded={percent >= 0.99999999999}
 	aria-orientation={orientation}
@@ -199,11 +184,11 @@
 	aria-valuemin={min}
 	aria-valuemax={max}
 	{tabindex}
-	on:mousedown|self={onBarMouseDown}
+	onmousedown={onBarMouseDown}
 >
 	<div
 		role="presentation"
-		on:mousedown|stopPropagation={onThumbMouseDown}
+		onmousedown={onThumbMouseDown}
 		bind:this={thumb}
 		class="thumb"
 		class:dragging
@@ -221,10 +206,7 @@
 	div[role="scrollbar"] .thumb {
 		position: absolute;
 
-		background-color: var(
-			--scrollbar-thumb-bg,
-			var(--ui1, rbga(256, 256, 256, 0.2))
-		);
+		background-color: var(--scrollbar-thumb-bg, var(--ui1, rbga(256, 256, 256, 0.2)));
 
 		background-clip: padding-box;
 		border-radius: 20px;
@@ -233,10 +215,7 @@
 	}
 	div[role="scrollbar"] .thumb:hover,
 	div[role="scrollbar"] .thumb.dragging {
-		background-color: var(
-			--scrollbar-active-thumb-bg,
-			var(--ui3, rbga(256, 256, 256, 0.4))
-		);
+		background-color: var(--scrollbar-active-thumb-bg, var(--ui3, rbga(256, 256, 256, 0.4)));
 	}
 	div[role="scrollbar"][aria-orientation="horizontal"] .thumb {
 		min-width: 45px;

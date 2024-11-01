@@ -16,14 +16,25 @@
     "isolatedModules": true,
     "strictNullChecks": true,
     "paths": {
-      "src/*": ["./src/*"]
+      "src/*": [
+        "./src/*"
+      ]
     },
     "moduleResolution": "Node"
   },
-  "include": ["src/**/*.d.ts", "src/**/*.ts", "src/**/*.js", "src/**/*.svelte"],
-  "exclude": [
-    "src/obsidian/plugin/versions.ts",
-    "src/obsidian/plugin/version-bump.ts",
+  "include": [
+    "src/**/*.d.ts",
+    "src/**/*.ts",
+    "src/**/*.js",
+    "src/**/*.svelte"
   ],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "exclude": [
+    "src/obsidian/build/versions.ts",
+    "src/obsidian/build/version-bump.ts",
+  ],
+  "references": [
+    {
+      "path": "./tsconfig.node.json"
+    }
+  ]
 }

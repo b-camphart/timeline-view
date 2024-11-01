@@ -1,26 +1,28 @@
 <script lang="ts">
-	import { createEventDispatcher, getContext } from "svelte";
+	import { getContext } from "svelte";
 	import DateTimeIcon from "src/timeline/sorting/icons/DateTimeIcon.svelte";
 	import DateIcon from "src/timeline/sorting/icons/DateIcon.svelte";
 	import NumberIcon from "src/timeline/sorting/icons/NumberIcon.svelte";
 
 	import { TimelineNoteSorterPropertyType } from "src/timeline/sorting/TimelineNoteSorterProperty";
 	import ObsidianSuggestionItem from "src/obsidian/view/ObsidianSuggestionItem.svelte";
+	import { noop } from "src/utils/noop";
 
-	const dispatch = createEventDispatcher<{
-		select: number;
-		consider: number;
-	}>();
+	interface Props {
+		selected: boolean;
+		index: number;
+		name: string;
+		type: TimelineNoteSorterPropertyType;
+		onconsider?(index: number): void;
+		onselect?(index: number): boolean | void;
+	}
 
-	export let selected: boolean;
-	export let index: number;
-	export let name: string;
-	export let type: TimelineNoteSorterPropertyType;
+	let { selected, index, name, type, onconsider = noop, onselect = noop }: Props = $props();
 
 	const change = getContext<(index: number) => void>("change");
 
 	function makeSelection() {
-		if (dispatch("select", index, { cancelable: true })) {
+		if (onselect(index) !== false) {
 			if (change != null) {
 				change(index);
 			}
@@ -31,13 +33,13 @@
 <ObsidianSuggestionItem
 	{selected}
 	tabindex={index}
-	on:mouseenter={() => dispatch("consider", index)}
-	on:focusin={() => dispatch("consider", index)}
-	on:click={makeSelection}
-	on:keydown={(e) => (e.key === "Enter" ? makeSelection() : null)}
+	onmouseenter={() => onconsider(index)}
+	onfocusin={() => onconsider(index)}
+	onclick={makeSelection}
+	onkeydown={(e) => (e.key === "Enter" ? makeSelection() : null)}
 >
 	{name}
-	<svelte:fragment slot="icon">
+	{#snippet icon()}
 		{#if type === TimelineNoteSorterPropertyType.DateTime}
 			<DateTimeIcon />
 		{:else if type === TimelineNoteSorterPropertyType.Date}
@@ -45,5 +47,5 @@
 		{:else if type === TimelineNoteSorterPropertyType.Number}
 			<NumberIcon />
 		{/if}
-	</svelte:fragment>
+	{/snippet}
 </ObsidianSuggestionItem>

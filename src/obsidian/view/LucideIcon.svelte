@@ -1,11 +1,13 @@
-<svelte:options accessors={true} />
-
 <script lang="ts">
 	import * as obsidian from "obsidian";
 
-	export let id: string;
+	interface Props {
+		id: string;
+	}
 
-	let parent: HTMLDivElement | undefined;
+	let { id }: Props = $props();
+
+	let parent: HTMLDivElement | undefined = $state();
 
 	function createIcon(id: string, parent: HTMLDivElement | undefined) {
 		if (parent == null) return;
@@ -18,7 +20,9 @@
 		}
 	}
 
-	$: createIcon(id, parent);
+	$effect(() => {
+		createIcon(id, parent);
+	});
 </script>
 
 {#key id}

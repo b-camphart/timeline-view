@@ -6,7 +6,7 @@
 
   "version": "1.4.0",
 
-  "minAppVersion": "1.6.5",
+  "minAppVersion": "1.7.4",
 
   "description": "Display your obsidian notes in a timeline, based on a given property.",
 

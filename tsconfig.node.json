@@ -6,9 +6,9 @@
     "moduleResolution": "bundler"
   },
   "include": [
-    "vite.config.ts", 
-    "src/obsidian/plugin/manifest.ts",
-    "src/obsidian/plugin/versions.ts",
+    "vite.config.ts",
+    "src/obsidian/build/manifest.ts",
+    "src/obsidian/build/versions.ts",
     "e2e/**/*.ts"
   ]
 }

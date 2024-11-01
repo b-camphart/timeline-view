@@ -1,42 +1,39 @@
 <script lang="ts">
+	import { run } from "svelte/legacy";
+
 	import GroupListItem from "src/timeline/group/GroupListItem.svelte";
 	import CtaButton from "src/obsidian/view/CTAButton.svelte";
 	import type { TimelineGroups } from "src/timeline/group/groups";
 	import type { TimelineGroup } from "src/timeline/group/group";
+	import { noop } from "src/utils/noop";
 
-	interface $$Props {
+	interface Props {
 		groups: TimelineGroups;
 		onGroupAppended?(group: TimelineGroup, groups: TimelineGroups): void;
-		onGroupsReordered?(
-			from: number,
-			to: number,
-			group: TimelineGroup,
-			groups: TimelineGroups,
-		): void;
-		onGroupRemoved?(
-			index: number,
-			group: TimelineGroup,
-			groups: TimelineGroups,
-		): void;
+		onGroupsReordered?(from: number, to: number, group: TimelineGroup, groups: TimelineGroups): void;
+		onGroupRemoved?(index: number, group: TimelineGroup, groups: TimelineGroups): void;
 		onGroupColored?(index: number, group: TimelineGroup): void;
 		onGroupQueried?(index: number, group: TimelineGroup): void;
 	}
 
-	export let groups: $$Props["groups"];
-	export let onGroupAppended: $$Props["onGroupAppended"] = undefined;
-	export let onGroupsReordered: $$Props["onGroupsReordered"] = undefined;
-	export let onGroupRemoved: $$Props["onGroupRemoved"] = undefined;
-	export let onGroupColored: $$Props["onGroupColored"] = undefined;
-	export let onGroupQueried: $$Props["onGroupQueried"] = undefined;
+	let { groups = $bindable(), ...props }: Props = $props();
+
+	const {
+		onGroupAppended = noop,
+		onGroupsReordered = noop,
+		onGroupRemoved = noop,
+		onGroupColored = noop,
+		onGroupQueried = noop,
+	} = props;
 
 	let drag: null | {
 		index: number;
 		overIndex: number;
 		imgPos: { top: number; left: number; width: number; height: number };
 		offsetHeight: number;
-	} = null;
+	} = $state(null);
 
-	let groupListElement: HTMLElement;
+	let groupListElement: HTMLElement | null = $state(null);
 
 	function primeDrag(
 		index: number,
@@ -48,24 +45,22 @@
 			readonly clientY: number;
 		},
 	) {
+		if (groupListElement === null) return;
+
 		const dragIndex = index;
 		const groupHeight = start.currentTarget.offsetHeight;
 		const groupWidth = start.currentTarget.offsetWidth;
 
-		const offsetHeight =
-			groupListElement.clientHeight / groups.groups().length;
+		const offsetHeight = groupListElement.clientHeight / groups.groups().length;
 
 		function mousemove(event: MouseEvent) {
+			if (groupListElement === null) return;
 			drag = {
 				index: dragIndex,
 				offsetHeight,
 				overIndex: Math.max(
 					0,
-					Math.floor(
-						(event.clientY -
-							groupListElement.getBoundingClientRect().top) /
-							offsetHeight,
-					),
+					Math.floor((event.clientY - groupListElement.getBoundingClientRect().top) / offsetHeight),
 				),
 				imgPos: {
 					top: event.clientY - start.offsetY,
@@ -80,10 +75,7 @@
 			window.removeEventListener("mouseup", endDrag);
 
 			if (drag != null) {
-				moveGroup(
-					dragIndex,
-					Math.min(groups.groups().length - 1, drag.overIndex),
-				);
+				moveGroup(dragIndex, Math.min(groups.groups().length - 1, drag.overIndex));
 			}
 
 			drag = null;
@@ -92,16 +84,18 @@
 		window.addEventListener("mouseup", endDrag);
 	}
 
-	let dragDialog: HTMLDialogElement | undefined;
-	$: if (dragDialog != null) {
-		if (dragDialog.parentElement != dragDialog.ownerDocument.body) {
-			dragDialog.ownerDocument?.body?.appendChild(dragDialog);
+	let dragDialog: HTMLDialogElement | null = $state(null);
+	$effect(() => {
+		if (dragDialog !== null) {
+			if (dragDialog.parentElement != dragDialog.ownerDocument.body) {
+				dragDialog.ownerDocument?.body?.appendChild(dragDialog);
+			}
 		}
-	}
+	});
 
 	function addGroup() {
 		const group = groups.appendNewGroup();
-		onGroupAppended?.(group, groups);
+		onGroupAppended(group, groups);
 		groups = groups;
 	}
 
@@ -110,7 +104,7 @@
 		if (group == null) {
 			return;
 		}
-		onGroupsReordered?.(from, to, group, groups);
+		onGroupsReordered(from, to, group, groups);
 		groups = groups;
 	}
 
@@ -119,11 +113,9 @@
 		console.log("removed group");
 		console.log(
 			"groups:",
-			groups
-				.groups()
-				.map((it) => ({ query: it.query(), color: it.color() })),
+			groups.groups().map((it) => ({ query: it.query(), color: it.color() })),
 		);
-		onGroupRemoved?.(index, group, groups);
+		onGroupRemoved(index, group, groups);
 		groups = groups;
 	}
 </script>
@@ -139,33 +131,21 @@
 		{#each groups.groups() as group, index}
 			<GroupListItem
 				{group}
-				onRecolored={(group) => onGroupColored?.(index, group)}
-				onRequeried={(group) => onGroupQueried?.(index, group)}
+				onRecolored={(group) => onGroupColored(index, group)}
+				onRequeried={(group) => onGroupQueried(index, group)}
 				onRemove={() => removeGroup(index)}
 				onPressDragHandle={(event) => primeDrag(index, event)}
 			/>
 		{/each}
 	{:else}
 		{@const dragIndex = drag.index}
-		{#each groups
-			.groups()
-			.filter((_, index) => index !== dragIndex) as group, index}
-			<GroupListItem
-				{group}
-				class={drag.overIndex >= 0 && index >= drag.overIndex
-					? "displaced"
-					: ""}
-			/>
+		{#each groups.groups().filter((_, index) => index !== dragIndex) as group, index}
+			<GroupListItem {group} class={drag.overIndex >= 0 && index >= drag.overIndex ? "displaced" : ""} />
 		{/each}
-		<dialog
-			open
-			style="top: {drag.imgPos.top}px;left:{drag.imgPos.left}px;"
-			bind:this={dragDialog}
-		>
+		<dialog open style="top: {drag.imgPos.top}px;left:{drag.imgPos.left}px;" bind:this={dragDialog}>
 			<GroupListItem
 				group={groups.groups()[dragIndex]}
-				style="width:{drag.imgPos.width}px;height:{drag.imgPos
-					.height}px;pointer-events:none;"
+				style="width:{drag.imgPos.width}px;height:{drag.imgPos.height}px;pointer-events:none;"
 			/>
 		</dialog>
 	{/if}

@@ -5,9 +5,13 @@
 	import type { NamespacedWritableFactory } from "../../../Persistence";
 	import type { TimelineDisplaySettingViewModel } from "./viewModel";
 
-	export let namespacedWritable:
+	interface Props {
+		namespacedWritable?: 
 		| NamespacedWritableFactory<TimelineDisplaySettingViewModel>
-		| undefined = undefined;
+		| undefined;
+	}
+
+	let { namespacedWritable = undefined }: Props = $props();
 	let collapsed =
 		namespacedWritable?.make("collapsed", true) ?? writable(true);
 	let displayNames =

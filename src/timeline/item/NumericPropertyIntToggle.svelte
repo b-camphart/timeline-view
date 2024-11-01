@@ -1,19 +1,27 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import ToggleInput from "src/view/inputs/ToggleInput.svelte";
 
 	import type { NumberPreferenceReaderWriter } from "./valuePreference";
 
-	export let property: NumberPreferenceReaderWriter;
-	export let tabindex: number;
-
-	let useIntegers = property.prefersIntegers();
-	$: if (useIntegers !== property.prefersIntegers()) {
-		if (property.canBeChanged()) {
-			if (useIntegers) property.useIntegers();
-			else property.useFloats();
-		}
-		useIntegers = property.prefersIntegers();
+	interface Props {
+		property: NumberPreferenceReaderWriter;
+		tabindex: number;
 	}
+
+	let { property, tabindex }: Props = $props();
+
+	let useIntegers = $state(property.prefersIntegers());
+	run(() => {
+		if (useIntegers !== property.prefersIntegers()) {
+			if (property.canBeChanged()) {
+				if (useIntegers) property.useIntegers();
+				else property.useFloats();
+			}
+			useIntegers = property.prefersIntegers();
+		}
+	});
 </script>
 
 <ToggleInput

@@ -4,7 +4,7 @@ Offsers a select element with a completely customizable dropdown
 -->
 <script lang="ts">
 	import { range } from "src/utils/range";
-	import { createEventDispatcher, onDestroy, setContext } from "svelte";
+	import { createEventDispatcher, onDestroy, setContext, type Snippet } from "svelte";
 	import type { DOMAttributes, HTMLAttributes } from "svelte/elements";
 
 	const dispatch = createEventDispatcher<{
@@ -34,39 +34,27 @@ Offsers a select element with a completely customizable dropdown
 		changed: number;
 	}>();
 
-	interface $$Props
-		extends Exclude<
-			HTMLAttributes<HTMLSelectElement>,
-			keyof DOMAttributes<HTMLSelectElement>
-		> {
+	interface Props extends HTMLAttributes<HTMLSelectElement>, DOMAttributes<HTMLSelectElement> {
 		selectedIndex?: number;
 		itemCount: number;
+		open?: boolean;
+		item?: Snippet<[{ index: number }]>;
 	}
 
-	interface $$Slots {
-		item: {
-			index: number;
-		};
-	}
+	let {
+		"aria-disabled": disabled = false,
+		selectedIndex = $bindable(-1),
+		itemCount = 0,
+		open = $bindable(false),
+		item,
+		...rest
+	}: Props = $props();
 
-	export let selectedIndex: number = -1;
-	export let itemCount: number = 0;
-	let { "aria-disabled": disabled } = $$restProps as $$Props;
-
-	let open = false;
-	$: isMenuShown = open;
-	export { isMenuShown };
-
-	let element: HTMLSelectElement | undefined;
+	let element: HTMLSelectElement | undefined = $state();
 	let buttonBounds: DOMRect | undefined;
 
 	export function show(causedBy?: Event) {
-		if (
-			!disabled &&
-			!open &&
-			itemCount > 0 &&
-			dispatch("showing", causedBy, { cancelable: true })
-		) {
+		if (!disabled && !open && itemCount > 0 && dispatch("showing", causedBy, { cancelable: true })) {
 			if (element != null) {
 				buttonBounds = element.getBoundingClientRect();
 			}
@@ -76,11 +64,7 @@ Offsers a select element with a completely customizable dropdown
 	}
 
 	export function hide(causedBy?: Event) {
-		if (
-			!disabled &&
-			open &&
-			dispatch("hiding", causedBy, { cancelable: true })
-		) {
+		if (!disabled && open && dispatch("hiding", causedBy, { cancelable: true })) {
 			open = false;
 			dispatch("hidden", causedBy);
 		}
@@ -111,12 +95,11 @@ Offsers a select element with a completely customizable dropdown
 	}
 	setContext("change", change);
 
-	let dialog: HTMLDialogElement | undefined;
+	let dialog: HTMLDialogElement | undefined = $state();
 	export function getDialog() {
 		return open ? dialog : undefined;
 	}
 
-	$: if (open && dialog != null) positionDialog(dialog);
 	onDestroy(() => {
 		if (dialog != null) {
 			dialog.parentElement?.removeChild(dialog);
@@ -134,14 +117,8 @@ Offsers a select element with a completely customizable dropdown
 		if (buttonBounds != null) {
 			dialog.setCssStyles({
 				left: `${Math.min(buttonBounds.x, width - dialogBounds.width)}px`,
-				top: `${Math.min(
-					buttonBounds.y + buttonBounds.height,
-					height - dialogBounds.height,
-				)}px`,
-				width:
-					buttonBounds.width > dialogBounds.width
-						? `${buttonBounds.width}px`
-						: undefined,
+				top: `${Math.min(buttonBounds.y + buttonBounds.height, height - dialogBounds.height)}px`,
+				width: buttonBounds.width > dialogBounds.width ? `${buttonBounds.width}px` : undefined,
 			});
 		} else {
 			dialog.setCssStyles({
@@ -156,11 +133,7 @@ Offsers a select element with a completely customizable dropdown
 			return;
 		}
 		const focusMovedTo = event.relatedTarget;
-		if (
-			focusMovedTo == null ||
-			!(focusMovedTo instanceof Node) ||
-			!descendsFrom(focusMovedTo, dialog)
-		) {
+		if (focusMovedTo == null || !(focusMovedTo instanceof Node) || !descendsFrom(focusMovedTo, dialog)) {
 			hide();
 		} else {
 			if (element != null) {
@@ -169,10 +142,7 @@ Offsers a select element with a completely customizable dropdown
 		}
 	}
 
-	function descendsFrom(
-		potentialDescendant: Node,
-		potentialAnscestor: HTMLElement,
-	): boolean {
+	function descendsFrom(potentialDescendant: Node, potentialAnscestor: HTMLElement): boolean {
 		let node: Node | null = potentialDescendant;
 		while (node != null) {
 			if (node == potentialAnscestor) {
@@ -190,16 +160,21 @@ Offsers a select element with a completely customizable dropdown
 
 		toggleShown();
 	}
+	$effect(() => {
+		if (open && dialog != null) positionDialog(dialog);
+	});
 </script>
 
 <select
-	{...$$restProps}
+	{...rest}
 	class:dropdown={true}
-	on:mousedown|preventDefault|stopPropagation={(e) => {
+	onmousedown={(e) => {
+		e.stopPropagation();
+		e.preventDefault();
 		e.currentTarget.focus();
 		trigger(e);
 	}}
-	on:keydown={(event) => {
+	onkeydown={(event) => {
 		if (event.key === "Enter") {
 			trigger(event);
 		} else if (event.key === "Escape") {
@@ -213,56 +188,31 @@ Offsers a select element with a completely customizable dropdown
 			}
 		} else if (event.key === "ArrowDown") {
 			if (open) {
-				changedWithEffect(
-					Math.min(itemCount - 1, selectedIndex + 1),
-					() => {},
-				);
+				changedWithEffect(Math.min(itemCount - 1, selectedIndex + 1), () => {});
 				event.preventDefault();
 			}
 		}
 	}}
-	on:focusout={onFocusOut}
-	on:change={(e) => changed(e.currentTarget.selectedIndex)}
+	onfocusout={onFocusOut}
+	onchange={(e) => changed(e.currentTarget.selectedIndex)}
 	role="combobox"
 	aria-expanded={open}
 	aria-owns={dialogId}
 	aria-controls={dialogId}
+	value={selectedIndex}
 	bind:this={element}
 >
 	{#each range(itemCount) as itemIndex}
 		<option value={itemIndex} selected={selectedIndex === itemIndex}>
-			<slot name="item" index={itemIndex}></slot>
+			{@render item?.({ index: itemIndex })}
 		</option>
 	{/each}
 </select>
-<!-- <button
-	{...$$restProps}
-	class:select={true}
-	aria-disabled={disabled}
-	disabled={Boolean(disabled)}
-	role="combobox"
-	aria-labelledby="select button"
-	aria-haspopup="listbox"
-	aria-expanded={open}
-	aria-owns={dialogId}
-	aria-controls={dialogId}
-	bind:this={button}
-	on:click={toggleShown}
-	on:focusout={onFocusOut}
->
-	<slot name="display"></slot>
-</button> -->
 {#if open || import.meta.env.MODE === "development"}
-	<dialog
-		id={dialogId}
-		{open}
-		class="select-dropdown"
-		bind:this={dialog}
-		data-popupfor={$$restProps.id}
-	>
+	<dialog id={dialogId} {open} class="select-dropdown" bind:this={dialog} data-popupfor={rest.id}>
 		<ul role="listbox">
 			{#each range(itemCount) as itemIndex}
-				<slot name="item" index={itemIndex}></slot>
+				{@render item?.({ index: itemIndex })}
 			{/each}
 		</ul>
 	</dialog>

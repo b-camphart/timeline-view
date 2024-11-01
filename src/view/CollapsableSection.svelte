@@ -3,25 +3,39 @@
 	import { slide } from "svelte/transition";
 	import ActionButton from "./inputs/ActionButton.svelte";
 	import LucideIcon from "src/obsidian/view/LucideIcon.svelte";
+	import type { HTMLAttributes } from "svelte/elements";
+	import { noop } from "src/utils/noop";
 
-	export let name: string;
-	let className: string = "";
-	export { className as class };
-	export let tabindex: number = 0;
-	export let collapsed = true;
+	interface Props extends HTMLAttributes<HTMLElement> {
+		name: string;
+		collapsed?: boolean;
+		onChanging?(collapsed: boolean): boolean | void;
+		onChanged?(collapsed: boolean): void;
+	}
+
+	let {
+		name,
+		collapsed = $bindable(true),
+		onChanging = noop,
+		onChanged = noop,
+		children,
+		tabindex = 0,
+		...props
+	}: Props = $props();
 
 	function toggleCollapse() {
-		collapsed = !collapsed;
+		if (onChanging(!collapsed) !== false) {
+			collapsed = !collapsed;
+			onChanged(collapsed);
+		}
 	}
 </script>
 
-<section class="collapsable{collapsed ? ' collapsed' : ''} {className}">
+<section class="collapsable{collapsed ? ' collapsed' : ''} {props.class}">
 	<ActionButton
-		on:action={toggleCollapse}
+		onaction={toggleCollapse}
 		{tabindex}
-		class="header clickable-icon collapse-icon {collapsed
-			? 'is-collapsed'
-			: ''}"
+		class="header clickable-icon collapse-icon {collapsed ? 'is-collapsed' : ''}"
 	>
 		<LucideIcon id="right-triangle" />
 		{name}
@@ -36,7 +50,7 @@
 				axis: "y",
 			}}
 		>
-			<slot />
+			{@render children?.()}
 		</div>
 	{/if}
 </section>

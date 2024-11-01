@@ -1,6 +1,15 @@
 <script lang="ts">
-	export let selected: boolean;
-	export let tabindex: number;
+	import type { Snippet } from "svelte";
+	import type { HTMLAttributes } from "svelte/elements";
+
+	interface Props extends HTMLAttributes<HTMLDivElement> {
+		selected: boolean;
+		tabindex: number;
+		icon?: Snippet;
+		children?: Snippet;
+	}
+
+	let { selected, tabindex, icon, children, ...divProps }: Props = $props();
 </script>
 
 <div
@@ -9,19 +18,16 @@
 	aria-selected={selected}
 	role="option"
 	{tabindex}
-	on:mouseenter
-	on:focusin
-	on:click
-	on:keydown
+	{...divProps}
 >
 	<div class="suggestion-icon">
 		<span class="suggestion-flair">
-			<slot name="icon"></slot>
+			{@render icon?.()}
 		</span>
 	</div>
 	<div class="suggestion-content">
 		<div class="suggestion-title">
-			<slot></slot>
+			{@render children?.()}
 		</div>
 	</div>
 </div>

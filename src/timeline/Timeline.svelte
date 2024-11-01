@@ -1,4 +1,5 @@
 <script lang="ts">
+	import * as obsidian from "obsidian";
 	import { type TimelineNavigation } from "./controls/TimelineNavigation";
 	import { type TimelineItem } from "./Timeline";
 	import { writable as makeWritable, writable } from "svelte/store";
@@ -13,56 +14,50 @@
 	import type { RulerValueDisplay } from "src/timeline/Timeline";
 	import type { TimelineGroups } from "src/timeline/group/groups";
 	import TimelineGroupsList from "src/timeline/group/TimelineGroupsList.svelte";
-	import type { ComponentProps } from "svelte";
+	import { type ComponentProps, mount, type Snippet, unmount } from "svelte";
 	import { SortedArray } from "src/utils/collections";
 	import TimelineGroupsSettingsSection from "src/timeline/group/TimelineGroupsSettingsSection.svelte";
 	import { ObservableCollapsable } from "src/view/collapsable";
 	import LucideIcon from "src/obsidian/view/LucideIcon.svelte";
 	import ActionButton from "src/view/inputs/ActionButton.svelte";
 	import TimelineInteractionsHelp from "./TimelineInteractionsHelp.svelte";
+	import { noop } from "src/utils/noop";
 
-	interface $$Props {
+	interface Props {
 		namespacedWritable: NamespacedWritableFactory<TimelineViewModel>;
 		groups: TimelineGroups;
-		groupEvents: Omit<ComponentProps<TimelineGroupsList>, "groups">;
-		display: RulerValueDisplay;
+		groupEvents: Omit<ComponentProps<typeof TimelineGroupsList>, "groups">;
+		display: RulerValueDisplay | null;
 		controlBindings: {};
-
 		items: SortedArray<TimelineItem>;
 		pendingGroupUpdates: number;
-		openDialog(
-			callback: (modal: {
-				containerEl: HTMLElement;
-				modalEl: HTMLElement;
-				titleEl: HTMLElement;
-				contentEl: HTMLElement;
-			}) => () => void,
-		): void;
-
+		openDialog?(cb: (modal: obsidian.Modal) => () => void): void;
 		onPreviewNewItemValue(item: TimelineItem, value: number): number;
-		onMoveItem(item: TimelineItem, value: number): boolean;
-		oncontextmenu?(e: MouseEvent, items: TimelineItem[]): void;
+		onMoveItem?(item: TimelineItem, value: number): boolean;
+		oncontextmenu?(event: MouseEvent, items: TimelineItem[]): void;
+		additionalSettings?: Snippet;
 	}
 
-	export let namespacedWritable: $$Props["namespacedWritable"];
-	export let groups: $$Props["groups"];
-	export let groupEvents: $$Props["groupEvents"];
-	export let display: $$Props["display"];
-	export let controlBindings: $$Props["controlBindings"];
+	let {
+		namespacedWritable,
+		groups,
+		groupEvents,
+		display,
+		controlBindings,
+		items = $bindable(),
+		pendingGroupUpdates,
+		openDialog = noop,
+		onPreviewNewItemValue,
+		onMoveItem = () => true,
+		oncontextmenu = noop,
+		additionalSettings,
+	}: Props = $props();
 
 	const focalValue = namespacedWritable.make("focalValue", 0);
 	const persistedValuePerPixel = namespacedWritable.make("scale", 1);
 
-	export let items: $$Props["items"];
-	export let pendingGroupUpdates: $$Props["pendingGroupUpdates"];
-	export let openDialog: $$Props["openDialog"];
-
-	export let onPreviewNewItemValue: $$Props["onPreviewNewItemValue"];
-	export let onMoveItem: $$Props["onMoveItem"];
-	export let oncontextmenu: $$Props["oncontextmenu"] = () => {};
-
 	const stageWidth = writable(0);
-	let stageClientWidth = 0;
+	let stageClientWidth = $state(0);
 
 	function scaleStore(initialScale: Scale = new ValuePerPixelScale(1)) {
 		function atLeastMinimum(value: Scale) {
@@ -88,7 +83,9 @@
 	}
 
 	const scale = scaleStore(new ValuePerPixelScale($persistedValuePerPixel));
-	$: $scale = new ValuePerPixelScale($persistedValuePerPixel);
+	$effect(() => {
+		$scale = new ValuePerPixelScale($persistedValuePerPixel);
+	});
 
 	const navigation: TimelineNavigation = timelineNavigation(
 		scale,
@@ -124,24 +121,24 @@
 	}
 
 	export function focusOnItem(item: TimelineItem) {
-		canvasStage.focusOnItem(item);
+		canvasStage?.focusOnItem(item);
 	}
 
-	let canvasStage: CanvasStage;
+	let canvasStage: CanvasStage | null = $state(null);
 	export function invalidateColors() {
-		canvasStage.invalidateColors();
+		canvasStage?.invalidateColors();
 	}
 
-	let initialized = false;
-	$: if (!initialized) {
-		if ($stageWidth > 0) {
-			initialized = true;
+	let initialized = $state(false);
+	$effect(() => {
+		if (!initialized) {
+			if ($stageWidth > 0) {
+				initialized = true;
+			}
 		}
-	}
+	});
 
-	function moveItems(
-		event: CustomEvent<{ item: TimelineItem; value: number }[]>,
-	) {
+	function moveItems(event: CustomEvent<{ item: TimelineItem; value: number }[]>) {
 		event.detail.forEach(({ item, value }) => {
 			if (!onMoveItem(item, value)) {
 				return;
@@ -151,24 +148,17 @@
 		items = new SortedArray((item) => item.value(), ...items);
 	}
 
-	let rulerHeight = 0;
-	$: mode = namespacedWritable?.make("mode", "edit");
+	let rulerHeight = $state(0);
+	let mode = $derived(namespacedWritable?.make("mode", "edit"));
 
-	const settingsOpen = namespacedWritable
-		.namespace("settings")
-		.make("isOpen", false);
-	const settingsCollapable = new ObservableCollapsable(!$settingsOpen);
+	const settingsOpen = namespacedWritable.namespace("settings").make("isOpen", false);
+	const settingsCollapable = $state(new ObservableCollapsable(!$settingsOpen));
 	settingsCollapable.onChange = () => {
 		$settingsOpen = !settingsCollapable.isCollapsed();
 	};
 
-	const groupsSectionCollapsed = namespacedWritable
-		.namespace("settings")
-		.namespace("groups")
-		.make("collapsed", true);
-	const groupsSectionCollapable = new ObservableCollapsable(
-		$groupsSectionCollapsed,
-	);
+	const groupsSectionCollapsed = namespacedWritable.namespace("settings").namespace("groups").make("collapsed", true);
+	const groupsSectionCollapable = $state(new ObservableCollapsable($groupsSectionCollapsed));
 	groupsSectionCollapable.onChange = () => {
 		$groupsSectionCollapsed = groupsSectionCollapable.isCollapsed();
 	};
@@ -177,27 +167,18 @@
 		openDialog((modal) => {
 			modal.modalEl.addClass("timeline-help");
 			modal.titleEl.setText("Timeline Help");
-			const component = new TimelineInteractionsHelp({
+			const component = mount(TimelineInteractionsHelp, {
 				target: modal.contentEl,
 				props: {},
 			});
 
-			return () => component.$destroy();
+			return () => unmount(component);
 		});
 	}
 </script>
 
-<div
-	class="timeline"
-	style:--ruler-height="{rulerHeight}px"
-	style:--stage-client-width="{stageClientWidth}px"
->
-	<TimelineRuler
-		{display}
-		scale={$scale}
-		focalValue={$focalValue}
-		bind:clientHeight={rulerHeight}
-	/>
+<div class="timeline" style:--ruler-height="{rulerHeight}px" style:--stage-client-width="{stageClientWidth}px">
+	<TimelineRuler {display} scale={$scale} focalValue={$focalValue} bind:clientHeight={rulerHeight} />
 	<CanvasStage
 		bind:this={canvasStage}
 		{display}
@@ -208,8 +189,7 @@
 		bind:clientWidth={stageClientWidth}
 		editable={mode != null ? $mode === "edit" : false}
 		on:scrollToValue={(event) => navigation.scrollToValue(event.detail)}
-		on:scrollX={({ detail }) =>
-			navigation.scrollToValue($focalValue + detail)}
+		on:scrollX={({ detail }) => navigation.scrollToValue($focalValue + detail)}
 		on:zoomIn={({ detail }) => navigation.zoomIn(detail)}
 		on:zoomOut={({ detail }) => navigation.zoomOut(detail)}
 		on:select
@@ -222,7 +202,7 @@
 	<menu class="timeline-controls">
 		<TimelineNavigationControls {navigation} />
 		<TimelineSettings collapsable={settingsCollapable}>
-			<slot name="additional-settings" />
+			{@render additionalSettings?.()}
 			<TimelineGroupsSettingsSection
 				collapsable={groupsSectionCollapable}
 				{groups}
@@ -231,10 +211,7 @@
 			/>
 		</TimelineSettings>
 		<div class="control-group">
-			<ActionButton
-				class="clickable-icon control-item"
-				on:action={openHelpDialog}
-			>
+			<ActionButton class="clickable-icon control-item" on:action={openHelpDialog}>
 				<LucideIcon id="help" />
 			</ActionButton>
 		</div>

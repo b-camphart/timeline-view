@@ -6,62 +6,36 @@
 	import CollapsableSection from "src/view/CollapsableSection.svelte";
 	import type { ComponentProps } from "svelte";
 
-	interface $$Props
-		extends Omit<ComponentProps<TimelineGroupsList>, "groups"> {
+	interface Props extends ComponentProps<typeof TimelineGroupsList> {
 		collapsable: Collapsable;
 		pendingGroupUpdates: number;
 		groups: TimelineGroups;
 	}
 
-	export let pendingGroupUpdates: $$Props["pendingGroupUpdates"];
-	export let collapsable: $$Props["collapsable"];
-	export let groups: $$Props["groups"];
-	export let onGroupAppended: $$Props["onGroupAppended"] = undefined;
-	export let onGroupsReordered: $$Props["onGroupsReordered"] = undefined;
-	export let onGroupRemoved: $$Props["onGroupRemoved"] = undefined;
-	export let onGroupColored: $$Props["onGroupColored"] = undefined;
-	export let onGroupQueried: $$Props["onGroupQueried"] = undefined;
+	let { collapsable, pendingGroupUpdates, groups, ...timelineGroupsListProps }: Props = $props();
 
-	let collapsed = collapsable.isCollapsed();
-	function onCollapsableChanged(collapsable: $$Props["collapsable"]) {
-		collapsed = collapsable.isCollapsed();
-	}
-	function onCollapsedChanged(collapsed: boolean) {
-		if (collapsed) {
-			collapsable.collapse();
-		} else {
-			collapsable.expand();
-		}
-		collapsed = collapsable.isCollapsed();
-	}
-
-	$: onCollapsableChanged(collapsable);
-	$: onCollapsedChanged(collapsed);
+	const collapsed = {
+		get value() {
+			return collapsable.isCollapsed();
+		},
+		set value(value) {
+			if (value) {
+				collapsable.collapse();
+			} else {
+				collapsable.expand();
+			}
+		},
+	};
 </script>
 
-<CollapsableSection
-	name="Groups"
-	bind:collapsed
-	class="timeline-settings-groups-section"
->
+<CollapsableSection name="Groups" bind:collapsed={collapsed.value} class="timeline-settings-groups-section">
 	{#if pendingGroupUpdates > 0}
-		<span
-			class="group-update-progress"
-			role="progressbar"
-			aria-valuenow={pendingGroupUpdates}
-		>
+		<span class="group-update-progress" role="progressbar" aria-valuenow={pendingGroupUpdates}>
 			<LucideIcon id="loader-2" />
 			{pendingGroupUpdates.toLocaleString()} pending
 		</span>
 	{/if}
-	<TimelineGroupsList
-		{groups}
-		{onGroupAppended}
-		{onGroupsReordered}
-		{onGroupRemoved}
-		{onGroupColored}
-		{onGroupQueried}
-	/>
+	<TimelineGroupsList {groups} {...timelineGroupsListProps} />
 </CollapsableSection>
 
 <style>

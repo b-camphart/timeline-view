@@ -1,7 +1,11 @@
 <script lang="ts">
-	export let text: string;
-	export let position: number;
-	export let style: string = "";
+	interface Props {
+		text: string;
+		position: number;
+		style?: string;
+	}
+
+	let { text, position, style = "" }: Props = $props();
 </script>
 
 <div class="label" data-value={text} style="left: {position}px;{style}">

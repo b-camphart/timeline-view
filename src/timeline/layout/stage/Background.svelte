@@ -1,26 +1,26 @@
 <script lang="ts">
-	interface $$Props {
-		readonly scrollTop: number;
-		readonly itemDimensions: Readonly<{
+	
+
+	interface Props {
+		scrollTop: number;
+		itemDimensions: Readonly<{
 			height: number;
 			margin: Readonly<{
 				vertical: number;
 			}>;
 		}>;
-		readonly viewport: Readonly<{
+		viewport: Readonly<{
 			padding: Readonly<{
 				top: number;
 			}>;
 		}>;
 	}
 
-	export let scrollTop: $$Props["scrollTop"];
-	export let itemDimensions: $$Props["itemDimensions"];
-	export let viewport: $$Props["viewport"];
+	let { scrollTop, itemDimensions, viewport }: Props = $props();
 
-	$: spacingBetweenItems =
-		itemDimensions.height + itemDimensions.margin.vertical;
-	$: rowCenterOffset = spacingBetweenItems / 2 + viewport.padding.top + 0.5;
+	let spacingBetweenItems =
+		$derived(itemDimensions.height + itemDimensions.margin.vertical);
+	let rowCenterOffset = $derived(spacingBetweenItems / 2 + viewport.padding.top + 0.5);
 
 	const backgroundPatternId = Math.random().toString(36).slice(2);
 </script>

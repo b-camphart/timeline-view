@@ -1,10 +1,22 @@
 <script lang="ts">
+	import { createBubbler } from 'svelte/legacy';
+
+	const bubble = createBubbler();
 	import { createEventDispatcher } from "svelte";
-	export let name: string;
-	export let value: string;
-	export let summary: string = "";
-	let className: string = "";
-	export { className as class };
+	interface Props {
+		name: string;
+		value: string;
+		summary?: string;
+		class?: string;
+	}
+
+	let {
+		name,
+		value = $bindable(),
+		summary = "",
+		class: className = ""
+	}: Props = $props();
+	
 
     const dispatch = createEventDispatcher<{ action: { inputEvent: KeyboardEvent } }>()
 
@@ -19,7 +31,7 @@
 
 <div class="text-input {className}">
 	<label for={id} aria-label={summary}>{name}</label>
-	<input {id} type="text" bind:value on:keydown={onKeyDown} on:focusin on:focusout />
+	<input {id} type="text" bind:value onkeydown={onKeyDown} onfocusin={bubble('focusin')} onfocusout={bubble('focusout')} />
 </div>
 
 <style>

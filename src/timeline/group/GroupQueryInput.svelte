@@ -1,30 +1,23 @@
 <script lang="ts">
 	import type { QueryFilterReaderWriter } from "src/timeline/filter/query";
+	import { noop } from "src/utils/noop";
 
-	export let queriable: QueryFilterReaderWriter;
-	export let onchanged: undefined | ((query: string) => void) = undefined;
-
-	let query = queriable.query();
-	function onNewQueriable(queriable: QueryFilterReaderWriter) {
-		query = queriable.query();
+	interface Props {
+		queriable: QueryFilterReaderWriter;
+		onchanged?: (query: string) => void;
 	}
-	$: onNewQueriable(queriable);
 
-	function onQueryInput(query: string) {
-		if (query !== queriable.query()) {
+	let { queriable, onchanged = noop }: Props = $props();
+
+	const query = {
+		get value() {
+			return queriable.query();
+		},
+		set value(query: string) {
 			queriable.filterByQuery(query);
-			query = queriable.query();
-			if (onchanged != null) {
-				onchanged(query);
-			}
-		}
-	}
-	$: onQueryInput(query);
+			onchanged(query);
+		},
+	};
 </script>
 
-<input
-	type="text"
-	spellcheck="false"
-	placeholder="Enter query..."
-	bind:value={query}
-/>
+<input type="text" spellcheck="false" placeholder="Enter query..." bind:value={query.value} />

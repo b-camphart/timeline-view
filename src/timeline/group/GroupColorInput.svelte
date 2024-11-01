@@ -1,47 +1,26 @@
 <script lang="ts">
 	import type * as colors from "src/color";
 	import type * as svelteElements from "svelte/elements";
+	import { noop } from "src/utils/noop";
 
-	interface $$Props
-		extends Omit<
-			svelteElements.HTMLAttributes<HTMLElement>,
-			keyof svelteElements.DOMAttributes<HTMLInputElement>
-		> {
-		onmousedown?(
-			event: MouseEvent & { currentTarget: HTMLInputElement },
-		): void;
+	interface Props extends svelteElements.HTMLInputAttributes {
 		onchanged?(color: string): void;
 		colorable: colors.ColoredColorable;
 	}
 
-	export let colorable: $$Props["colorable"];
-	export let onchanged: $$Props["onchanged"] = undefined;
-	export let onmousedown: $$Props["onmousedown"] = undefined;
-
-	let color = colorable.color();
-	function onNewColorable(colorable: colors.ColoredColorable) {
-		color = colorable.color();
-	}
-	$: onNewColorable(colorable);
-
-	function onColorInput(color: string) {
-		if (color !== colorable.color()) {
+	let { onchanged = noop, colorable, ...rest }: Props = $props();
+	const color = {
+		get value() {
+			return colorable.color();
+		},
+		set value(color: string) {
 			colorable.recolor(color);
-			color = colorable.color();
-			if (onchanged != null) onchanged(color);
-		}
-	}
-
-	$: onColorInput(color);
+			onchanged(color);
+		},
+	};
 </script>
 
-<input
-	type="color"
-	aria-label={"Click to change color\nDrag to reorder groups"}
-	bind:value={color}
-	on:mousedown={onmousedown}
-	{...$$restProps}
-/>
+<input type="color" aria-label={"Click to change color\nDrag to reorder groups"} bind:value={color.value} {...rest} />
 
 <style>
 	input[type="color"] {

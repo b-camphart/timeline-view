@@ -2,40 +2,41 @@
 	import type { TimelineGroup } from "src/timeline/group/group";
 	import GroupColorInput from "src/timeline/group/GroupColorInput.svelte";
 	import GroupQueryInput from "src/timeline/group/GroupQueryInput.svelte";
+	import { noop } from "src/utils/noop";
 	import ActionButton from "src/view/inputs/ActionButton.svelte";
-	import { onDestroy } from "svelte";
 
-	interface $$Props {
+	interface Props {
 		group: TimelineGroup;
 		class?: string;
 		style?: string;
-		onRecolored?(group: TimelineGroup): void;
-		onRequeried?(group: TimelineGroup): void;
-		onRemove?: () => void;
-		onPressDragHandle?(event: {
-			readonly currentTarget: HTMLElement;
-			readonly offsetX: number;
-			readonly offsetY: number;
-			readonly clientX: number;
-			readonly clientY: number;
-		}): void;
+		onRecolored?: null | ((group: TimelineGroup) => void);
+		onRequeried?: null | ((group: TimelineGroup) => void);
+		onRemove?(): void;
+		onPressDragHandle?:
+			| null
+			| ((e: {
+					currentTarget: HTMLElement;
+					offsetX: number;
+					offsetY: number;
+					clientX: number;
+					clientY: number;
+			  }) => void);
 	}
 
-	export let group: $$Props["group"];
-	let className: $$Props["class"] = undefined;
-	export { className as class };
-	export let style: $$Props["style"] = undefined;
-	export let onRecolored: $$Props["onRecolored"] = undefined;
-	export let onRequeried: $$Props["onRequeried"] = undefined;
-	export let onRemove: $$Props["onRemove"] = undefined;
-	export let onPressDragHandle: $$Props["onPressDragHandle"] = undefined;
+	const {
+		group,
+		class: className = "",
+		style = "",
+		onRecolored = null,
+		onRequeried = null,
+		onRemove = noop,
+		onPressDragHandle = null,
+	}: Props = $props();
 
-	let element: HTMLElement | null = null;
+	let element: HTMLElement | null = $state(null);
 
-	function onDragHandeMouseDown(
-		event: MouseEvent & { currentTarget: HTMLElement },
-	) {
-		if (onPressDragHandle && element) {
+	function onDragHandeMouseDown(event: MouseEvent & { currentTarget: HTMLElement }) {
+		if (onPressDragHandle !== null && element !== null) {
 			const currentTarget = element;
 			onPressDragHandle({
 				get currentTarget() {
@@ -50,25 +51,14 @@
 	}
 </script>
 
-<li
-	bind:this={element}
-	class="timeline-view-color-group {className ?? ''}"
-	{style}
->
-	<GroupQueryInput
-		queriable={group}
-		onchanged={onRequeried ? () => onRequeried(group) : undefined}
-	/>
+<li bind:this={element} class="timeline-view-color-group {className ?? ''}" {style}>
+	<GroupQueryInput queriable={group} onchanged={onRequeried ? () => onRequeried(group) : undefined} />
 	<GroupColorInput
 		colorable={group}
 		onchanged={onRecolored ? () => onRecolored(group) : undefined}
 		onmousedown={onPressDragHandle ? onDragHandeMouseDown : undefined}
 	/>
-	<ActionButton
-		class="clickable-icon"
-		aria-label="Delete group"
-		on:action={onRemove}
-	>
+	<ActionButton class="clickable-icon" aria-label="Delete group" on:action={onRemove}>
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			width="24"
@@ -80,12 +70,7 @@
 			stroke-linecap="round"
 			stroke-linejoin="round"
 			class="svg-icon lucide-x"
-			><line x1="18" y1="6" x2="6" y2="18"></line><line
-				x1="6"
-				y1="6"
-				x2="18"
-				y2="18"
-			></line></svg
+			><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg
 		>
 	</ActionButton>
 </li>

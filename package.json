@@ -10,7 +10,7 @@
 		"test:view": "node component_tests",
 		"dev:component": "vite -c component_tests/vite.config.js",
 		"build": "npm run obsidian:version && vite build && git add styles.css versions.json manifest.json",
-		"obsidian:version": "tsx src/obsidian/plugin/version-bump.ts && git add src/obsidian/plugin/versions.ts"
+		"obsidian:version": "tsx src/obsidian/build/version-bump.ts && git add src/obsidian/build/versions.ts"
 	},
 	"type": "module",
 	"module": "main.js",
@@ -29,6 +29,7 @@
 		"builtin-modules": "latest",
 		"esbuild": "latest",
 		"obsidian": "latest",
+		"prettier-plugin-svelte": "latest",
 		"svelte": "latest",
 		"svelte-check": "latest",
 		"svelte-preprocess": "latest",
@@ -37,5 +38,13 @@
 		"typescript": "latest",
 		"vite": "latest",
 		"vitest": "latest"
+	},
+	"prettier": {
+		"plugins": [
+			"prettier-plugin-svelte"
+		],
+		"tabWidth": 4,
+		"useTabs": true,
+		"printWidth": 120
 	}
 }

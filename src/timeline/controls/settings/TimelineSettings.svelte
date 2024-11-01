@@ -2,54 +2,53 @@
 	import ActionButton from "../../../view/inputs/ActionButton.svelte";
 	import LucideIcon from "src/obsidian/view/LucideIcon.svelte";
 	import type { Collapsable } from "src/view/collapsable";
+	import type { Snippet } from "svelte";
+	import type { HTMLAttributes } from "svelte/elements";
 
-	interface $$Props {
+	interface Props extends HTMLAttributes<HTMLFormElement> {
 		collapsable: Collapsable;
+		children?: Snippet;
 	}
 
-	export let collapsable: $$Props["collapsable"];
+	let { collapsable, children, onsubmit, ...formProps }: Props = $props();
 
-	let isOpen = !collapsable.isCollapsed();
-	function onNewCollapsable(collapsable: $$Props["collapsable"]) {
+	let isOpen = $state(!collapsable.isCollapsed());
+	$effect(() => {
 		isOpen = !collapsable.isCollapsed();
-	}
-	function onOpenChanged(collapsed: boolean) {
-		if (collapsed) {
-			collapsable.collapse();
-		} else {
-			collapsable.expand();
-		}
-		isOpen = !collapsable.isCollapsed();
+	});
+
+	function collapse() {
+		isOpen = false;
+		collapsable.collapse();
 	}
 
-	$: onNewCollapsable(collapsable);
-	$: onOpenChanged(!isOpen);
+	function expand() {
+		isOpen = true;
+		collapsable.expand();
+	}
 </script>
 
 <form
-	class="timeline-settings control-group{isOpen ? ' open' : ' closed'}"
-	on:submit|preventDefault|stopPropagation
+	{...formProps}
+	class="timeline-settings control-group{isOpen ? ' open' : ' closed'} {formProps.class}"
+	onsubmit={onsubmit
+		? (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				onsubmit(e);
+			}
+		: undefined}
 >
 	{#if !isOpen}
-		<ActionButton
-			id="toggle-button"
-			class="open-button clickable-icon"
-			aria-label="Open"
-			on:action={() => (isOpen = true)}
-		>
+		<ActionButton id="toggle-button" class="open-button clickable-icon" aria-label="Open" on:action={expand}>
 			<LucideIcon id="settings" />
 		</ActionButton>
 	{:else}
-		<ActionButton
-			id="toggle-button"
-			class="close-button clickable-icon"
-			aria-label="Close"
-			on:action={() => (isOpen = false)}
-		>
+		<ActionButton id="toggle-button" class="close-button clickable-icon" aria-label="Close" on:action={collapse}>
 			<LucideIcon id="x" />
 		</ActionButton>
 	{/if}
-	<slot />
+	{@render children?.()}
 	<!-- <TimelineDisplaySettings
 		namespacedWritable={namespacedWritable.namespace("display")}
 	/>
@@ -110,8 +109,7 @@
 		gap: var(--size-2-3);
 		margin-block-end: var(--size-2-1);
 	}
-	.timeline-settings
-		:global(section.collapsable .header.clickable-icon):hover {
+	.timeline-settings :global(section.collapsable .header.clickable-icon):hover {
 		background-color: var(--timeline-settings-background);
 		color: var(--text-normal);
 	}
@@ -120,9 +118,6 @@
 	}
 
 	.timeline-settings :global(section.collapsable .content) {
-		padding-block: var(
-			--nav-item-children-padding-start,
-			var(--nav-item-children-padding-left)
-		);
+		padding-block: var(--nav-item-children-padding-start, var(--nav-item-children-padding-left));
 	}
 </style>

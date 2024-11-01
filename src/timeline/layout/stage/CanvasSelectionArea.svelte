@@ -1,17 +1,15 @@
 <script lang="ts">
-	import type { AriaRole } from "svelte/elements";
+	import type { HTMLAttributes } from "svelte/elements";
 	import type { OffsetBox } from "./TimelineItemElement";
 
-	export let area: OffsetBox | undefined | null;
-	let className: string = "";
-	export { className as class };
+	interface Props extends HTMLAttributes<HTMLDivElement> {
+		area: OffsetBox | undefined | null;
+	}
 
-	export let role: AriaRole | undefined = undefined;
-	export let tabindex: number = 0;
+	let { area, class: className = "", ...divProps }: Props = $props();
 </script>
 
 {#if area != null}
-	<!-- svelte-ignore a11y-no-noninteractive-tabindex -->
 	<div
 		class="timeline-selection-area {className}"
 		style:position="absolute"
@@ -19,11 +17,7 @@
 		style:top={area.offsetTop + "px"}
 		style:width={area.offsetWidth + "px"}
 		style:height={area.offsetHeight + "px"}
-		{role}
-		on:wheel
-		on:mousedown
-		on:mouseup
-		{tabindex}
+		{...divProps}
 	></div>
 {/if}
 

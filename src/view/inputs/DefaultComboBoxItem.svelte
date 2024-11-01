@@ -1,13 +1,22 @@
 <script lang="ts">
-    export let select: (index: number) => void;
-    export let index: number;
-    export let choice: string;
-    export let hovered: boolean;
+    interface Props {
+        select: (index: number) => void;
+        index: number;
+        choice: string;
+        hovered: boolean;
+    }
+
+    let {
+        select,
+        index,
+        choice,
+        hovered
+    }: Props = $props();
 </script>
 
 <button
     class="{hovered ? "hovered" : ""}"
-    on:click={() => select(index)}
+    onclick={() => select(index)}
     data-index={index}
 >
     {choice}

@@ -2,10 +2,7 @@
 	import * as obsidian from "obsidian";
 	import TimelineView from "../../timeline/Timeline.svelte";
 	import { TimelineNoteItem } from "../../timeline/TimelineNoteItem";
-	import type {
-		RulerValueDisplay,
-		TimelineItem,
-	} from "../../timeline/Timeline";
+	import type { RulerValueDisplay, TimelineItem } from "../../timeline/Timeline";
 	import { type NamespacedWritableFactory } from "../../timeline/Persistence";
 	import { createEventDispatcher, onMount } from "svelte";
 	import { get } from "svelte/store";
@@ -23,18 +20,40 @@
 	import * as timelineGroup from "src/timeline/group/group";
 	import type { TimelineItemColorSupplier } from "src/timeline/item/color";
 	import { MutableSortedArray } from "src/utils/collections";
+	import { noop } from "src/utils/noop";
 
-	export let noteRepository: MutableNoteRepository;
-	export let notePropertyRepository: NotePropertyRepository;
-	export let openModal: (
-		open: (element: obsidian.Modal) => () => void,
-	) => void;
+	interface Props {
+		noteRepository: MutableNoteRepository;
+		notePropertyRepository: NotePropertyRepository;
+		openModal: (open: (element: obsidian.Modal) => () => void) => void;
+		viewModel: NamespacedWritableFactory<ObsidianNoteTimelineViewModel>;
+		isNew?: boolean;
+		oncontextmenu?: (e: MouseEvent, notes: Note[]) => void;
+		onNoteSelected?(note: Note, cause: Event | null): void;
+		onNoteFocused?(note: Note): void;
+		onCreateNote?(
+			creation: { created: number } | { modified: number } | { properties: Record<string, number> },
+		): void;
+		onModifyNote?(
+			note: Note,
+			modifiation: { created: number } | { modified: number } | { property: { name: string; value: number } },
+		): boolean;
+	}
 
-	export let viewModel: NamespacedWritableFactory<ObsidianNoteTimelineViewModel>;
-	export let isNew: boolean = false;
-	export let oncontextmenu: (e: MouseEvent, notes: Note[]) => void = () => {};
+	let {
+		noteRepository,
+		notePropertyRepository,
+		openModal,
+		viewModel,
+		isNew = false,
+		oncontextmenu = noop,
+		onNoteSelected = noop,
+		onNoteFocused = noop,
+		onCreateNote = noop,
+		onModifyNote = () => true,
+	}: Props = $props();
 
-	const dispatch = createEventDispatcher<{
+	const _dispatch = createEventDispatcher<{
 		noteSelected: { note: Note; event?: Event };
 		noteFocused: Note | undefined;
 		createNote: {
@@ -44,40 +63,31 @@
 		};
 		modifyNote: {
 			note: Note;
-			modification:
-				| { created: number }
-				| { modified: number }
-				| { property: { name: string; value: number } };
+			modification: { created: number } | { modified: number } | { property: { name: string; value: number } };
 		};
 	}>();
 
 	const settings = viewModel.namespace("settings");
 
 	let itemsById: Map<string, TimelineNoteItem> = new Map();
-	let items: MutableSortedArray<TimelineNoteItem> = new MutableSortedArray(
-		(item) => item.value(),
-	);
+	let items: MutableSortedArray<TimelineNoteItem> = $state(new MutableSortedArray((item) => item.value()));
 
 	let currentFilteringId = 0;
 	const filterQuery = settings.namespace("filter").make("query", "");
-	let filter = new TimelineItemQueryFilter(
-		noteRepository,
-		$filterQuery,
-		async (query) => {
-			filterQuery.set(query);
+	let filter = new TimelineItemQueryFilter(noteRepository, $filterQuery, async (query) => {
+		filterQuery.set(query);
 
-			const filteringId = currentFilteringId + 1;
-			currentFilteringId = filteringId;
-			const newItems = [];
-			for (const item of Array.from(itemsById.values())) {
-				if (currentFilteringId !== filteringId) break;
-				if (await filter.accepts(item)) {
-					newItems.push(item);
-				}
+		const filteringId = currentFilteringId + 1;
+		currentFilteringId = filteringId;
+		const newItems = [];
+		for (const item of Array.from(itemsById.values())) {
+			if (currentFilteringId !== filteringId) break;
+			if (await filter.accepts(item)) {
+				newItems.push(item);
 			}
-			items = new MutableSortedArray((item) => item.value(), ...newItems);
-		},
-	);
+		}
+		items = new MutableSortedArray((item) => item.value(), ...newItems);
+	});
 
 	const groupsNamespace = settings.namespace("groups");
 
@@ -90,34 +100,35 @@
 		);
 	}
 	function createGroup(query: string, color: string) {
-		const group = new timelineGroup.TimelineGroup(
-			noteRepository,
-			query,
-			color,
-		);
+		const group = new timelineGroup.TimelineGroup(noteRepository, query, color);
 		group.onChanged = saveGroups;
 		return group;
 	}
-	const timelineGroups = new TimelineGroups(
-		get(groupsNamespace.make("groups", []))
-			.map((group) => timelineGroup.schema.parseOrDefault(group))
-			.map(({ query, color }) => createGroup(query, color)),
-		(color) => createGroup("", color),
+	const timelineGroups = $state(
+		new TimelineGroups(
+			get(groupsNamespace.make("groups", []))
+				.map((group) => timelineGroup.schema.parseOrDefault(group))
+				.map(({ query, color }) => createGroup(query, color)),
+			(color) => createGroup("", color),
+		),
 	);
 	timelineGroups.onChanged = saveGroups;
 
-	function openFile(event: Event | undefined, item: TimelineItem) {
+	function openFile(event: Event | null, item: TimelineItem) {
 		const note = itemsById.get(item.id())?.note;
 		if (note == null) {
 			return;
 		}
 
-		dispatch("noteSelected", { note, event });
+		onNoteSelected(note, event);
 	}
 
-	let propertySelector: TimelinePropertySelector;
+	let propertySelector: TimelinePropertySelector | null = $state(null);
 
 	async function createItem(item: { value: number }) {
+		if (propertySelector === null) {
+			return;
+		}
 		const property = propertySelector.selectedProperty();
 		let creation;
 		if (property.isCreatedProperty()) {
@@ -132,10 +143,13 @@
 			};
 		}
 
-		dispatch("createNote", creation);
+		onCreateNote(creation);
 	}
 
-	function moveItem(item: TimelineItem, value: number) {
+	function moveItem(item: TimelineItem, value: number): boolean {
+		if (propertySelector === null) {
+			return false;
+		}
 		const noteItem = itemsById.get(item.id());
 		if (noteItem == null) {
 			return false;
@@ -145,49 +159,27 @@
 		value = property.sanitizeValue(value);
 
 		if (property.isCreatedProperty()) {
-			return dispatch(
-				"modifyNote",
-				{
-					note: noteItem.note,
-					modification: { created: value },
-				},
-				{ cancelable: true },
-			);
+			return onModifyNote(noteItem.note, {
+				created: value,
+			});
 		} else if (property.isModifiedProperty()) {
-			return dispatch(
-				"modifyNote",
-				{
-					note: noteItem.note,
-					modification: { modified: value },
-				},
-				{ cancelable: true },
-			);
+			return onModifyNote(noteItem.note, {
+				modified: value,
+			});
 		} else {
-			return dispatch(
-				"modifyNote",
-				{
-					note: noteItem.note,
-					modification: {
-						property: { name: property.name(), value: value },
-					},
-				},
-				{ cancelable: true },
-			);
+			return onModifyNote(noteItem.note, {
+				property: { name: property.name(), value: value },
+			});
 		}
 	}
 
-	let timelineView: TimelineView;
-	let display: RulerValueDisplay;
+	let timelineView: TimelineView | null = $state(null);
+	let display: RulerValueDisplay | null = $state(null);
 	onMount(async () => {
-		const orderSettings = viewModel
-			.namespace("settings")
-			.namespace("property");
+		const orderSettings = viewModel.namespace("settings").namespace("property");
 
 		const selectedPropertyName = orderSettings.make("property", "created");
-		const propertyPreferences = orderSettings.make(
-			"propertiesUseWholeNumbers",
-			{},
-		);
+		const propertyPreferences = orderSettings.make("propertiesUseWholeNumbers", {});
 
 		propertySelector = await TimelinePropertySelector.sanitize(
 			notePropertyRepository,
@@ -204,22 +196,15 @@
 		display = propertySelector.selectedProperty().displayedAs();
 
 		for (const note of await noteRepository.listAll()) {
-			const item = new TimelineNoteItem(
-				note,
-				getValueSelector,
-				itemColorSupplier,
-			);
+			const item = new TimelineNoteItem(note, getValueSelector, itemColorSupplier);
 			itemsById.set(item.id(), item);
 			enqueueItemColorUpdate(item);
 		}
 
-		items = new MutableSortedArray(
-			(item) => item.value(),
-			...(await filter.filteredItems(itemsById.values())),
-		);
+		items = new MutableSortedArray((item) => item.value(), ...(await filter.filteredItems(itemsById.values())));
 
 		if (isNew) {
-			timelineView.zoomToFit(items);
+			timelineView?.zoomToFit(items);
 		}
 	});
 
@@ -250,7 +235,7 @@
 	};
 	itemColorSupplier satisfies TimelineItemColorSupplier;
 
-	let itemRecolorQueueLength = 0;
+	let itemRecolorQueueLength = $state(0);
 	const enqueueItemColorUpdate = (() => {
 		const queue: TimelineNoteItem[] = [];
 		const uniqueQueue = new Set<TimelineNoteItem>();
@@ -266,10 +251,7 @@
 			}
 			tasks = [];
 
-			while (
-				queue.length > 0 &&
-				performance.now() - start < 16 /* 1/60 */
-			) {
+			while (queue.length > 0 && performance.now() - start < 16 /* 1/60 */) {
 				const item = queue.shift()!;
 				uniqueQueue.delete(item);
 				const groups = timelineGroups.groups();
@@ -286,7 +268,7 @@
 								break;
 							}
 						}
-						timelineView.invalidateColors();
+						timelineView?.invalidateColors();
 					})(),
 				);
 			}
@@ -309,9 +291,7 @@
 		};
 	})();
 
-	function enqueueItemRecolorMatching(
-		predicate: (item: TimelineNoteItem) => boolean,
-	) {
+	function enqueueItemRecolorMatching(predicate: (item: TimelineNoteItem) => boolean) {
 		for (const item of itemsById.values()) {
 			if (predicate(item)) {
 				enqueueItemColorUpdate(item);
@@ -320,16 +300,12 @@
 	}
 
 	function getValueSelector(this: void) {
-		return propertySelector.selectedProperty();
+		return propertySelector!.selectedProperty();
 	}
 	export async function addFile(file: Note) {
 		if (timelineView == null) return;
 		if (itemsById.has(file.id())) return;
-		const item = new TimelineNoteItem(
-			file,
-			getValueSelector,
-			itemColorSupplier,
-		);
+		const item = new TimelineNoteItem(file, getValueSelector, itemColorSupplier);
 		itemsById.set(file.id(), item);
 		if (await filter.accepts(item)) {
 			enqueueItemUpdate(() => {
@@ -397,11 +373,11 @@
 		}
 		items = new MutableSortedArray((item) => item.value(), ...items);
 		display = property.displayedAs();
-		timelineView.zoomToFit(items);
+		timelineView?.zoomToFit(items);
 	}
 
 	function onPreviewNewItemValue(item: TimelineItem, value: number): number {
-		return propertySelector.selectedProperty().sanitizeValue(value);
+		return propertySelector!.selectedProperty().sanitizeValue(value);
 	}
 </script>
 
@@ -425,7 +401,7 @@
 				}
 			}
 			if (effectCount > 0) {
-				timelineView.invalidateColors();
+				timelineView?.invalidateColors();
 			}
 		},
 		onGroupQueried(index, _group) {
@@ -471,15 +447,16 @@
 	}}
 	bind:this={timelineView}
 	on:select={(e) => openFile(e.detail.causedBy, e.detail.item)}
-	on:focus={(e) =>
-		dispatch("noteFocused", itemsById.get(e.detail.id())?.note)}
+	on:focus={(e) => {
+		const note = itemsById.get(e.detail.id())?.note;
+		if (note == null) return;
+		onNoteFocused(note);
+	}}
 	on:create={(e) => createItem(e.detail)}
 	onMoveItem={moveItem}
 	{onPreviewNewItemValue}
 	oncontextmenu={(e, triggerItems) => {
-		const items = triggerItems
-			.map((item) => itemsById.get(item.id()))
-			.filter(exists);
+		const items = triggerItems.map((item) => itemsById.get(item.id())).filter(exists);
 		if (items.length === 0) return;
 		oncontextmenu(
 			e,
@@ -488,22 +465,16 @@
 	}}
 	openDialog={openModal}
 >
-	<svelte:fragment slot="additional-settings">
+	{#snippet additionalSettings()}
 		{#if propertySelector}
 			<TimelinePropertySection
-				collapsed={settings
-					.namespace("property")
-					.make("collapsed", true)}
+				collapsed={settings.namespace("property").make("collapsed", true)}
 				selector={propertySelector}
-				on:propertySelected={(event) =>
-					onPropertySelected(event.detail)}
+				on:propertySelected={(event) => onPropertySelected(event.detail)}
 			/>
 		{/if}
-		<TimelineFilterSection
-			collapsed={settings.namespace("filter").make("collapsed", true)}
-			{filter}
-		/>
-	</svelte:fragment>
+		<TimelineFilterSection collapsed={settings.namespace("filter").make("collapsed", true)} {filter} />
+	{/snippet}
 </TimelineView>
 
 <style>
@@ -515,8 +486,7 @@
 		--timeline-ruler-label-border-color: var(--canvas-dot-pattern);
 		--timeline-ruler-label-border-width: var(--divider-width);
 
-		--timeline-padding: var(--size-4-2) var(--size-4-12) var(--size-4-12)
-			var(--size-4-12);
+		--timeline-padding: var(--size-4-2) var(--size-4-12) var(--size-4-12) var(--size-4-12);
 
 		--timeline-item-color: var(--graph-node);
 		--timeline-item-size: var(--size-4-4);
@@ -533,10 +503,7 @@
 
 		--timeline-item-tooltip-background: var(--background-modifier-message);
 
-		--timeline-selection-area-background: hsla(
-			var(--color-accent-hsl),
-			0.1
-		);
+		--timeline-selection-area-background: hsla(var(--color-accent-hsl), 0.1);
 		--timeline-selection-area-border: var(--timeline-item-color-hover);
 
 		--timeline-settings-background: var(--background-primary);

@@ -1,21 +1,24 @@
 <script lang="ts">
+	import type { ComponentProps } from "svelte";
 	import CanvasSelectionArea from "./CanvasSelectionArea.svelte";
 	import type { OffsetBox } from "./TimelineItemElement";
 
-	export let bounds: OffsetBox | undefined | null;
-	export let selectedItemCount: number;
-	export let dragging: boolean;
+	interface Props extends Pick<ComponentProps<typeof CanvasSelectionArea>, "onmousedown" | "onmouseup" | "onwheel"> {
+		bounds: OffsetBox | undefined | null;
+		selectedItemCount: number;
+		dragging: boolean;
+	}
+
+	let { bounds, selectedItemCount, dragging, ...selectionAreaProps }: Props = $props();
 </script>
 
 {#if bounds != null && selectedItemCount > 1}
 	<CanvasSelectionArea
 		class="selected {dragging && 'dragging'}"
 		area={bounds}
-		on:mousedown
-		on:mouseup
-		on:wheel
 		role="gridcell"
 		tabindex={0}
+		{...selectionAreaProps}
 	/>
 {/if}
 

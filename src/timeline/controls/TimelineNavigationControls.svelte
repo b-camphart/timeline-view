@@ -3,7 +3,11 @@
 	import ActionButton from "../../view/inputs/ActionButton.svelte";
 	import type { TimelineNavigation } from "./TimelineNavigation";
 
-	export let navigation: TimelineNavigation;
+	interface Props {
+		navigation: TimelineNavigation;
+	}
+
+	let { navigation }: Props = $props();
 
 	function triggerZoomIn() {
 		navigation.zoomIn();
