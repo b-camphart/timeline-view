@@ -120,41 +120,31 @@ export class Timeline extends obsidian.ItemView {
 				}),
 			);
 		});
-		preventOpenFileWhen(
-			this,
-			() =>
-				this.group != null && this.group.length > 0 && this.app.workspace.getGroupLeaves(this.group).length > 1,
-		);
 	}
 
 	private $mode: EditMode = EditMode.Edit;
 	private mode = writable(this.$mode);
+	#toggleMode() {
+		if (this.$mode === EditMode.Edit) {
+			this.mode.set(EditMode.View);
+		} else {
+			this.mode.set(EditMode.Edit);
+		}
+	}
 
 	onPaneMenu(menu: obsidian.Menu, source: "more-options" | "tab-header" | string): void {
-		if (this.$mode === EditMode.Edit) {
-			menu.addItem((item) => {
-				item.setIcon("book-open")
-					.setSection("pane")
-					.setTitle("View-only timeline")
-					.onClick(() => {
-						this.mode.set(EditMode.View);
-					});
-			});
-		} else if (this.$mode === EditMode.View) {
-			menu.addItem((item) => {
-				item.setIcon("edit-3")
-					.setSection("pane")
-					.setTitle("Edit timeline")
-					.onClick(() => {
-						this.mode.set(EditMode.Edit);
-					});
-			});
-		}
+		menu.addItem((item) => {
+			item.setSection("pane")
+				.setTitle(this.$mode === EditMode.Edit ? "View-only timeline" : "Edit timeline")
+				.setIcon(this.$mode === EditMode.Edit ? "book-open" : "edit-3")
+				.onClick(() => this.#toggleMode());
+		});
 		menu.addItem((item) => {
 			item.setIcon("link")
 				.setSection("view.linked")
 				.setTitle("Open linked markdown tab")
 				.onClick(() => {
+					this.navigation = false;
 					this.app.workspace.getLeaf("split", "horizontal").setViewState({
 						type: "empty",
 						group: this.leaf,
