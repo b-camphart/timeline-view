@@ -257,7 +257,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 				.showAtMouseEvent(event);
 		});
 
-		this.app.workspace.on("editor-menu", (menu, editor, info) => {
+		this.registerEvent(this.app.workspace.on("editor-menu", (menu, editor, info) => {
 			const pos = editor.getCursor();
 			const line = editor.getLine(pos.line);
 
@@ -274,7 +274,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 						});
 					});
 			});
-		});
+		}));
 
 		this.registerEvent(
 			this.app.workspace.on(
