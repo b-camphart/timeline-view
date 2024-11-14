@@ -323,7 +323,4 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 		}
 	}
 
-	onunload(): void {
-		this.app.workspace.detachLeavesOfType(OBSIDIAN_LEAF_VIEW_TYPE);
-	}
 }
