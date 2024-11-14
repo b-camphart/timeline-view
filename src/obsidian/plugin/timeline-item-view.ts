@@ -222,7 +222,7 @@ export class TimelineItemView extends obsidian.ItemView {
 	}
 
 	protected async onOpen(): Promise<void> {
-		const content = this.containerEl.children[1];
+		const content = this.contentEl;
 
 		content.createEl("progress");
 
