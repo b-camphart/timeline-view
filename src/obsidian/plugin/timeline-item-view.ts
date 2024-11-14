@@ -35,7 +35,7 @@ export class TimelineItemView extends obsidian.ItemView {
 		private noteProperties: ObsidianNotePropertyRepository,
 	) {
 		super(leaf);
-		this.navigation = false;
+		this.navigation = true;
 
 		this.scope = new obsidian.Scope(this.app.scope);
 		this.scope.register(["Shift"], " ", () => {
