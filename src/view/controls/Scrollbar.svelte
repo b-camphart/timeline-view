@@ -208,7 +208,7 @@
 		class="thumb"
 		class:dragging
 		style="--percent: {percent}; --value: {percentValue};"
-	/>
+	></div>
 </div>
 
 <style>

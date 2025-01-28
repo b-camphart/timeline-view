@@ -989,11 +989,14 @@
 				}
 
 				const ratio = activeWindow.devicePixelRatio || 1;
-				if (canvas.width != viewport.width * ratio || canvas.height != viewport.height * ratio) {
+				if (
+					canvas.width != viewport.width * ratio ||
+					canvas.height != viewport.height * ratio
+				) {
 					canvas.width = viewport.width * ratio;
 					canvas.height = viewport.height * ratio;
-					canvas.style.width = viewport.width + 'px';
-					canvas.style.height = viewport.height + 'px';
+					canvas.style.width = viewport.width + "px";
+					canvas.style.height = viewport.height + "px";
 					renderContext.scale(ratio, ratio);
 				}
 
@@ -1092,7 +1095,7 @@
 					break;
 			}
 		}}
-	/>
+	></canvas>
 	<SelectedBounds
 		dragging={dragPreview != null}
 		bounds={selection.bounds}

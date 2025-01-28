@@ -24,7 +24,7 @@
 		on:mousedown
 		on:mouseup
 		{tabindex}
-	/>
+	></div>
 {/if}
 
 <style>
