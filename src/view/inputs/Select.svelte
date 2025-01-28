@@ -235,6 +235,7 @@ Offsers a select element with a completely customizable dropdown
 	aria-owns={dialogId}
 	aria-controls={dialogId}
 	bind:this={element}
+	value={selectedIndex}
 >
 	{#each range(itemCount) as itemIndex}
 		<option value={itemIndex} selected={selectedIndex === itemIndex}>
