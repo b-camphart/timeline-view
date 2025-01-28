@@ -1,41 +1,9 @@
 <script lang="ts">
+	import { self, stopPropagation } from "svelte/legacy";
+
 	import type { DOMAttributes, HTMLAttributes } from "svelte/elements";
 	import { createEventDispatcher } from "svelte";
 	import type { ChangeEventDetail } from "./Scrollbar";
-
-	interface $$Props
-		extends Omit<
-			HTMLAttributes<HTMLDivElement>,
-			// on:* props are not forwarded, remove from interface
-			keyof DOMAttributes<HTMLDivElement>
-		> {
-		orientation?: "horizontal" | "vertical";
-		/**
-		 * The id of the element that the scrollbar controls
-		 */
-		controls: string;
-		tabindex: number;
-
-		/**
-		 * The current value between min and max
-		 */
-		value: number;
-
-		/**
-		 * The span of the total scrollable value (the span between min and max) that is visible
-		 */
-		visibleAmount: number;
-
-		/**
-		 * The minimum value that can be seen (not necessarily scrolled to)
-		 */
-		min?: number;
-
-		/**
-		 * The maximum value that can be seen (not necessarily scrolled to)
-		 */
-		max?: number;
-	}
 
 	const dispatch = createEventDispatcher<{
 		change: ChangeEventDetail;
@@ -43,23 +11,54 @@
 		dragend: void;
 	}>();
 
-	export let orientation: "horizontal" | "vertical" = "vertical";
-	export let controls: string;
-	export let tabindex: number;
-	export let value: number;
-	export let visibleAmount: number;
-	export let min: number = 0;
-	export let max: number = 100;
+	interface Props {
+		orientation?: "horizontal" | "vertical";
+		/**
+		 * The id of the element that the scrollbar controls
+		 */
+		controls: string;
+		tabindex: number;
+		/**
+		 * The current value between min and max
+		 */
+		value: number;
+		/**
+		 * The span of the total scrollable value (the span between min and max) that is visible
+		 */
+		visibleAmount: number;
+		/**
+		 * The minimum value that can be seen (not necessarily scrolled to)
+		 */
+		min?: number;
+		/**
+		 * The maximum value that can be seen (not necessarily scrolled to)
+		 */
+		max?: number;
+		[key: string]: any;
+	}
 
-	$: span = max - min;
+	let {
+		orientation = "vertical",
+		controls,
+		tabindex,
+		value,
+		visibleAmount,
+		min = 0,
+		max = 100,
+		...rest
+	}: Props = $props();
 
-	$: percent = span === 0 ? 1 : visibleAmount / span;
-	$: scrollSpan = Math.max(0, span - visibleAmount);
+	let span = $derived(max - min);
 
-	$: percentValue = scrollSpan === 0 ? 0 : (value - min) / scrollSpan;
+	let percent = $derived(span === 0 ? 1 : visibleAmount / span);
+	let scrollSpan = $derived(Math.max(0, span - visibleAmount));
 
-	let thumb: HTMLDivElement;
-	let dragging = false;
+	let percentValue = $derived(
+		scrollSpan === 0 ? 0 : (value - min) / scrollSpan,
+	);
+
+	let thumb: HTMLDivElement = $state();
+	let dragging = $state(false);
 	function onThumbMouseDown(e: MouseEvent) {
 		const startScreenX = e.screenX;
 		const startScreenY = e.screenY;
@@ -190,7 +189,7 @@
 </script>
 
 <div
-	{...$$restProps}
+	{...rest}
 	role="scrollbar"
 	class:unneeded={percent >= 0.99999999999}
 	aria-orientation={orientation}
@@ -199,11 +198,17 @@
 	aria-valuemin={min}
 	aria-valuemax={max}
 	{tabindex}
-	on:mousedown|self={onBarMouseDown}
+	onmousedown={(e) => {
+		if (e.target !== e.currentTarget) return;
+		onBarMouseDown(e);
+	}}
 >
 	<div
 		role="presentation"
-		on:mousedown|stopPropagation={onThumbMouseDown}
+		onmousedown={(e) => {
+			e.stopPropagation();
+			onThumbMouseDown(e);
+		}}
 		bind:this={thumb}
 		class="thumb"
 		class:dragging

@@ -13,7 +13,7 @@
 	import type { RulerValueDisplay } from "src/timeline/Timeline";
 	import type { TimelineGroups } from "src/timeline/group/groups";
 	import TimelineGroupsList from "src/timeline/group/TimelineGroupsList.svelte";
-	import type { ComponentProps } from "svelte";
+	import { type ComponentProps, mount, unmount } from "svelte";
 	import { SortedArray } from "src/utils/collections";
 	import TimelineGroupsSettingsSection from "src/timeline/group/TimelineGroupsSettingsSection.svelte";
 	import { ObservableCollapsable } from "src/view/collapsable";
@@ -24,7 +24,7 @@
 	interface $$Props {
 		namespacedWritable: NamespacedWritableFactory<TimelineViewModel>;
 		groups: TimelineGroups;
-		groupEvents: Omit<ComponentProps<TimelineGroupsList>, "groups">;
+		groupEvents: Omit<ComponentProps<typeof TimelineGroupsList>, "groups">;
 		display: RulerValueDisplay;
 		controlBindings: {};
 
@@ -177,12 +177,12 @@
 		openDialog((modal) => {
 			modal.modalEl.addClass("timeline-help");
 			modal.titleEl.setText("Timeline Help");
-			const component = new TimelineInteractionsHelp({
+			const component = mount(TimelineInteractionsHelp, {
 				target: modal.contentEl,
 				props: {},
 			});
 
-			return () => component.$destroy();
+			return () => unmount(component);
 		});
 	}
 </script>

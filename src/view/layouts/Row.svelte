@@ -1,11 +1,17 @@
 <script lang="ts">
 	import type { HTMLAttributes } from "svelte/elements";
+    interface Props {
+        children?: import('svelte').Snippet;
+        [key: string]: any
+    }
 
-    interface $$Props extends HTMLAttributes<HTMLDivElement> {}
+    let { children, ...rest }: Props = $props();
+
+    
 </script>
 
-<div {...$$restProps} class="row{$$restProps.class ? ` ${$$restProps.class}` : ""}" >
-    <slot></slot>
+<div {...rest} class="row{rest.class ? ` ${rest.class}` : ""}" >
+    {@render children?.()}
 </div>
 
 <style>

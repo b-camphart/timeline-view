@@ -12,10 +12,14 @@
 		consider: number;
 	}>();
 
-	export let selected: boolean;
-	export let index: number;
-	export let name: string;
-	export let type: TimelineNoteSorterPropertyType;
+	interface Props {
+		selected: boolean;
+		index: number;
+		name: string;
+		type: TimelineNoteSorterPropertyType;
+	}
+
+	let { selected, index, name, type }: Props = $props();
 
 	const change = getContext<(index: number) => void>("change");
 
@@ -31,13 +35,13 @@
 <ObsidianSuggestionItem
 	{selected}
 	tabindex={index}
-	on:mouseenter={() => dispatch("consider", index)}
-	on:focusin={() => dispatch("consider", index)}
-	on:click={makeSelection}
-	on:keydown={(e) => (e.key === "Enter" ? makeSelection() : null)}
+	onmouseenter={() => dispatch("consider", index)}
+	onfocusin={() => dispatch("consider", index)}
+	onclick={makeSelection}
+	onkeydown={(e) => (e.key === "Enter" ? makeSelection() : null)}
 >
 	{name}
-	<svelte:fragment slot="icon">
+	{#snippet icon()}
 		{#if type === TimelineNoteSorterPropertyType.DateTime}
 			<DateTimeIcon />
 		{:else if type === TimelineNoteSorterPropertyType.Date}
@@ -45,5 +49,5 @@
 		{:else if type === TimelineNoteSorterPropertyType.Number}
 			<NumberIcon />
 		{/if}
-	</svelte:fragment>
+	{/snippet}
 </ObsidianSuggestionItem>

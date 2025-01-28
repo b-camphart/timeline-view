@@ -5,13 +5,22 @@
 	import type { Scale } from "src/timeline/scale";
 	import Playhead from "./Playhead.svelte";
 
-	export let display: RulerValueDisplay | undefined;
-	export let scale: Scale;
-	export let focalValue: number;
 
-	let width: number = 0;
-	let height: number = 0;
-	export { height as clientHeight };
+	let width: number = $state(0);
+	interface Props {
+		display: RulerValueDisplay | undefined;
+		scale: Scale;
+		focalValue: number;
+		clientHeight?: number;
+	}
+
+	let {
+		display,
+		scale,
+		focalValue,
+		clientHeight: height = $bindable(0)
+	}: Props = $props();
+	
 	const dispatch = createEventDispatcher<{
 		mouseMeasurement: { value: string; x: number } | undefined;
 	}>();
@@ -36,21 +45,21 @@
 		return Math.floor(valueOnLeftSide / labelStepValue) * labelStepValue;
 	}
 
-	$: labelStepValue = display?.getSmallestLabelStepValue(scale) ?? 0;
-	$: labelStepWidth = scale.toPixels(labelStepValue);
-	$: labelCount = getLabelCount(labelStepWidth, width);
+	let labelStepValue = $derived(display?.getSmallestLabelStepValue(scale) ?? 0);
+	let labelStepWidth = $derived(scale.toPixels(labelStepValue));
+	let labelCount = $derived(getLabelCount(labelStepWidth, width));
 
-	$: firstLabelValue = getFirstLabelValue(
+	let firstLabelValue = $derived(getFirstLabelValue(
 		focalValue,
 		scale,
 		labelStepValue,
 		width,
-	);
+	));
 
-	$: labels =
-		display?.labels(labelCount, labelStepValue, firstLabelValue) ?? [];
+	let labels =
+		$derived(display?.labels(labelCount, labelStepValue, firstLabelValue) ?? []);
 
-	let mousePosition: { value: string; x: number } | undefined;
+	let mousePosition: { value: string; x: number } | undefined = $state();
 
 	function onMeasureMouseLocation(
 		event: MouseEvent & { currentTarget: HTMLDivElement },
@@ -81,8 +90,8 @@
 	style="--label-width:{labelStepWidth}px;"
 	bind:clientWidth={width}
 	bind:clientHeight={height}
-	on:mousemove={onMeasureMouseLocation}
-	on:mouseleave={stopMeasureMouseLocation}
+	onmousemove={onMeasureMouseLocation}
+	onmouseleave={stopMeasureMouseLocation}
 	role="slider"
 	aria-valuemin={Number.NEGATIVE_INFINITY}
 	aria-valuemax={Number.POSITIVE_INFINITY}

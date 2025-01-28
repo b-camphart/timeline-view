@@ -1,11 +1,14 @@
 <script lang="ts">
 	import type { HTMLAttributes } from "svelte/elements";
 
-	interface $$Props extends HTMLAttributes<HTMLInputElement> {
+	
+
+	interface Props {
 		value: string;
+		[key: string]: any
 	}
 
-	export let value: string;
+	let { value = $bindable(), ...rest }: Props = $props();
 </script>
 
 <div class="search-input-container">
@@ -14,6 +17,6 @@
 		enterkeyhint="search"
 		spellcheck="false"
 		bind:value
-		{...$$restProps}
+		{...rest}
 	/>
 </div>

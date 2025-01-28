@@ -7,19 +7,19 @@
 	export let displayValue: string = "";
 	export let placeholder: string | undefined = undefined;
 
-    const dispatch = createEventDispatcher<{ 
-        showing: null,
-        shown: null,
-        closing: null,
-        closed: null,
-        select: number
-    }>()
+	const dispatch = createEventDispatcher<{
+		showing: null;
+		shown: null;
+		closing: null;
+		closed: null;
+		select: number;
+	}>();
 
 	let target: HTMLElement | null = null;
 	let dialog: HTMLDialogElement | null = null;
 	let positionX = -1;
 	let positionY = -1;
-    let hovered: number = 0;
+	let hovered: number = 0;
 
 	$: open = target != null;
 
@@ -28,73 +28,85 @@
 			document.body.appendChild(dialog);
 		}
 
-        positionDialog(dialog, target);
+		positionDialog(dialog, target);
 	}
-    
-    let previousTarget: HTMLElement | undefined;
-    $: if (target != null) {
-        if (previousTarget != null) {
-            previousTarget.removeEventListener("focusout", targetFocusOutListener);
-        }
-        previousTarget = target;
-        target.addEventListener("focusout", targetFocusOutListener)
-    }
 
-    const targetFocusOutListener = (event: FocusEvent) => {
-        if (dialog == null) {
-            return;
-        }
-        const focusMovedTo = event.relatedTarget
-        if (focusMovedTo == null || ! (focusMovedTo instanceof Node) || ! descendsFrom(focusMovedTo, dialog)) {
-            close();
-        }
-    }
+	let previousTarget: HTMLElement | undefined;
+	$: if (target != null) {
+		if (previousTarget != null) {
+			previousTarget.removeEventListener(
+				"focusout",
+				targetFocusOutListener,
+			);
+		}
+		previousTarget = target;
+		target.addEventListener("focusout", targetFocusOutListener);
+	}
 
-    function descendsFrom(potentialDescendant: Node, potentialAnscestor: HTMLElement): boolean {
-        let node: Node | null = potentialDescendant;
-        while (node != null) {
-            if (node == potentialAnscestor) {
-                return true;
-            }
-            node = node.parentElement;
-        }
-        return false;
-    }
+	const targetFocusOutListener = (event: FocusEvent) => {
+		if (dialog == null) {
+			return;
+		}
+		const focusMovedTo = event.relatedTarget;
+		if (
+			focusMovedTo == null ||
+			!(focusMovedTo instanceof Node) ||
+			!descendsFrom(focusMovedTo, dialog)
+		) {
+			close();
+		}
+	};
 
-    async function positionDialog(dialog: HTMLDialogElement, target: HTMLElement) {
-        await tick();
+	function descendsFrom(
+		potentialDescendant: Node,
+		potentialAnscestor: HTMLElement,
+	): boolean {
+		let node: Node | null = potentialDescendant;
+		while (node != null) {
+			if (node == potentialAnscestor) {
+				return true;
+			}
+			node = node.parentElement;
+		}
+		return false;
+	}
 
-        const targetBounds = target.getBoundingClientRect();
-        const { width, height } = window.visualViewport!;
-        const dialogBounds = dialog.getBoundingClientRect();
+	async function positionDialog(
+		dialog: HTMLDialogElement,
+		target: HTMLElement,
+	) {
+		await tick();
 
-        positionX = Math.min(targetBounds.x, width - dialogBounds.width);
-        positionY = Math.min(
-            targetBounds.y + targetBounds.height,
-            height - dialogBounds.height
-        );
-    }
+		const targetBounds = target.getBoundingClientRect();
+		const { width, height } = window.visualViewport!;
+		const dialogBounds = dialog.getBoundingClientRect();
+
+		positionX = Math.min(targetBounds.x, width - dialogBounds.width);
+		positionY = Math.min(
+			targetBounds.y + targetBounds.height,
+			height - dialogBounds.height,
+		);
+	}
 
 	function showOnTarget(element: HTMLElement) {
-        if (dispatch("showing")) {
-		    target = element;
-            dispatch("shown")
-        }
+		if (dispatch("showing")) {
+			target = element;
+			dispatch("shown");
+		}
 	}
 
 	function close() {
-        if (dispatch("closing")) {
-		    target = null;
-            dispatch("closed")
-        }
+		if (dispatch("closing")) {
+			target = null;
+			dispatch("closed");
+		}
 	}
 
 	function select(index: number) {
 		close();
 		displayValue = choices[index];
-        dispatch("select", index);
+		dispatch("select", index);
 	}
-
 </script>
 
 <slot name="display" {showOnTarget}>
@@ -114,8 +126,19 @@
 	>
 		<slot name="choices" {select}>
 			{#each choices as choice, index}
-				<slot name="choice-item" {choice} {select} {index} hovered={hovered==index}>
-                    <DefaultComboBoxItem {choice} {select} {index} hovered={hovered==index} />
+				<slot
+					name="choice-item"
+					{choice}
+					{select}
+					{index}
+					hovered={hovered == index}
+				>
+					<DefaultComboBoxItem
+						{choice}
+						{select}
+						{index}
+						hovered={hovered == index}
+					/>
 				</slot>
 			{/each}
 		</slot>
@@ -123,12 +146,12 @@
 {/if}
 
 <style>
-    dialog {
-        flex-direction: column;
-        padding: 0;
-        right: unset;
-    }
-    dialog[open] {
-        display: flex;
-    }
+	dialog {
+		flex-direction: column;
+		padding: 0;
+		right: unset;
+	}
+	dialog[open] {
+		display: flex;
+	}
 </style>

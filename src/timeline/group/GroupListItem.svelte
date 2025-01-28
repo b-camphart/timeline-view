@@ -5,7 +5,7 @@
 	import ActionButton from "src/view/inputs/ActionButton.svelte";
 	import { onDestroy } from "svelte";
 
-	interface $$Props {
+	interface Props {
 		group: TimelineGroup;
 		class?: string;
 		style?: string;
@@ -21,16 +21,17 @@
 		}): void;
 	}
 
-	export let group: $$Props["group"];
-	let className: $$Props["class"] = undefined;
-	export { className as class };
-	export let style: $$Props["style"] = undefined;
-	export let onRecolored: $$Props["onRecolored"] = undefined;
-	export let onRequeried: $$Props["onRequeried"] = undefined;
-	export let onRemove: $$Props["onRemove"] = undefined;
-	export let onPressDragHandle: $$Props["onPressDragHandle"] = undefined;
+	let {
+		group,
+		class: className = undefined,
+		style = undefined,
+		onRecolored = undefined,
+		onRequeried = undefined,
+		onRemove = undefined,
+		onPressDragHandle = undefined,
+	}: Props = $props();
 
-	let element: HTMLElement | null = null;
+	let element: HTMLElement | null = $state(null);
 
 	function onDragHandeMouseDown(
 		event: MouseEvent & { currentTarget: HTMLElement },
@@ -68,7 +69,7 @@
 		class="clickable-icon"
 		aria-label="Delete group"
 		data-tooltip-position="left"
-		on:action={onRemove}
+		on:action={() => onRemove?.()}
 	>
 		<svg
 			xmlns="http://www.w3.org/2000/svg"

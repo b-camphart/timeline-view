@@ -4,21 +4,29 @@ provides a way of creating a checkbos that matches the checkbox used in
 Obsidiann 
 -->
 <script lang="ts">
-	let className: string = "";
-	export { className as class };
-	export let checked: boolean = false;
-	export let tabindex: number = 0;
-	export let disabled: boolean = false;
+	let {
+		class: className = "",
+		tabindex = 0,
+		disabled = false,
+		checked = $bindable(false),
+	}: {
+		class?: string;
+		tabindex?: number;
+		disabled?: boolean;
+		checked?: boolean;
+	} = $props();
 
-	let wasChecked = checked;
-	$: if (wasChecked !== checked) {
-		if (!disabled) {
-			checked = wasChecked;
+	let wasChecked = $state(checked);
+	$effect(() => {
+		if (wasChecked !== checked) {
+			if (!disabled) {
+				checked = wasChecked;
+			}
 		}
-	}
+	});
 </script>
 
-<!-- svelte-ignore a11y-no-noninteractive-tabindex -->
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
 	class="checkbox-container {checked ? 'is-enabled' : ''} {className}"
 	class:disabled

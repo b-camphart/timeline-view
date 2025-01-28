@@ -1,28 +1,30 @@
 <script lang="ts">
+	import { run } from "svelte/legacy";
+
 	import type * as colors from "src/color";
 	import type * as svelteElements from "svelte/elements";
 
-	interface $$Props
-		extends Omit<
-			svelteElements.HTMLAttributes<HTMLElement>,
-			keyof svelteElements.DOMAttributes<HTMLInputElement>
-		> {
-		onmousedown?(
-			event: MouseEvent & { currentTarget: HTMLInputElement },
-		): void;
+	interface Props {
+		onmousedown?(event: MouseEvent & { currentTarget: HTMLElement }): void;
 		onchanged?(color: string): void;
 		colorable: colors.ColoredColorable;
+		[key: string]: any;
 	}
 
-	export let colorable: $$Props["colorable"];
-	export let onchanged: $$Props["onchanged"] = undefined;
-	export let onmousedown: $$Props["onmousedown"] = undefined;
+	let {
+		onmousedown = undefined,
+		onchanged = undefined,
+		colorable,
+		...rest
+	}: Props = $props();
 
-	let color = colorable.color();
+	let color = $state(colorable.color());
 	function onNewColorable(colorable: colors.ColoredColorable) {
 		color = colorable.color();
 	}
-	$: onNewColorable(colorable);
+	run(() => {
+		onNewColorable(colorable);
+	});
 
 	function onColorInput(color: string) {
 		if (color !== colorable.color()) {
@@ -32,7 +34,9 @@
 		}
 	}
 
-	$: onColorInput(color);
+	run(() => {
+		onColorInput(color);
+	});
 </script>
 
 <input
@@ -40,8 +44,8 @@
 	aria-label={"Click to change color\nDrag to reorder groups"}
 	data-tooltip-position="left"
 	bind:value={color}
-	on:mousedown={onmousedown}
-	{...$$restProps}
+	{onmousedown}
+	{...rest}
 />
 
 <style>

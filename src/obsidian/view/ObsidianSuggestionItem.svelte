@@ -1,6 +1,25 @@
 <script lang="ts">
-	export let selected: boolean;
-	export let tabindex: number;
+	interface Props {
+		selected: boolean;
+		tabindex: number;
+		icon?: import("svelte").Snippet;
+		children?: import("svelte").Snippet;
+		onmouseenter?: () => void;
+		onfocusin?: () => void;
+		onclick?: () => void;
+		onkeydown?: (event: KeyboardEvent) => void;
+	}
+
+	let {
+		selected,
+		tabindex,
+		icon,
+		children,
+		onclick,
+		onfocusin,
+		onkeydown,
+		onmouseenter,
+	}: Props = $props();
 </script>
 
 <div
@@ -9,19 +28,19 @@
 	aria-selected={selected}
 	role="option"
 	{tabindex}
-	on:mouseenter
-	on:focusin
-	on:click
-	on:keydown
+	{onfocusin}
+	{onclick}
+	{onkeydown}
+	{onmouseenter}
 >
 	<div class="suggestion-icon">
 		<span class="suggestion-flair">
-			<slot name="icon"></slot>
+			{@render icon?.()}
 		</span>
 	</div>
 	<div class="suggestion-content">
 		<div class="suggestion-title">
-			<slot></slot>
+			{@render children?.()}
 		</div>
 	</div>
 </div>

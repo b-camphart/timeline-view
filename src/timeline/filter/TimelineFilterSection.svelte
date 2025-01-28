@@ -4,8 +4,12 @@
 	import CollapsableSection from "src/view/CollapsableSection.svelte";
 	import type { Writable } from "svelte/store";
 
-	export let filter: QueryFilterReaderWriter;
-	export let collapsed: Writable<boolean>;
+	interface Props {
+		filter: QueryFilterReaderWriter;
+		collapsed: Writable<boolean>;
+	}
+
+	let { filter, collapsed }: Props = $props();
 </script>
 
 <CollapsableSection name="Filter" bind:collapsed={$collapsed}>

@@ -1,16 +1,25 @@
 <script lang="ts">
+	import {
+		run,
+		createBubbler,
+		preventDefault,
+		stopPropagation,
+	} from "svelte/legacy";
+
+	const bubble = createBubbler();
 	import ActionButton from "../../../view/inputs/ActionButton.svelte";
 	import LucideIcon from "src/obsidian/view/LucideIcon.svelte";
 	import type { Collapsable } from "src/view/collapsable";
 
-	interface $$Props {
+	interface Props {
 		collapsable: Collapsable;
+		children?: import("svelte").Snippet;
 	}
 
-	export let collapsable: $$Props["collapsable"];
+	let { collapsable, children }: Props = $props();
 
-	let isOpen = !collapsable.isCollapsed();
-	function onNewCollapsable(collapsable: $$Props["collapsable"]) {
+	let isOpen = $state(!collapsable.isCollapsed());
+	function onNewCollapsable(collapsable: Props["collapsable"]) {
 		isOpen = !collapsable.isCollapsed();
 	}
 	function onOpenChanged(collapsed: boolean) {
@@ -22,13 +31,17 @@
 		isOpen = !collapsable.isCollapsed();
 	}
 
-	$: onNewCollapsable(collapsable);
-	$: onOpenChanged(!isOpen);
+	run(() => {
+		onNewCollapsable(collapsable);
+	});
+	run(() => {
+		onOpenChanged(!isOpen);
+	});
 </script>
 
 <form
 	class="timeline-settings control-group{isOpen ? ' open' : ' closed'}"
-	on:submit|preventDefault|stopPropagation
+	onsubmit={stopPropagation(preventDefault(bubble("submit")))}
 >
 	{#if !isOpen}
 		<ActionButton
@@ -51,7 +64,7 @@
 			<LucideIcon id="x" />
 		</ActionButton>
 	{/if}
-	<slot />
+	{@render children?.()}
 	<!-- <TimelineDisplaySettings
 		namespacedWritable={namespacedWritable.namespace("display")}
 	/>

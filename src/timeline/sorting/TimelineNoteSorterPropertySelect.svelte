@@ -10,21 +10,26 @@
 		TimelineNoteSorterProperty.Modified,
 	];
 
-	export let order: TimelineNoteSorterSelector;
-	export let tabindex: number;
+	interface Props {
+		order: TimelineNoteSorterSelector;
+		tabindex: number;
+	}
 
-	$: selectedPropertyName = order.selectedProperty().name();
+	let { order, tabindex }: Props = $props();
+
+	let selectedPropertyName = $state(order.selectedProperty().name());
 
 	const dispatch = createEventDispatcher<{
 		selected: TimelineNoteSorterProperty;
 	}>();
 
-	let availableProperties: TimelineNoteSorterProperty[] =
-		alwaysAvailableProperties;
-	$: propertyNames = availableProperties.map((it) => it.name());
-	$: propertyCount = availableProperties.length;
-	let consideredIndex = -1;
-	let selectedIndex = -1;
+	let availableProperties: TimelineNoteSorterProperty[] = $state(
+		alwaysAvailableProperties,
+	);
+	let propertyNames = $derived(availableProperties.map((it) => it.name()));
+	let propertyCount = $derived(availableProperties.length);
+	let consideredIndex = $state(-1);
+	let selectedIndex = $state(-1);
 
 	function select(index: number) {
 		selectedPropertyName = propertyNames[index];
@@ -77,15 +82,15 @@
 	on:showing={getPropertyList}
 	on:shown={styleSelectDialog}
 >
-	<PropertySelectionOption
-		slot="item"
-		let:index
-		{index}
-		selected={selectedIndex === index || consideredIndex === index}
-		name={propertyNames[index]}
-		type={typeOf(index)}
-		on:consider={consider}
-	/>
+	{#snippet item({ index })}
+		<PropertySelectionOption
+			{index}
+			selected={selectedIndex === index || consideredIndex === index}
+			name={propertyNames[index]}
+			type={typeOf(index)}
+			on:consider={consider}
+		/>
+	{/snippet}
 </Select>
 
 <style>

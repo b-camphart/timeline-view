@@ -4,11 +4,22 @@
 	import ActionButton from "./inputs/ActionButton.svelte";
 	import LucideIcon from "src/obsidian/view/LucideIcon.svelte";
 
-	export let name: string;
-	let className: string = "";
-	export { className as class };
-	export let tabindex: number = 0;
-	export let collapsed = true;
+	
+	interface Props {
+		name: string;
+		class?: string;
+		tabindex?: number;
+		collapsed?: boolean;
+		children?: import('svelte').Snippet;
+	}
+
+	let {
+		name,
+		class: className = "",
+		tabindex = 0,
+		collapsed = $bindable(true),
+		children
+	}: Props = $props();
 
 	function toggleCollapse() {
 		collapsed = !collapsed;
@@ -36,7 +47,7 @@
 				axis: "y",
 			}}
 		>
-			<slot />
+			{@render children?.()}
 		</div>
 	{/if}
 </section>

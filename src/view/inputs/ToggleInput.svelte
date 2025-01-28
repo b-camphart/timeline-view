@@ -1,18 +1,30 @@
 <script lang="ts">
 	import ObsidianCheckbox from "src/obsidian/view/ObsidianCheckbox.svelte";
 
-	export let name: string;
-	export let tabindex: number;
-	export let checked: boolean = false;
-	let className: string = "";
-	export { className as class };
-	export let disabled: boolean = false;
-	export let hint: string = "";
+	
 
-	export let mod: "mod-small" | undefined = undefined;
+	interface Props {
+		name: string;
+		tabindex: number;
+		checked?: boolean;
+		class?: string;
+		disabled?: boolean;
+		hint?: string;
+		mod?: "mod-small" | undefined;
+	}
+
+	let {
+		name,
+		tabindex,
+		checked = $bindable(false),
+		class: className = "",
+		disabled = false,
+		hint = "",
+		mod = undefined
+	}: Props = $props();
 </script>
 
-<!-- svelte-ignore a11y-label-has-associated-control  `ObsidianCheckbox` is a control -->
+<!-- svelte-ignore a11y_label_has_associated_control  `ObsidianCheckbox` is a control -->
 <label aria-label={hint} class={className} aria-disabled={disabled}>
 	{name}
 	<ObsidianCheckbox class={mod} bind:checked {tabindex} {disabled} />

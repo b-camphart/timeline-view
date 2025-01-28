@@ -1,10 +1,12 @@
 <script lang="ts">
+	import { run } from "svelte/legacy";
+
 	import GroupListItem from "src/timeline/group/GroupListItem.svelte";
 	import CtaButton from "src/obsidian/view/CTAButton.svelte";
 	import type { TimelineGroups } from "src/timeline/group/groups";
 	import type { TimelineGroup } from "src/timeline/group/group";
 
-	interface $$Props {
+	interface Props {
 		groups: TimelineGroups;
 		onGroupAppended?(group: TimelineGroup, groups: TimelineGroups): void;
 		onGroupsReordered?(
@@ -22,21 +24,23 @@
 		onGroupQueried?(index: number, group: TimelineGroup): void;
 	}
 
-	export let groups: $$Props["groups"];
-	export let onGroupAppended: $$Props["onGroupAppended"] = undefined;
-	export let onGroupsReordered: $$Props["onGroupsReordered"] = undefined;
-	export let onGroupRemoved: $$Props["onGroupRemoved"] = undefined;
-	export let onGroupColored: $$Props["onGroupColored"] = undefined;
-	export let onGroupQueried: $$Props["onGroupQueried"] = undefined;
+	let {
+		groups = $bindable(),
+		onGroupAppended = undefined,
+		onGroupsReordered = undefined,
+		onGroupRemoved = undefined,
+		onGroupColored = undefined,
+		onGroupQueried = undefined,
+	}: Props = $props();
 
 	let drag: null | {
 		index: number;
 		overIndex: number;
 		imgPos: { top: number; left: number; width: number; height: number };
 		offsetHeight: number;
-	} = null;
+	} = $state(null);
 
-	let groupListElement: HTMLElement;
+	let groupListElement: HTMLElement = $state();
 
 	function primeDrag(
 		index: number,
@@ -92,12 +96,14 @@
 		window.addEventListener("mouseup", endDrag);
 	}
 
-	let dragDialog: HTMLDialogElement | undefined;
-	$: if (dragDialog != null) {
-		if (dragDialog.parentElement != dragDialog.ownerDocument.body) {
-			dragDialog.ownerDocument?.body?.appendChild(dragDialog);
+	let dragDialog: HTMLDialogElement | undefined = $state();
+	run(() => {
+		if (dragDialog != null) {
+			if (dragDialog.parentElement != dragDialog.ownerDocument.body) {
+				dragDialog.ownerDocument?.body?.appendChild(dragDialog);
+			}
 		}
-	}
+	});
 
 	function addGroup() {
 		const group = groups.appendNewGroup();
@@ -211,7 +217,7 @@
 		cursor: grabbing;
 	}
 
-	:global(.setting-item-control):has(.group-list) {
+	:global(.setting-item-control):has(:global(.group-list)) {
 		flex-direction: column;
 	}
 	.group-list {

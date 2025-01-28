@@ -3,6 +3,8 @@
 Offsers a select element with a completely customizable dropdown
 -->
 <script lang="ts">
+	import { run, preventDefault, stopPropagation } from "svelte/legacy";
+
 	import { range } from "src/utils/range";
 	import { createEventDispatcher, onDestroy, setContext } from "svelte";
 	import type { DOMAttributes, HTMLAttributes } from "svelte/elements";
@@ -34,30 +36,30 @@ Offsers a select element with a completely customizable dropdown
 		changed: number;
 	}>();
 
-	interface $$Props
-		extends Exclude<
-			HTMLAttributes<HTMLSelectElement>,
-			keyof DOMAttributes<HTMLSelectElement>
-		> {
-		selectedIndex?: number;
-		itemCount: number;
-	}
-
 	interface $$Slots {
 		item: {
 			index: number;
 		};
 	}
 
-	export let selectedIndex: number = -1;
-	export let itemCount: number = 0;
-	let { "aria-disabled": disabled } = $$restProps as $$Props;
+	interface Props {
+		selectedIndex?: number;
+		itemCount: number;
+		item?: import("svelte").Snippet<[any]>;
+		[key: string]: any;
+	}
 
-	let open = false;
-	$: isMenuShown = open;
-	export { isMenuShown };
+	let {
+		selectedIndex = $bindable(-1),
+		itemCount = 0,
+		item,
+		...rest
+	}: Props = $props();
+	let { "aria-disabled": disabled } = rest as Props;
 
-	let element: HTMLSelectElement | undefined;
+	let open = $state(false);
+
+	let element: HTMLSelectElement | undefined = $state();
 	let buttonBounds: DOMRect | undefined;
 
 	export function show(causedBy?: Event) {
@@ -111,12 +113,11 @@ Offsers a select element with a completely customizable dropdown
 	}
 	setContext("change", change);
 
-	let dialog: HTMLDialogElement | undefined;
+	let dialog: HTMLDialogElement | undefined = $state();
 	export function getDialog() {
 		return open ? dialog : undefined;
 	}
 
-	$: if (open && dialog != null) positionDialog(dialog);
 	onDestroy(() => {
 		if (dialog != null) {
 			dialog.parentElement?.removeChild(dialog);
@@ -190,16 +191,22 @@ Offsers a select element with a completely customizable dropdown
 
 		toggleShown();
 	}
+	let isMenuShown = $derived(open);
+	run(() => {
+		if (open && dialog != null) positionDialog(dialog);
+	});
 </script>
 
 <select
-	{...$$restProps}
+	{...rest}
 	class:dropdown={true}
-	on:mousedown|preventDefault|stopPropagation={(e) => {
+	onmousedown={(e) => {
+		e.stopPropagation();
+		e.preventDefault();
 		e.currentTarget.focus();
 		trigger(e);
 	}}
-	on:keydown={(event) => {
+	onkeydown={(event) => {
 		if (event.key === "Enter") {
 			trigger(event);
 		} else if (event.key === "Escape") {
@@ -221,8 +228,8 @@ Offsers a select element with a completely customizable dropdown
 			}
 		}
 	}}
-	on:focusout={onFocusOut}
-	on:change={(e) => changed(e.currentTarget.selectedIndex)}
+	onfocusout={onFocusOut}
+	onchange={(e) => changed(e.currentTarget.selectedIndex)}
 	role="combobox"
 	aria-expanded={open}
 	aria-owns={dialogId}
@@ -231,7 +238,7 @@ Offsers a select element with a completely customizable dropdown
 >
 	{#each range(itemCount) as itemIndex}
 		<option value={itemIndex} selected={selectedIndex === itemIndex}>
-			<slot name="item" index={itemIndex}></slot>
+			{@render item?.({ index: itemIndex })}
 		</option>
 	{/each}
 </select>
@@ -258,11 +265,11 @@ Offsers a select element with a completely customizable dropdown
 		{open}
 		class="select-dropdown"
 		bind:this={dialog}
-		data-popupfor={$$restProps.id}
+		data-popupfor={rest.id}
 	>
 		<ul role="listbox">
 			{#each range(itemCount) as itemIndex}
-				<slot name="item" index={itemIndex}></slot>
+				{@render item?.({ index: itemIndex })}
 			{/each}
 		</ul>
 	</dialog>

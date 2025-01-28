@@ -1,8 +1,12 @@
 <script lang="ts">
-	export let focus: {
+	interface Props {
+		focus: {
 		offsetTop: number;
 		offsetLeft: number;
 	};
+	}
+
+	let { focus }: Props = $props();
 </script>
 
 <div

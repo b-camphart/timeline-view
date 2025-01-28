@@ -1,14 +1,22 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import type { QueryFilterReaderWriter } from "src/timeline/filter/query";
 
-	export let queriable: QueryFilterReaderWriter;
-	export let onchanged: undefined | ((query: string) => void) = undefined;
+	interface Props {
+		queriable: QueryFilterReaderWriter;
+		onchanged?: undefined | ((query: string) => void);
+	}
 
-	let query = queriable.query();
+	let { queriable, onchanged = undefined }: Props = $props();
+
+	let query = $state(queriable.query());
 	function onNewQueriable(queriable: QueryFilterReaderWriter) {
 		query = queriable.query();
 	}
-	$: onNewQueriable(queriable);
+	run(() => {
+		onNewQueriable(queriable);
+	});
 
 	function onQueryInput(query: string) {
 		if (query !== queriable.query()) {
@@ -19,7 +27,9 @@
 			}
 		}
 	}
-	$: onQueryInput(query);
+	run(() => {
+		onQueryInput(query);
+	});
 </script>
 
 <input

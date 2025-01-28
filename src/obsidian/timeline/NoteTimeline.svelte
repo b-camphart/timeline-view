@@ -24,15 +24,23 @@
 	import type { TimelineItemColorSupplier } from "src/timeline/item/color";
 	import { MutableSortedArray } from "src/utils/collections";
 
-	export let noteRepository: MutableNoteRepository;
-	export let notePropertyRepository: NotePropertyRepository;
-	export let openModal: (
-		open: (element: obsidian.Modal) => () => void,
-	) => void;
+	interface Props {
+		noteRepository: MutableNoteRepository;
+		notePropertyRepository: NotePropertyRepository;
+		openModal: (open: (element: obsidian.Modal) => () => void) => void;
+		viewModel: NamespacedWritableFactory<ObsidianNoteTimelineViewModel>;
+		isNew?: boolean;
+		oncontextmenu?: (e: MouseEvent, notes: Note[]) => void;
+	}
 
-	export let viewModel: NamespacedWritableFactory<ObsidianNoteTimelineViewModel>;
-	export let isNew: boolean = false;
-	export let oncontextmenu: (e: MouseEvent, notes: Note[]) => void = () => {};
+	let {
+		noteRepository,
+		notePropertyRepository,
+		openModal,
+		viewModel,
+		isNew = false,
+		oncontextmenu = () => {},
+	}: Props = $props();
 
 	const dispatch = createEventDispatcher<{
 		noteSelected: { note: Note; event?: Event };
@@ -54,8 +62,8 @@
 	const settings = viewModel.namespace("settings");
 
 	let itemsById: Map<string, TimelineNoteItem> = new Map();
-	let items: MutableSortedArray<TimelineNoteItem> = new MutableSortedArray(
-		(item) => item.value(),
+	let items: MutableSortedArray<TimelineNoteItem> = $state(
+		new MutableSortedArray((item) => item.value()),
 	);
 
 	let currentFilteringId = 0;
@@ -98,11 +106,13 @@
 		group.onChanged = saveGroups;
 		return group;
 	}
-	const timelineGroups = new TimelineGroups(
-		get(groupsNamespace.make("groups", []))
-			.map((group) => timelineGroup.schema.parseOrDefault(group))
-			.map(({ query, color }) => createGroup(query, color)),
-		(color) => createGroup("", color),
+	const timelineGroups = $state(
+		new TimelineGroups(
+			get(groupsNamespace.make("groups", []))
+				.map((group) => timelineGroup.schema.parseOrDefault(group))
+				.map(({ query, color }) => createGroup(query, color)),
+			(color) => createGroup("", color),
+		),
 	);
 	timelineGroups.onChanged = saveGroups;
 
@@ -115,7 +125,7 @@
 		dispatch("noteSelected", { note, event });
 	}
 
-	let propertySelector: TimelinePropertySelector;
+	let propertySelector: TimelinePropertySelector = $state();
 
 	async function createItem(item: { value: number }) {
 		const property = propertySelector.selectedProperty();
@@ -176,8 +186,8 @@
 		}
 	}
 
-	let timelineView: TimelineView;
-	let display: RulerValueDisplay;
+	let timelineView: TimelineView = $state();
+	let display: RulerValueDisplay = $state();
 	onMount(async () => {
 		const orderSettings = viewModel
 			.namespace("settings")
@@ -250,7 +260,7 @@
 	};
 	itemColorSupplier satisfies TimelineItemColorSupplier;
 
-	let itemRecolorQueueLength = 0;
+	let itemRecolorQueueLength = $state(0);
 	const enqueueItemColorUpdate = (() => {
 		const queue: TimelineNoteItem[] = [];
 		const uniqueQueue = new Set<TimelineNoteItem>();
@@ -488,6 +498,7 @@
 	}}
 	openDialog={openModal}
 >
+	<!-- @migration-task: migrate this slot by hand, `additional-settings` is an invalid identifier -->
 	<svelte:fragment slot="additional-settings">
 		{#if propertySelector}
 			<TimelinePropertySection

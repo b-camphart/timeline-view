@@ -3,17 +3,26 @@
 	import { hoverTooltip } from "src/view/Tooltip";
 	import { fade } from "svelte/transition";
 
-	export let display: ValueDisplay;
-	export let position: {
+	interface Props {
+		display: ValueDisplay;
+		position: {
 		offsetTop: number;
 		offsetLeft: number;
 	};
-	export let name: string;
-	export let value: number;
+		name: string;
+		value: number;
+	}
 
-	$: label = `${name}: ${display.displayValue(value)}`;
+	let {
+		display,
+		position,
+		name,
+		value
+	}: Props = $props();
 
-	let hovered = false;
+	let label = $derived(`${name}: ${display.displayValue(value)}`);
+
+	let hovered = $state(false);
 </script>
 
 <div
@@ -23,8 +32,8 @@
 		className: "timeline-item-tooltip",
 	}}
 	transition:fade={{ duration: 500 }}
-	on:introend={() => (hovered = true)}
-	on:outrostart={() => (hovered = false)}
+	onintroend={() => (hovered = true)}
+	onoutrostart={() => (hovered = false)}
 	class="timeline-item hover"
 	aria-label={label}
 	style:top="{position.offsetTop}px"

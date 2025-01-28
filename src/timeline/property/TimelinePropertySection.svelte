@@ -1,4 +1,4 @@
-<script context="module" lang="ts">
+<script module lang="ts">
 </script>
 
 <script lang="ts">
@@ -10,8 +10,12 @@
 	import type { TimelineProperty } from "src/timeline/property/TimelineProperty";
 	import type { Writable } from "svelte/store";
 
-	export let collapsed: Writable<boolean>;
-	export let selector: TimelinePropertySelector;
+	interface Props {
+		collapsed: Writable<boolean>;
+		selector: TimelinePropertySelector;
+	}
+
+	let { collapsed, selector }: Props = $props();
 
 	const dispatch = createEventDispatcher<{
 		propertySelected: TimelineProperty;

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run, stopPropagation } from "svelte/legacy";
+
 	import { createEventDispatcher, onMount } from "svelte";
 	import {
 		layoutPoints,
@@ -40,42 +42,51 @@
 		moveItems: { item: TimelineItem; value: number }[];
 	}>();
 
-	export let display: ValueDisplay;
-	export let sortedItems: SortedArray<TimelineItem>;
-	export let scale: Scale;
-	export let focalValue: number;
-	export let width: number = 0;
-	export let clientWidth: number = 0;
-	export let clientHeight: number = 0;
-	export let editable: boolean;
-	export let onPreviewNewItemValue: (
-		item: TimelineItem,
-		value: number,
-	) => number = (_, value) => value;
-	export let oncontextmenu: (
-		e: MouseEvent,
-		items: TimelineItem[],
-	) => void = () => {};
+	interface Props {
+		display: ValueDisplay;
+		sortedItems: SortedArray<TimelineItem>;
+		scale: Scale;
+		focalValue: number;
+		width?: number;
+		clientWidth?: number;
+		clientHeight?: number;
+		editable: boolean;
+		onPreviewNewItemValue?: (item: TimelineItem, value: number) => number;
+		oncontextmenu?: (e: MouseEvent, items: TimelineItem[]) => void;
+	}
 
-	let canvas: HTMLCanvasElement | undefined;
+	let {
+		display,
+		sortedItems,
+		scale,
+		focalValue,
+		width = $bindable(0),
+		clientWidth = $bindable(0),
+		clientHeight = $bindable(0),
+		editable,
+		onPreviewNewItemValue = (_, value) => value,
+		oncontextmenu = () => {},
+	}: Props = $props();
+
+	let canvas: HTMLCanvasElement | undefined = $state();
 	const pointElements: {
 		base: HTMLDivElement | undefined;
 		nextCol: HTMLDivElement | undefined;
 		selected: HTMLDivElement | undefined;
 		focused: HTMLDivElement | undefined;
 		nextRow: HTMLDivElement | undefined;
-	} = {
+	} = $state({
 		base: undefined,
 		nextCol: undefined,
 		selected: undefined,
 		focused: undefined,
 		nextRow: undefined,
-	};
-	let stageCSSTarget: HTMLDivElement | undefined;
+	});
+	let stageCSSTarget: HTMLDivElement | undefined = $state();
 
-	let innerWidth = 0;
-	let innerHeight = 0;
-	const viewport = {
+	let innerWidth = $state(0);
+	let innerHeight = $state(0);
+	const viewport = $state({
 		width: 0,
 		height: 0,
 		padding: {
@@ -84,21 +95,21 @@
 			bottom: 0,
 			left: 0,
 		},
-	};
+	});
 
 	let itemVSpacing = 0;
 	let itemRowCenterOffset = 0;
-	const item = {
+	const item = $state({
 		width: 0,
 		height: 0,
 		margin: {
 			horizontal: 0,
 			vertical: 0,
 		},
-	};
+	});
 
 	let layoutNeeded = true;
-	let scrollNeeded = true;
+	let scrollNeeded = $state(true);
 	let redrawNeeded = true;
 
 	const resizeObserver = new ResizeObserver((a) => {
@@ -205,7 +216,7 @@
 		}
 	}
 
-	let focusCausedByClick = false;
+	let focusCausedByClick = $state(false);
 	let mouseDownOn: TimelineItemElement | null = null;
 
 	class DragPreviewElement {
@@ -282,8 +293,12 @@
 		}
 	}
 
-	let dragPreview: DragPreview | null = null;
-	$: dragPreview, (scrollNeeded = true);
+	let dragPreview: DragPreview | null = $state(null);
+	$effect(() => {
+		// when dragPreview changes, we need to force a redraw
+		dragPreview;
+		scrollNeeded = true;
+	});
 
 	function clearSelection() {
 		if (selection.selectedItems.size > 0) {
@@ -508,7 +523,7 @@
 			offsetWidth: number;
 			offsetHeight: number;
 		};
-	} = { area: null, bounds: null, selectedItems: new Map() };
+	} = $state({ area: null, bounds: null, selectedItems: new Map() });
 
 	function prepareMultiSelectDraw(event: MouseEvent) {
 		const startViewportBounds = stageCSSTarget!.getBoundingClientRect();
@@ -662,11 +677,11 @@
 	let hover: {
 		element: TimelineItemElement;
 		pos: [number, number];
-	} | null = null;
+	} | null = $state(null);
 	let focus: {
 		element: TimelineItemElement;
 		index: number;
-	} | null = null;
+	} | null = $state(null);
 	function verticalScrollToFocusItem(element: TimelineItemElement) {
 		if (element.offsetTop < 0) {
 			scrollTop = element.layoutItem.top();
@@ -722,7 +737,7 @@
 		detectHover(event);
 	}
 
-	let scrollbarDragging = false;
+	let scrollbarDragging = $state(false);
 	function detectHover(event: { offsetX: number; offsetY: number }) {
 		if (
 			!scrollbarDragging &&
@@ -762,41 +777,53 @@
 		}
 		layoutNeeded = true;
 	}
-	$: onPointsOrScaleChanged(sortedItems, scale);
+	run(() => {
+		onPointsOrScaleChanged(sortedItems, scale);
+	});
 
 	function onFocalValueChanged(_: number) {
 		scrollNeeded = true;
 	}
-	$: onFocalValueChanged(focalValue);
+	run(() => {
+		onFocalValueChanged(focalValue);
+	});
 
 	export function invalidateColors() {
 		redrawNeeded = true;
 	}
 
-	let scrollTop = 0;
+	let scrollTop = $state(0);
 	function onScrollTopChanged(_: number) {
 		scrollNeeded = true;
 	}
-	$: onScrollTopChanged(scrollTop);
+	run(() => {
+		onScrollTopChanged(scrollTop);
+	});
 
-	let scrollHeight = 0;
-	let visibleVAmount = 0;
+	let scrollHeight = $state(0);
+	let visibleVAmount = $state(0);
 
-	let scrollbarMeasurerFullWidth: number = 0;
-	let scrollbarMeasurerInnerWidth: number = 0;
-	$: scrollbarWidth =
-		scrollbarMeasurerFullWidth - scrollbarMeasurerInnerWidth;
-	$: clientWidth = viewport.width - scrollbarWidth;
-	let scrollbarMeasurerFullHeight: number = 0;
-	let scrollbarMeasurerInnerHeight: number = 0;
-	$: scrollbarHeight =
-		scrollbarMeasurerFullHeight - scrollbarMeasurerInnerHeight;
-	$: clientHeight = viewport.height - scrollbarHeight;
+	let scrollbarMeasurerFullWidth: number = $state(0);
+	let scrollbarMeasurerInnerWidth: number = $state(0);
+	let scrollbarWidth = $derived(
+		scrollbarMeasurerFullWidth - scrollbarMeasurerInnerWidth,
+	);
+	run(() => {
+		clientWidth = viewport.width - scrollbarWidth;
+	});
+	let scrollbarMeasurerFullHeight: number = $state(0);
+	let scrollbarMeasurerInnerHeight: number = $state(0);
+	let scrollbarHeight = $derived(
+		scrollbarMeasurerFullHeight - scrollbarMeasurerInnerHeight,
+	);
+	run(() => {
+		clientHeight = viewport.height - scrollbarHeight;
+	});
 
-	let hScrollValue = 0;
-	let visibleHAmount = viewport.width;
-	let minHScrollValue = 0;
-	let maxHScrollValue = 0;
+	let hScrollValue = $state(0);
+	let visibleHAmount = $state(viewport.width);
+	let minHScrollValue = $state(0);
+	let maxHScrollValue = $state(0);
 
 	function handleHScroll(event: ChangeEvent) {
 		dispatch(
@@ -1042,20 +1069,23 @@
 	<canvas
 		bind:this={canvas}
 		tabindex={0}
-		on:wheel|stopPropagation|capture={handleScroll}
-		on:mouseleave={() => (hover = null)}
-		on:mousemove={handleMouseMove}
-		on:mousedown={handleMouseDown}
-		on:mouseup={handleMouseUp}
-		on:dblclick={handleDblClick}
-		on:focus={(e) => {
+		onwheelcapture={(e) => {
+			e.stopPropagation();
+			handleScroll(e);
+		}}
+		onmouseleave={() => (hover = null)}
+		onmousemove={handleMouseMove}
+		onmousedown={handleMouseDown}
+		onmouseup={handleMouseUp}
+		ondblclick={handleDblClick}
+		onfocus={(e) => {
 			if (!focusCausedByClick && focusNextItem()) {
 				e.stopPropagation();
 				e.preventDefault();
 			}
 			focusCausedByClick = false;
 		}}
-		on:keydown={(event) => {
+		onkeydown={(event) => {
 			switch (event.key) {
 				case "ArrowLeft":
 					dispatch("scrollX", scale.toValue(-10));
@@ -1100,8 +1130,8 @@
 		dragging={dragPreview != null}
 		bounds={selection.bounds}
 		selectedItemCount={selection.selectedItems.size ?? 0}
-		on:mousedown={prepareDragSelection}
-		on:mouseup={(e) => {
+		onmousedown={prepareDragSelection}
+		onmouseup={(e) => {
 			if (e.button === 2) {
 				oncontextmenu(
 					e,
@@ -1111,7 +1141,7 @@
 				);
 			}
 		}}
-		on:wheel={handleScroll}
+		onwheel={handleScroll}
 	/>
 	{#if hover != null && display != null}
 		<Hover

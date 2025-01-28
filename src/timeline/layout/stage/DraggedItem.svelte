@@ -2,15 +2,24 @@
 	import type { ValueDisplay } from "src/timeline/Timeline";
 	import { hoverTooltip } from "src/view/Tooltip";
 
-	export let display: ValueDisplay;
-	export let position: {
+	interface Props {
+		display: ValueDisplay;
+		position: {
 		offsetTop: number;
 		offsetLeft: number;
 	};
-	export let name: string;
-	export let value: number;
+		name: string;
+		value: number;
+	}
 
-	$: label = `${name}: ${display.displayValue(value)}`;
+	let {
+		display,
+		position,
+		name,
+		value
+	}: Props = $props();
+
+	let label = $derived(`${name}: ${display.displayValue(value)}`);
 </script>
 
 <div

@@ -1,12 +1,18 @@
 <script lang="ts">
 	import type { ComponentProps } from "svelte";
 	import ActionButton from "src/view/inputs/ActionButton.svelte";
+	interface Props {
+		children?: import('svelte').Snippet;
+		[key: string]: any
+	}
 
-	interface $$Props extends ComponentProps<ActionButton> {}
+	let { children, ...rest }: Props = $props();
+
+	
 </script>
 
-<ActionButton class="mod-cta" on:action {...$$restProps}>
-	<slot></slot>
+<ActionButton class="mod-cta" on:action {...rest}>
+	{@render children?.()}
 </ActionButton>
 <!-- 
 <style>

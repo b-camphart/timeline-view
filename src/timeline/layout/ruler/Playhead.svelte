@@ -1,22 +1,23 @@
 <script lang="ts">
+	import { run } from "svelte/legacy";
+
 	import { hoverTooltip } from "src/view/Tooltip";
 
-	export let x: number;
-	export let label: string;
+	interface Props {
+		x: number;
+		label: string;
+	}
 
-	let tooltip = {
-		label,
-		visible: true,
-		className: "mod-top",
-		elementPosition: hoverTooltip.top,
-	};
-	$: x,
-		(tooltip = {
+	let { x, label }: Props = $props();
+
+	const tooltip = $derived.by(() => {
+		return {
 			label,
 			visible: true,
 			className: "mod-top",
 			elementPosition: hoverTooltip.top,
-		});
+		};
+	});
 </script>
 
 <div style="left: {x}px;" use:hoverTooltip={tooltip}></div>

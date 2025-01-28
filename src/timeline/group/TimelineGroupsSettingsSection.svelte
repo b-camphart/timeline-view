@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from "svelte/legacy";
+
 	import LucideIcon from "src/obsidian/view/LucideIcon.svelte";
 	import type { TimelineGroups } from "src/timeline/group/groups";
 	import TimelineGroupsList from "src/timeline/group/TimelineGroupsList.svelte";
@@ -6,24 +8,32 @@
 	import CollapsableSection from "src/view/CollapsableSection.svelte";
 	import type { ComponentProps } from "svelte";
 
-	interface $$Props
-		extends Omit<ComponentProps<TimelineGroupsList>, "groups"> {
+	type TimelineGroupsListProps = ComponentProps<typeof TimelineGroupsList>;
+
+	interface Props {
 		collapsable: Collapsable;
 		pendingGroupUpdates: number;
 		groups: TimelineGroups;
+		onGroupAppended?: TimelineGroupsListProps["onGroupAppended"];
+		onGroupsReordered?: TimelineGroupsListProps["onGroupsReordered"];
+		onGroupRemoved?: TimelineGroupsListProps["onGroupRemoved"];
+		onGroupColored?: TimelineGroupsListProps["onGroupColored"];
+		onGroupQueried?: TimelineGroupsListProps["onGroupQueried"];
 	}
 
-	export let pendingGroupUpdates: $$Props["pendingGroupUpdates"];
-	export let collapsable: $$Props["collapsable"];
-	export let groups: $$Props["groups"];
-	export let onGroupAppended: $$Props["onGroupAppended"] = undefined;
-	export let onGroupsReordered: $$Props["onGroupsReordered"] = undefined;
-	export let onGroupRemoved: $$Props["onGroupRemoved"] = undefined;
-	export let onGroupColored: $$Props["onGroupColored"] = undefined;
-	export let onGroupQueried: $$Props["onGroupQueried"] = undefined;
+	let {
+		collapsable,
+		pendingGroupUpdates,
+		groups,
+		onGroupAppended = undefined,
+		onGroupsReordered = undefined,
+		onGroupRemoved = undefined,
+		onGroupColored = undefined,
+		onGroupQueried = undefined,
+	}: Props = $props();
 
-	let collapsed = collapsable.isCollapsed();
-	function onCollapsableChanged(collapsable: $$Props["collapsable"]) {
+	let collapsed = $state(collapsable.isCollapsed());
+	function onCollapsableChanged(collapsable: Props["collapsable"]) {
 		collapsed = collapsable.isCollapsed();
 	}
 	function onCollapsedChanged(collapsed: boolean) {
@@ -35,8 +45,12 @@
 		collapsed = collapsable.isCollapsed();
 	}
 
-	$: onCollapsableChanged(collapsable);
-	$: onCollapsedChanged(collapsed);
+	run(() => {
+		onCollapsableChanged(collapsable);
+	});
+	run(() => {
+		onCollapsedChanged(collapsed);
+	});
 </script>
 
 <CollapsableSection
