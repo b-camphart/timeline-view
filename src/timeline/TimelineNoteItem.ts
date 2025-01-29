@@ -5,9 +5,7 @@ import type * as color from "src/timeline/item/color";
 export class TimelineNoteItem {
 	constructor(
 		public note: note_1.Note,
-		private getValueSelector: (
-			this: void,
-		) => valueSelector.NumericNoteValueSelector,
+		private getValueSelector: (this: void) => valueSelector.NumericNoteValueSelector,
 		private colorSupplier: color.TimelineItemColorSupplier,
 	) {
 		this.value = this.#calculateValue;
@@ -23,6 +21,10 @@ export class TimelineNoteItem {
 
 	#value: number | undefined;
 	value: () => number;
+
+	length() {
+		return 0;
+	}
 
 	#getCachedValue(): number {
 		return this.#value!;

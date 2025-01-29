@@ -1,4 +1,4 @@
-import type { Scale } from "./scale";
+import type {Scale} from "./scale";
 
 export type Unsubscribe = () => void;
 export type Subscription<T> = (newValue: T, unsubscribe: Unsubscribe) => void;
@@ -16,6 +16,7 @@ export interface TimelineUserInput {
 export interface TimelineItem {
 	id(): string;
 	value(): number;
+	length(): number;
 	name(): string;
 
 	color(): string | undefined;
@@ -28,20 +29,12 @@ export interface TimelineDisplayItem extends TimelineItem {
 	shiftedLeftBy(amount: number): TimelineDisplayItem;
 }
 
-export function timelineDisplayItem(
-	item: TimelineItem,
-	x: number,
-	y: number,
-): TimelineDisplayItem {
+export function timelineDisplayItem(item: TimelineItem, x: number, y: number): TimelineDisplayItem {
 	return new DisplayItem(item, x, y);
 }
 
 class DisplayItem implements TimelineDisplayItem {
-	constructor(
-		private item: TimelineItem,
-		private x: number,
-		private y: number,
-	) {}
+	constructor(private item: TimelineItem, private x: number, private y: number) {}
 
 	id(): string {
 		return this.item.id();
@@ -49,6 +42,10 @@ class DisplayItem implements TimelineDisplayItem {
 
 	value() {
 		return this.item.value();
+	}
+
+	length() {
+		return this.item.length();
 	}
 
 	name() {
@@ -83,6 +80,10 @@ class ShiftedDisplayItem implements TimelineDisplayItem {
 		return this.original.value();
 	}
 
+	length(): number {
+		return this.original.length();
+	}
+
 	name() {
 		return this.original.name();
 	}
@@ -100,11 +101,7 @@ class ShiftedDisplayItem implements TimelineDisplayItem {
 	}
 
 	shiftedLeftBy(amount: number): TimelineDisplayItem {
-		return timelineDisplayItem(
-			this.original,
-			this.original.positionX() + amount,
-			this.original.positionY(),
-		);
+		return timelineDisplayItem(this.original, this.original.positionX() + amount, this.original.positionY());
 	}
 }
 
@@ -147,14 +144,7 @@ export function displayDateValue(value: number, scale: number): string {
 	const dateString = date.toLocaleDateString();
 	if (scale < 24 * 60 * 60 * 1000) {
 		if (scale < 1000) {
-			return (
-				dateString +
-				" " +
-				date.toLocaleTimeString() +
-				" " +
-				date.getMilliseconds() +
-				"ms"
-			);
+			return dateString + " " + date.toLocaleTimeString() + " " + date.getMilliseconds() + "ms";
 		}
 		return dateString + " " + date.toLocaleTimeString();
 	}
@@ -167,11 +157,7 @@ export interface ValueDisplay {
 
 export interface RulerValueDisplay extends ValueDisplay {
 	getSmallestLabelStepValue(scale: Scale): number;
-	labels(
-		labelCount: number,
-		labelStepValue: number,
-		firstLabelValue: number,
-	): { text: string; value: number }[];
+	labels(labelCount: number, labelStepValue: number, firstLabelValue: number): {text: string; value: number}[];
 }
 
 class DateValueDisplay implements RulerValueDisplay {
@@ -240,18 +226,12 @@ class DateValueDisplay implements RulerValueDisplay {
 		return this.labelStepValue;
 	}
 
-	labels(
-		labelCount: number,
-		labelStepValue: number,
-		firstLabelValue: number,
-	): { text: string; value: number }[] {
+	labels(labelCount: number, labelStepValue: number, firstLabelValue: number): {text: string; value: number}[] {
 		if (labelCount < 1 || Number.isNaN(labelCount)) {
 			labelCount = 1;
 		}
-		const values = new Array(Math.ceil(labelCount))
-			.fill(0)
-			.map((_, i) => firstLabelValue + i * labelStepValue);
-		return values.map(value => ({ text: this.displayValue(value), value }));
+		const values = new Array(Math.ceil(labelCount)).fill(0).map((_, i) => firstLabelValue + i * labelStepValue);
+		return values.map(value => ({text: this.displayValue(value), value}));
 	}
 }
 
@@ -264,10 +244,8 @@ const numericValueDisplay: RulerValueDisplay = {
 		if (labelCount < 1 || Number.isNaN(labelCount)) {
 			labelCount = 1;
 		}
-		const values = new Array(Math.ceil(labelCount))
-			.fill(0)
-			.map((_, i) => firstLabelValue + i * labelStepValue);
-		return values.map(value => ({ text: this.displayValue(value), value }));
+		const values = new Array(Math.ceil(labelCount)).fill(0).map((_, i) => firstLabelValue + i * labelStepValue);
+		return values.map(value => ({text: this.displayValue(value), value}));
 	},
 	getSmallestLabelStepValue(scale) {
 		const minStepWidth = 64;
@@ -298,10 +276,7 @@ export function timelineNumericValueDisplay(): RulerValueDisplay {
 }
 
 class MappedIterable<T, R> implements Iterable<R> {
-	constructor(
-		private base: Iterable<T>,
-		private transform: (item: T, index: number) => R,
-	) {}
+	constructor(private base: Iterable<T>, private transform: (item: T, index: number) => R) {}
 
 	*[Symbol.iterator]() {
 		let index = 0;
@@ -312,9 +287,6 @@ class MappedIterable<T, R> implements Iterable<R> {
 	}
 }
 
-export function map<T, R>(
-	iterable: Iterable<T>,
-	transform: (value: T, index: number) => R,
-): Iterable<R> {
+export function map<T, R>(iterable: Iterable<T>, transform: (value: T, index: number) => R): Iterable<R> {
 	return new MappedIterable(iterable, transform);
 }
