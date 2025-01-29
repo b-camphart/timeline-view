@@ -913,8 +913,8 @@
 					element.offsetCenterY = item.centerY - scrollTop;
 					element.offsetLeft = element.offsetCenterX - item.radius;
 					element.offsetTop = element.offsetCenterY - item.radius;
-					element.offsetWidth = item.radius * 2;
-					element.offsetHeight = item.radius * 2;
+					element.offsetWidth = item.width;
+					element.offsetHeight = item.height;
 					element.offsetRight =
 						element.offsetLeft + element.offsetWidth;
 					element.offsetBottom =

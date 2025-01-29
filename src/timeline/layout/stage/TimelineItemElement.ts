@@ -1,4 +1,4 @@
-import type { TimelineItem } from "src/timeline/Timeline";
+import type {TimelineItem} from "src/timeline/Timeline";
 
 export interface OffsetBox {
 	readonly offsetTop: number;
@@ -31,12 +31,7 @@ export function offsetCenterY(box: OffsetBox) {
 }
 
 export function boxContainsPoint(box: OffsetBox, x: number, y: number) {
-	return (
-		box.offsetLeft <= x &&
-		x < offsetRight(box) &&
-		box.offsetTop <= y &&
-		y < offsetBottom(box)
-	);
+	return box.offsetLeft <= x && x < offsetRight(box) && box.offsetTop <= y && y < offsetBottom(box);
 }
 
 export class TimelineLayoutItem {
@@ -44,6 +39,8 @@ export class TimelineLayoutItem {
 		public item: TimelineItem,
 		public centerX: number = 0,
 		public centerY: number = 0,
+		public width: number = 0,
+		public height: number = 0,
 		public radius: number = 0,
 	) {}
 
@@ -80,11 +77,7 @@ export class TimelineItemElementStyle {
 			return false;
 		}
 
-		return (
-			other.fill === this.fill &&
-			other.stroke === this.stroke &&
-			other.strokeWidth === this.strokeWidth
-		);
+		return other.fill === this.fill && other.stroke === this.stroke && other.strokeWidth === this.strokeWidth;
 	}
 }
 
@@ -104,20 +97,13 @@ export class TimelineItemElement {
 	}
 
 	contains(x: number, y: number) {
-		return (
-			this.offsetLeft <= x &&
-			x < this.offsetRight &&
-			this.offsetTop <= y &&
-			y < this.offsetBottom
-		);
+		return this.offsetLeft <= x && x < this.offsetRight && this.offsetTop <= y && y < this.offsetBottom;
 	}
 
 	intersects(x: number, y: number, width: number, height: number) {
 		return (
-			((x >= this.offsetLeft && x < this.offsetRight) ||
-				(this.offsetLeft >= x && this.offsetLeft < x + width)) &&
-			((y >= this.offsetTop && y < this.offsetBottom) ||
-				(this.offsetTop >= y && this.offsetTop < y + height))
+			((x >= this.offsetLeft && x < this.offsetRight) || (this.offsetLeft >= x && this.offsetLeft < x + width)) &&
+			((y >= this.offsetTop && y < this.offsetBottom) || (this.offsetTop >= y && this.offsetTop < y + height))
 		);
 	}
 

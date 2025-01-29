@@ -136,6 +136,8 @@ export function layoutPoints(
 		layoutItem.centerX = relativePixelCenter;
 		layoutItem.centerY =
 			viewport.padding.top + point.margin.vertical + pointRadius + row * (point.width + point.margin.vertical);
+		layoutItem.width = point.width;
+		layoutItem.height = point.width;
 		layoutItem.radius = point.width / 2;
 
 		lastXByRow[row] = layoutItem.centerX + layoutItem.radius;
