@@ -70,7 +70,7 @@ export function layoutPoints(
 		layoutItem.item = item;
 
 		if (i > 0) {
-			if (topColumnItem!.right > relativeLeftMargin) {
+			if (topColumnItem!.right >= relativeLeftMargin) {
 				top = previousLayout[i - 1].bottom + point.margin.vertical;
 			} else {
 				topColumnItem = layoutItem;

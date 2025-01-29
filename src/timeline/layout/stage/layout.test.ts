@@ -37,6 +37,7 @@ function scale(valuePerPixel: number = 1) {
 function item(
 	item: Partial<{
 		value: number;
+		length: number;
 	}> = {},
 ): TimelineItem {
 	return {
@@ -44,7 +45,7 @@ function item(
 		id: () => "",
 		name: () => "",
 		color: () => undefined,
-		length: () => 0,
+		length: () => item.length ?? 0,
 	};
 }
 
@@ -122,5 +123,27 @@ describe("laying out items", it => {
 		const positioned = layoutPoints(viewport({padding: padding({top: 5})}), itemStyles({size: 20}), s, items);
 
 		t.expect(positioned.map(it => it.top)).toEqual([5, 25, 45, 5]);
+	});
+
+	it("calculates the width of the item based on its length", t => {
+		for (let s of [scale(1), scale(2), scale(0.5)]) {
+			const positioned = layoutPoints(viewport(), itemStyles({size: 20}), s, [item({value: 10, length: 10})]);
+
+			t.expect(positioned[0].width).toEqual(s.toPixels(10) + 20);
+		}
+	});
+
+	it("prevents items from overlapping, accounting for item width", t => {
+		const positioned = layoutPoints(viewport(), itemStyles({size: 20}), scale(1), [
+			item({value: 10, length: 20}),
+			item({value: 31}),
+			item({value: 52}),
+		]);
+
+		t.expect(positioned.map(it => ({left: it.left, top: it.top, right: it.right}))).toEqual([
+			{left: 0, top: 0, right: 40},
+			{left: 21, top: 20, right: 41},
+			{left: 42, top: 0, right: 62},
+		]);
 	});
 });
