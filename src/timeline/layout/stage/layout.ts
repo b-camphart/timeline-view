@@ -54,54 +54,40 @@ export function layoutPoints(
 ) {
 	const pointRadius = Math.floor(point.width / 2);
 
-	const lastXByRow: number[] = [];
-
-	let prev: {relativeLeftMargin: number; row: number; value: number} | undefined;
-
 	if (previousLayout.length > sortedItems.length) {
 		previousLayout = previousLayout.slice(0, sortedItems.length);
 	}
 
+	let topColumnItem: null | LayoutItem = null;
 	for (let i = 0; i < sortedItems.length; i++) {
 		const item = sortedItems[i];
 		const absolutePixelCenter = scale.toPixels(item.value());
 		const relativePixelCenter = absolutePixelCenter;
 		const relativeLeftMargin = relativePixelCenter - pointRadius - point.margin.horizontal;
 
-		let row: number;
-		if (relativeLeftMargin === prev?.relativeLeftMargin) {
-			row = findNextAvailableRow(relativeLeftMargin, lastXByRow, prev.row);
-		} else {
-			row = findNextAvailableRow(relativeLeftMargin, lastXByRow);
-		}
-
+		let top = viewport.padding.top + point.margin.vertical;
 		const layoutItem = previousLayout[i] ?? new LayoutItem(item);
 		layoutItem.item = item;
+
+		if (i > 0) {
+			if (topColumnItem!.right > relativeLeftMargin) {
+				top = previousLayout[i - 1].bottom + point.margin.vertical;
+			} else {
+				topColumnItem = layoutItem;
+			}
+		} else {
+			topColumnItem = layoutItem;
+		}
+
 		layoutItem.width = scale.toPixels(item.length()) + point.width;
 		layoutItem.height = point.width;
 		layoutItem.radius = point.width / 2;
 
 		layoutItem.centerX = relativePixelCenter;
-		layoutItem.centerY =
-			viewport.padding.top + point.margin.vertical + pointRadius + row * (point.width + point.margin.vertical);
-
-		lastXByRow[row] = layoutItem.centerX + layoutItem.radius;
-
-		prev = {relativeLeftMargin, row, value: item.value()};
+		layoutItem.centerY = top + pointRadius;
 
 		previousLayout[i] = layoutItem;
 	}
 
 	return previousLayout;
-}
-
-function findNextAvailableRow(relativeLeftMargin: number, lastXByRow: number[], startIndex: number = 0) {
-	for (let rowIndex = startIndex; rowIndex < lastXByRow.length; rowIndex++) {
-		const x = lastXByRow[rowIndex];
-		if (x < relativeLeftMargin) {
-			return rowIndex;
-		}
-	}
-
-	return lastXByRow.length;
 }
