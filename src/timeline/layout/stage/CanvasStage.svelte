@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { run, stopPropagation } from "svelte/legacy";
+	import { run } from "svelte/legacy";
 
 	import { createEventDispatcher, onMount } from "svelte";
 	import {
@@ -10,7 +10,6 @@
 	import type { TimelineItem, ValueDisplay } from "../../Timeline";
 	import {
 		TimelineItemElement,
-		TimelineLayoutItem,
 		TimelineItemElementStyle,
 	} from "src/timeline/layout/stage/TimelineItemElement";
 	import { type Scale } from "src/timeline/scale";
@@ -24,6 +23,7 @@
 	import DraggedItem from "./DraggedItem.svelte";
 	import type { SortedArray } from "src/utils/collections";
 	import Background from "src/timeline/layout/stage/Background.svelte";
+	import type { LayoutItem } from "src/timeline/layout/stage/layout";
 
 	type ZoomEvent = {
 		keepValue: number;
@@ -684,10 +684,10 @@
 	} | null = $state(null);
 	function verticalScrollToFocusItem(element: TimelineItemElement) {
 		if (element.offsetTop < 0) {
-			scrollTop = element.layoutItem.top();
+			scrollTop = element.layoutItem.top;
 			scrollNeeded = true;
 		} else if (element.offsetBottom > viewport.height) {
-			scrollTop = element.layoutItem.bottom() - viewport.height;
+			scrollTop = element.layoutItem.bottom - viewport.height;
 			scrollNeeded = true;
 		}
 	}
@@ -853,7 +853,7 @@
 		resizeObserver.observe(stageCSSTarget);
 
 		function draw(
-			layout: TimelineLayoutItem[] = [],
+			layout: LayoutItem[] = [],
 			pointStyle?: TimelineItemElementStyle,
 		) {
 			if (canvas == null) return;
@@ -874,7 +874,7 @@
 					for (const bounds of layout) {
 						scrollHeight = Math.max(
 							scrollHeight,
-							bounds.bottom() +
+							bounds.bottom +
 								item.margin.vertical +
 								viewport.padding.bottom,
 						);

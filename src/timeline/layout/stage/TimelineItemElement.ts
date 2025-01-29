@@ -1,3 +1,4 @@
+import type {LayoutItem} from "src/timeline/layout/stage/layout";
 import type {TimelineItem} from "src/timeline/Timeline";
 
 export interface OffsetBox {
@@ -83,7 +84,7 @@ export class TimelineItemElementStyle {
 
 export class TimelineItemElement {
 	constructor(
-		layoutItem: TimelineLayoutItem,
+		layoutItem: LayoutItem,
 		public offsetLeft: number = 0,
 		public offsetRight: number = 0,
 		public offsetTop: number = 0,
@@ -113,12 +114,12 @@ export class TimelineItemElement {
 		this.#style = style;
 	}
 
-	#layoutItem: TimelineLayoutItem;
+	#layoutItem;
 	get layoutItem() {
 		return this.#layoutItem;
 	}
 
-	set layoutItem(item: TimelineLayoutItem) {
+	set layoutItem(item: LayoutItem) {
 		this.#layoutItem = item;
 		this.visible = undefined;
 	}
