@@ -43,13 +43,7 @@ export interface CanvasElementCollection extends Iterable<CanvasElement> {
 	getCount(): number;
 }
 
-function renderItems(
-	context: CanvasRenderingContext2D,
-	viewport: CanvasViewport,
-	items: CanvasElementCollection,
-) {
-	const PI2 = 2 * Math.PI;
-
+function renderItems(context: CanvasRenderingContext2D, viewport: CanvasViewport, items: CanvasElementCollection) {
 	const defaultColor = context.fillStyle;
 	const defaultBorderColor = context.strokeStyle;
 	const defaultStrokeWidth = 0;
@@ -69,11 +63,7 @@ function renderItems(
 		const borderColor = item.borderColor ?? defaultBorderColor;
 		const strokeWidth = item.strokeWidth ?? defaultStrokeWidth;
 
-		if (
-			color !== currentFillColor ||
-			borderColor !== currentBorderColor ||
-			strokeWidth !== currentStrokeWidth
-		) {
+		if (color !== currentFillColor || borderColor !== currentBorderColor || strokeWidth !== currentStrokeWidth) {
 			context.fill();
 			if (currentStrokeWidth > 0) {
 				context.stroke();
@@ -91,13 +81,7 @@ function renderItems(
 		}
 
 		context.moveTo(item.offsetRight, item.offsetCenterY);
-		context.arc(
-			item.offsetCenterX,
-			item.offsetCenterY,
-			item.offsetWidth / 2,
-			0,
-			PI2,
-		);
+		context.roundRect(item.offsetLeft, item.offsetTop, item.offsetWidth, item.offsetWidth, item.offsetWidth / 2);
 	}
 	context.closePath();
 	context.fill();
@@ -127,9 +111,7 @@ export function layoutPoints(
 
 	const lastXByRow: number[] = [];
 
-	let prev:
-		| {relativeLeftMargin: number; row: number; value: number}
-		| undefined;
+	let prev: {relativeLeftMargin: number; row: number; value: number} | undefined;
 
 	if (previousLayout.length > sortedItems.length) {
 		previousLayout = previousLayout.slice(0, sortedItems.length);
@@ -139,16 +121,11 @@ export function layoutPoints(
 		const item = sortedItems[i];
 		const absolutePixelCenter = scale.toPixels(item.value());
 		const relativePixelCenter = absolutePixelCenter;
-		const relativeLeftMargin =
-			relativePixelCenter - pointRadius - point.margin.horizontal;
+		const relativeLeftMargin = relativePixelCenter - pointRadius - point.margin.horizontal;
 
 		let row: number;
 		if (relativeLeftMargin === prev?.relativeLeftMargin) {
-			row = findNextAvailableRow(
-				relativeLeftMargin,
-				lastXByRow,
-				prev.row,
-			);
+			row = findNextAvailableRow(relativeLeftMargin, lastXByRow, prev.row);
 		} else {
 			row = findNextAvailableRow(relativeLeftMargin, lastXByRow);
 		}
@@ -157,10 +134,7 @@ export function layoutPoints(
 		layoutItem.item = item;
 		layoutItem.centerX = relativePixelCenter;
 		layoutItem.centerY =
-			viewport.padding.top +
-			point.margin.vertical +
-			pointRadius +
-			row * (point.width + point.margin.vertical);
+			viewport.padding.top + point.margin.vertical + pointRadius + row * (point.width + point.margin.vertical);
 		layoutItem.radius = point.width / 2;
 
 		lastXByRow[row] = layoutItem.centerX + layoutItem.radius;
@@ -173,11 +147,7 @@ export function layoutPoints(
 	return previousLayout;
 }
 
-function findNextAvailableRow(
-	relativeLeftMargin: number,
-	lastXByRow: number[],
-	startIndex: number = 0,
-) {
+function findNextAvailableRow(relativeLeftMargin: number, lastXByRow: number[], startIndex: number = 0) {
 	for (let rowIndex = startIndex; rowIndex < lastXByRow.length; rowIndex++) {
 		const x = lastXByRow[rowIndex];
 		if (x < relativeLeftMargin) {
