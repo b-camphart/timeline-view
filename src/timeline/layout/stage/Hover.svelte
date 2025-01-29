@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { off } from "process";
 	import type { ValueDisplay } from "src/timeline/Timeline";
 	import { hoverTooltip } from "src/view/Tooltip";
 	import { fade } from "svelte/transition";
@@ -6,19 +7,15 @@
 	interface Props {
 		display: ValueDisplay;
 		position: {
-		offsetTop: number;
-		offsetLeft: number;
-	};
+			offsetTop: number;
+			offsetLeft: number;
+			offsetWidth: number;
+		};
 		name: string;
 		value: number;
 	}
 
-	let {
-		display,
-		position,
-		name,
-		value
-	}: Props = $props();
+	let { display, position, name, value }: Props = $props();
 
 	let label = $derived(`${name}: ${display.displayValue(value)}`);
 
@@ -38,6 +35,7 @@
 	aria-label={label}
 	style:top="{position.offsetTop}px"
 	style:left="{position.offsetLeft}px"
+	style:width="{position.offsetWidth}px"
 ></div>
 
 <style>
@@ -69,9 +67,8 @@
 	}
 
 	div {
-		width: var(--timeline-item-diameter);
 		height: var(--timeline-item-diameter);
-		border-radius: 100%;
+		border-radius: var(--timeline-item-diameter);
 
 		position: absolute;
 		margin: 0;
