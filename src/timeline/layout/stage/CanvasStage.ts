@@ -32,6 +32,7 @@ export interface CanvasElement {
 	readonly offsetCenterY: number;
 	readonly offsetCenterX: number;
 	readonly offsetWidth: number;
+	readonly offsetHeight: number;
 
 	readonly visible?: boolean;
 	readonly backgroundColor: BackgroundColor | undefined;
@@ -81,7 +82,7 @@ function renderItems(context: CanvasRenderingContext2D, viewport: CanvasViewport
 		}
 
 		context.moveTo(item.offsetRight, item.offsetCenterY);
-		context.roundRect(item.offsetLeft, item.offsetTop, item.offsetWidth, item.offsetWidth, item.offsetWidth / 2);
+		context.roundRect(item.offsetLeft, item.offsetTop, item.offsetWidth, item.offsetHeight, item.offsetHeight / 2);
 	}
 	context.closePath();
 	context.fill();
