@@ -58,33 +58,33 @@ export function layoutPoints(
 		previousLayout = previousLayout.slice(0, sortedItems.length);
 	}
 
-	let topColumnItem: null | LayoutItem = null;
+	let rows: {
+		rightMostItem: LayoutItem;
+	}[] = [];
+
 	for (let i = 0; i < sortedItems.length; i++) {
 		const item = sortedItems[i];
 		const absolutePixelCenter = scale.toPixels(item.value());
-		const relativePixelCenter = absolutePixelCenter;
-		const relativeLeftMargin = relativePixelCenter - pointRadius - point.margin.horizontal;
 
-		let top = viewport.padding.top + point.margin.vertical;
 		const layoutItem = previousLayout[i] ?? new LayoutItem(item);
 		layoutItem.item = item;
-
-		if (i > 0) {
-			if (topColumnItem!.right >= relativeLeftMargin) {
-				top = previousLayout[i - 1].bottom + point.margin.vertical;
-			} else {
-				topColumnItem = layoutItem;
-			}
-		} else {
-			topColumnItem = layoutItem;
-		}
-
 		layoutItem.width = scale.toPixels(item.length()) + point.width;
 		layoutItem.height = point.width;
 		layoutItem.radius = point.width / 2;
 
-		layoutItem.centerX = relativePixelCenter;
-		layoutItem.centerY = top + pointRadius;
+		layoutItem.centerX = absolutePixelCenter;
+		layoutItem.centerY = viewport.padding.top + point.margin.vertical + pointRadius;
+
+		const relativeLeftMargin = layoutItem.left - point.margin.horizontal;
+		let r = 0;
+		for (r; r < rows.length; r++) {
+			if (rows[r].rightMostItem.right < relativeLeftMargin) {
+				break;
+			}
+		}
+		layoutItem.centerY =
+			viewport.padding.top + point.margin.vertical + pointRadius + r * (point.margin.vertical + point.width);
+		rows[r] = {rightMostItem: layoutItem};
 
 		previousLayout[i] = layoutItem;
 	}

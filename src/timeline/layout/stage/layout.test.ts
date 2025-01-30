@@ -146,4 +146,40 @@ describe("laying out items", it => {
 			{left: 42, top: 0, right: 62},
 		]);
 	});
+
+	it("fills in the top rows as densly as possible", t => {
+		const positioned = layoutPoints(viewport(), itemStyles({size: 20}), scale(1), [
+			item({value: 0, length: 10}),
+			item({value: 0, length: 20}),
+			item({value: 31}),
+		]);
+
+		t.expect(positioned.find(it => it.item.value() === 0 && it.item.length() === 10)!.top).toEqual(0);
+		t.expect(positioned.find(it => it.item.value() === 0 && it.item.length() === 20)!.top).toEqual(20);
+		t.expect(positioned.find(it => it.item.value() === 31)!.top).toEqual(0);
+	});
+
+	it("prevents overlap by skipping rows that are blocked", t => {
+		const positioned = layoutPoints(viewport(), itemStyles({size: 20}), scale(1), [
+			item({value: 0, length: 10}),
+			item({value: 0, length: 20}),
+			item({value: 31}),
+			item({value: 31, length: 1}), // length just to differentiate
+		]);
+
+		/*
+		 0          31
+		 v          v
+		(..........)()
+		(.....................)
+	                ()
+		 ^          ^
+		 0          31
+		*/
+
+		t.expect(positioned.find(it => it.item.value() === 0 && it.item.length() === 10)!.top).toEqual(0);
+		t.expect(positioned.find(it => it.item.value() === 0 && it.item.length() === 20)!.top).toEqual(20);
+		t.expect(positioned.find(it => it.item.value() === 31 && it.item.length() === 0)!.top).toEqual(0);
+		t.expect(positioned.find(it => it.item.value() === 31 && it.item.length() === 1)!.top).toEqual(40);
+	});
 });
