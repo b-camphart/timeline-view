@@ -15,7 +15,7 @@
 	import { type Scale } from "src/timeline/scale";
 	import Scrollbar from "src/view/controls/Scrollbar.svelte";
 	import type { ChangeEvent } from "src/view/controls/Scrollbar";
-	import Hover from "./Hover.svelte";
+	import Hover, { ValueFormatter } from "./Hover.svelte";
 	import FocusedItem from "./FocusedItem.svelte";
 	import { Platform } from "obsidian";
 	import SelectionArea from "./CanvasSelectionArea.svelte";
@@ -43,7 +43,7 @@
 	}>();
 
 	interface Props {
-		display: ValueDisplay;
+		formatter: ValueFormatter;
 		sortedItems: SortedArray<TimelineItem>;
 		scale: Scale;
 		focalValue: number;
@@ -56,7 +56,7 @@
 	}
 
 	let {
-		display,
+		formatter,
 		sortedItems,
 		scale,
 		focalValue,
@@ -1143,18 +1143,18 @@
 		}}
 		onwheel={handleScroll}
 	/>
-	{#if hover != null && display != null}
+	{#if hover != null && formatter != null}
 		<Hover
-			{display}
+			{formatter}
 			position={hover.element}
 			name={hover.element.layoutItem.item.name()}
 			value={hover.element.layoutItem.item.value()}
 			length={hover.element.layoutItem.item.length()}
 		/>
 	{/if}
-	{#if dragPreview != null && display != null && dragPreview.getCount() === 1}
+	{#if dragPreview != null && formatter != null && dragPreview.getCount() === 1}
 		<DraggedItem
-			{display}
+			display={{ displayValue: formatter.formatValue.bind(formatter) }}
 			position={dragPreview.at(0)}
 			name={dragPreview.at(0).item.name()}
 			value={dragPreview.at(0).value}

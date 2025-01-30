@@ -1,3 +1,4 @@
+import {ValueFormatter} from "src/timeline/layout/stage/Hover.svelte";
 import type {Scale} from "./scale";
 
 export type Unsubscribe = () => void;
@@ -139,16 +140,70 @@ export function layoutPoints(
 	return displayItems;
 }
 
+type Duration = number;
+
+const Millisecond: Duration = 1;
+const Second: Duration = Millisecond * 1000;
+const Minute: Duration = Second * 60;
+const Hour: Duration = Minute * 60;
+const Day: Duration = Hour * 24;
+const Week: Duration = Day * 7;
+const Year: Duration = Day * 365;
+
 export function displayDateValue(value: number, scale: number): string {
 	const date = new Date(value);
-	const dateString = date.toLocaleDateString();
-	if (scale < 24 * 60 * 60 * 1000) {
-		if (scale < 1000) {
-			return dateString + " " + date.toLocaleTimeString() + " " + date.getMilliseconds() + "ms";
-		}
-		return dateString + " " + date.toLocaleTimeString();
+	let dateString = date.toLocaleDateString();
+	if (scale < Day) {
+		dateString += " " + date.toLocaleTimeString();
+	}
+	if (scale < Second) {
+		dateString += " " + date.getMilliseconds() + "ms";
 	}
 	return dateString;
+}
+
+function formatDateLength(length: Duration, scale: number): string {
+	const asDate = new Date(length);
+	let durationString = "";
+
+	const years = asDate.getUTCFullYear() - 1970;
+	const months = asDate.getUTCMonth();
+	const days = asDate.getUTCDate();
+	const hours = asDate.getUTCHours();
+	const minutes = asDate.getUTCMinutes();
+	const seconds = asDate.getUTCSeconds();
+	const milliseconds = asDate.getUTCMilliseconds();
+
+	let largestUnitFound = false;
+	if (years > 0) {
+		largestUnitFound = true;
+		durationString += `${years}y `;
+	}
+	if (months > 0 && (scale < Year || !largestUnitFound)) {
+		largestUnitFound = true;
+		durationString += `${months}M `;
+	}
+	if (days > 0 && (scale <= Day || !largestUnitFound)) {
+		largestUnitFound = true;
+		durationString += `${days}d `;
+	}
+	if (hours > 0 && (scale <= Day || !largestUnitFound)) {
+		largestUnitFound = true;
+		durationString += `${hours}h `;
+	}
+	if (minutes > 0 && (scale <= Day || !largestUnitFound)) {
+		largestUnitFound = true;
+		durationString += `${minutes}m `;
+	}
+	if (seconds > 0 && (scale <= Day || !largestUnitFound)) {
+		largestUnitFound = true;
+		durationString += `${seconds}s `;
+	}
+	if (milliseconds > 0 && (scale <= Second || !largestUnitFound)) {
+		durationString += `${milliseconds}ms`;
+	}
+
+	return durationString.trim();
 }
 
 export interface ValueDisplay {
@@ -158,6 +213,7 @@ export interface ValueDisplay {
 export interface RulerValueDisplay extends ValueDisplay {
 	getSmallestLabelStepValue(scale: Scale): number;
 	labels(labelCount: number, labelStepValue: number, firstLabelValue: number): {text: string; value: number}[];
+	formatter: ValueFormatter;
 }
 
 class DateValueDisplay implements RulerValueDisplay {
@@ -165,6 +221,13 @@ class DateValueDisplay implements RulerValueDisplay {
 
 	constructor() {
 		this.labelStepValue = 1001;
+	}
+
+	get formatter() {
+		return new ValueFormatter(
+			value => displayDateValue(value, this.labelStepValue),
+			length => formatDateLength(length, this.labelStepValue),
+		);
 	}
 
 	displayValue(value: number) {
@@ -240,6 +303,10 @@ export function timelineDateValueDisplay(): RulerValueDisplay {
 }
 
 const numericValueDisplay: RulerValueDisplay = {
+	formatter: new ValueFormatter(
+		value => value.toLocaleString(),
+		length => length.toLocaleString(),
+	),
 	labels(labelCount, labelStepValue, firstLabelValue) {
 		if (labelCount < 1 || Number.isNaN(labelCount)) {
 			labelCount = 1;

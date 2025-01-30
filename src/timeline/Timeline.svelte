@@ -200,7 +200,7 @@
 	/>
 	<CanvasStage
 		bind:this={canvasStage}
-		{display}
+		formatter={display.formatter}
 		sortedItems={items}
 		scale={$scale}
 		focalValue={$focalValue}

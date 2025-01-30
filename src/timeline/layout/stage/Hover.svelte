@@ -11,15 +11,34 @@
 			new DOMRect(left, top, right - left, bottom - top),
 		);
 	}
+
+	export class ValueFormatter {
+		#formatValue;
+		formatValue(value: number) {
+			return this.#formatValue(value);
+		}
+
+		#formatLength;
+		formatLength(length: number) {
+			return this.#formatLength(length);
+		}
+
+		constructor(
+			formatValue: (value: number) => string,
+			formatLength: (value: number) => string,
+		) {
+			this.#formatValue = formatValue;
+			this.#formatLength = formatLength;
+		}
+	}
 </script>
 
 <script lang="ts">
-	import type { ValueDisplay } from "src/timeline/Timeline";
 	import { hoverTooltip } from "src/view/Tooltip";
 	import { fade } from "svelte/transition";
 
 	interface Props {
-		display: ValueDisplay;
+		formatter: ValueFormatter;
 		position: {
 			offsetTop: number;
 			offsetLeft: number;
@@ -32,7 +51,7 @@
 	}
 
 	let {
-		display,
+		formatter,
 		position,
 		name,
 		value,
@@ -44,10 +63,10 @@
 
 	const label = $derived.by(() => {
 		if (providedLength === undefined) {
-			return `${name}\n${display.displayValue(value)}`;
+			return `${name}\n${formatter.formatValue(value)}`;
 		}
 
-		return `${name}\nlength: ${display.displayValue(length)}\nstart: ${display.displayValue(value)} - end: ${display.displayValue(endValue)}`;
+		return `${name}\nlength: ${formatter.formatLength(length)}\nstart: ${formatter.formatValue(value)} - end: ${formatter.formatValue(endValue)}`;
 	});
 
 	let hovered = $state(false);
