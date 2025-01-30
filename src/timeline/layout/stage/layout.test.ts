@@ -1,53 +1,7 @@
 import {layoutPoints} from "src/timeline/layout/stage/layout";
-import {ValuePerPixelScale} from "src/timeline/scale";
-import type {TimelineItem} from "src/timeline/Timeline";
+import {item, itemStyles, margin, padding, scale, viewport} from "src/timeline/layout/stage/layout.fixtures";
 import {inspect} from "util";
 import {describe} from "vitest";
-
-function viewport(styles: Partial<{padding: {top: number}}> = {}) {
-	return {
-		padding: padding(styles.padding),
-	};
-}
-
-function padding(padding: Partial<{top: number}> = {}) {
-	return {
-		top: padding.top ?? 0,
-	};
-}
-
-function itemStyles(styles: Partial<{size: number; margin: {horizontal: number; vertical: number}}> = {}) {
-	return {
-		width: styles.size ?? 0,
-		margin: margin(styles.margin),
-	};
-}
-
-function margin(margin: Partial<{horizontal: number; vertical: number}> = {}) {
-	return {
-		horizontal: margin.horizontal ?? 0,
-		vertical: margin.vertical ?? 0,
-	};
-}
-
-function scale(valuePerPixel: number = 1) {
-	return new ValuePerPixelScale(valuePerPixel);
-}
-
-function item(
-	item: Partial<{
-		value: number;
-		length: number;
-	}> = {},
-): TimelineItem {
-	return {
-		value: () => item.value ?? 0,
-		id: () => "",
-		name: () => "",
-		color: () => undefined,
-		length: () => item.length ?? 0,
-	};
-}
 
 describe("laying out items", it => {
 	it("places items horizontally based on scale and their value", t => {
