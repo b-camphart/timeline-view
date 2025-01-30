@@ -1,7 +1,21 @@
+<script module lang="ts">
+	function centerWithinBody(bounds: DOMRect) {
+		const bodyBounds = document.body.getBoundingClientRect();
+
+		let left = Math.max(0, Math.min(bodyBounds.width, bounds.x));
+		let top = Math.max(0, Math.min(bodyBounds.height, bounds.y));
+		let right = Math.max(0, Math.min(bodyBounds.width, bounds.right));
+		let bottom = Math.max(0, Math.min(bodyBounds.height, bounds.bottom));
+
+		return hoverTooltip.center(
+			new DOMRect(left, top, right - left, bottom - top),
+		);
+	}
+</script>
+
 <script lang="ts">
 	import type { ValueDisplay } from "src/timeline/Timeline";
 	import { hoverTooltip } from "src/view/Tooltip";
-	import { tooltip } from "src/view/tooltip-svelte-action";
 	import { fade } from "svelte/transition";
 
 	interface Props {
@@ -13,11 +27,28 @@
 		};
 		name: string;
 		value: number;
+		length?: number;
+		endValue?: number;
 	}
 
-	let { display, position, name, value }: Props = $props();
+	let {
+		display,
+		position,
+		name,
+		value,
+		length: providedLength,
+		endValue: providedEndValue,
+	}: Props = $props();
+	const length = $derived(providedLength ?? 0);
+	const endValue = $derived(providedEndValue ?? value + length);
 
-	let label = $derived(`${name}: ${display.displayValue(value)}`);
+	const label = $derived.by(() => {
+		if (providedLength === undefined) {
+			return `${name}\n${display.displayValue(value)}`;
+		}
+
+		return `${name}\nlength: ${display.displayValue(length)}\nstart: ${display.displayValue(value)} - end: ${display.displayValue(endValue)}`;
+	});
 
 	let hovered = $state(false);
 </script>
@@ -27,31 +58,7 @@
 		visible: hovered,
 		label,
 		className: "timeline-item-tooltip",
-		elementPosition: (bounds) => {
-			const bodyBounds = document.body.getBoundingClientRect();
-
-			let left = Math.max(0, Math.min(bodyBounds.width, bounds.x));
-			let top = Math.max(0, Math.min(bodyBounds.height, bounds.y));
-			let right = Math.max(0, Math.min(bodyBounds.width, bounds.right));
-			let bottom = Math.max(
-				0,
-				Math.min(bodyBounds.height, bounds.bottom),
-			);
-
-			return hoverTooltip.center({
-				x: left,
-				left,
-				y: top,
-				top,
-				width: right - left,
-				height: bottom - top,
-				right,
-				bottom,
-				toJSON() {
-					return this;
-				},
-			});
-		},
+		elementPosition: centerWithinBody,
 	}}
 	transition:fade={{ duration: 500 }}
 	onintroend={() => (hovered = true)}

@@ -1149,6 +1149,7 @@
 			position={hover.element}
 			name={hover.element.layoutItem.item.name()}
 			value={hover.element.layoutItem.item.value()}
+			length={hover.element.layoutItem.item.length()}
 		/>
 	{/if}
 	{#if dragPreview != null && display != null && dragPreview.getCount() === 1}
