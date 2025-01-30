@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { off } from "process";
 	import type { ValueDisplay } from "src/timeline/Timeline";
 	import { hoverTooltip } from "src/view/Tooltip";
+	import { tooltip } from "src/view/tooltip-svelte-action";
 	import { fade } from "svelte/transition";
 
 	interface Props {
@@ -27,6 +27,31 @@
 		visible: hovered,
 		label,
 		className: "timeline-item-tooltip",
+		elementPosition: (bounds) => {
+			const bodyBounds = document.body.getBoundingClientRect();
+
+			let left = Math.max(0, Math.min(bodyBounds.width, bounds.x));
+			let top = Math.max(0, Math.min(bodyBounds.height, bounds.y));
+			let right = Math.max(0, Math.min(bodyBounds.width, bounds.right));
+			let bottom = Math.max(
+				0,
+				Math.min(bodyBounds.height, bounds.bottom),
+			);
+
+			return hoverTooltip.center({
+				x: left,
+				left,
+				y: top,
+				top,
+				width: right - left,
+				height: bottom - top,
+				right,
+				bottom,
+				toJSON() {
+					return this;
+				},
+			});
+		},
 	}}
 	transition:fade={{ duration: 500 }}
 	onintroend={() => (hovered = true)}
