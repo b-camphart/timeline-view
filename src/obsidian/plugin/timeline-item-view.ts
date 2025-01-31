@@ -338,9 +338,11 @@ const timelineItemViewStateSchema = json.expectObject({
 				key: json.expectString(""),
 				value: json.expectBoolean(true),
 			}),
-			secondaryProperty: json.expectString("created"),
-			secondaryPropertyInUse: json.expectBoolean(false),
-			useSecondaryPropertyAs: json.expectEnum({length: "length" as const, end: "end" as const}, "length"),
+			secondaryProperty: json.expectObject({
+				name: json.expectString("created"),
+				inUse: json.expectBoolean(false),
+				useAs: json.expectEnum({length: "length" as const, end: "end" as const}, "length"),
+			}),
 		}),
 		filter: json.expectObject({
 			collapsed: json.expectBoolean(true),

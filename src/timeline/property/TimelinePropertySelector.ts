@@ -4,9 +4,11 @@ import {TimelineProperty} from "./TimelineProperty";
 
 export type TimelinePropertySelectorState = {
 	selectedPropertyName: string;
-	secondaryPropertyName: string;
-	secondaryPropertyInUse: boolean;
-	useSecondaryPropertyAs: "length" | "end";
+	secondaryProperty: {
+		name: string;
+		inUse: boolean;
+		useAs: "length" | "end";
+	};
 	propertyPreferences: Record<string, boolean>;
 };
 
@@ -23,19 +25,19 @@ export class TimelinePropertySelector {
 	): Promise<TimelinePropertySelector> {
 		const selector = await TimelineNoteSorterSelector.sanitize(
 			savedState.selectedPropertyName,
-			savedState.secondaryPropertyName,
-			savedState.secondaryPropertyInUse,
+			savedState.secondaryProperty.name,
+			savedState.secondaryProperty.inUse,
 			noteProperties,
 			(selectedPropertyName: string) => {
 				savedState.selectedPropertyName = selectedPropertyName;
 				onStateChanged(savedState);
 			},
 			(secondaryPropertyName: string) => {
-				savedState.secondaryPropertyName = secondaryPropertyName;
+				savedState.secondaryProperty.name = secondaryPropertyName;
 				onStateChanged(savedState);
 			},
 			(useSecondaryProperty: boolean) => {
-				savedState.secondaryPropertyInUse = useSecondaryProperty;
+				savedState.secondaryProperty.inUse = useSecondaryProperty;
 				onStateChanged(savedState);
 			},
 		);
@@ -84,13 +86,12 @@ export class TimelinePropertySelector {
 		return this.timelineNoteSorterSelector.secondaryPropertyInUse();
 	}
 
-	#secondaryPropertyInterpretation: "length" | "end" = "length";
 	secondaryPropertyInterpretation(): "length" | "end" {
-		return this.savedState.useSecondaryPropertyAs;
+		return this.savedState.secondaryProperty.useAs;
 	}
 
 	interpretSecondaryPropertyAs(interpretation: "length" | "end") {
-		this.savedState.useSecondaryPropertyAs = interpretation;
+		this.savedState.secondaryProperty.useAs = interpretation;
 		this.saveState(this.savedState);
 	}
 }

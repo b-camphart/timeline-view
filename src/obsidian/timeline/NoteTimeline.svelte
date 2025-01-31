@@ -197,16 +197,11 @@
 			.namespace("property");
 
 		const selectedPropertyName = orderSettings.make("property", "created");
-		const secondaryPropertyName = orderSettings.make(
-			"secondaryProperty",
-			"created",
-		);
-		const secondaryPropertyInUse = orderSettings.make(
-			"secondaryPropertyInUse",
-			false,
-		);
-		const useSecondaryPropertyAs = orderSettings.make(
-			"useSecondaryPropertyAs",
+		const secondaryProperty = orderSettings.namespace("secondaryProperty");
+		const secondaryPropertyName = secondaryProperty.make("name", "created");
+		const secondaryPropertyInUse = secondaryProperty.make("inUse", false);
+		const useSecondaryPropertyAs = secondaryProperty.make(
+			"useAs",
 			"length",
 		);
 		const propertyPreferences = orderSettings.make(
@@ -218,16 +213,18 @@
 			notePropertyRepository,
 			{
 				selectedPropertyName: get(selectedPropertyName),
-				secondaryPropertyName: get(secondaryPropertyName),
-				secondaryPropertyInUse: get(secondaryPropertyInUse),
-				useSecondaryPropertyAs: get(useSecondaryPropertyAs),
+				secondaryProperty: {
+					name: get(secondaryPropertyName),
+					inUse: get(secondaryPropertyInUse),
+					useAs: get(useSecondaryPropertyAs),
+				},
 				propertyPreferences: get(propertyPreferences),
 			},
 			(state) => {
 				selectedPropertyName.set(state.selectedPropertyName);
-				secondaryPropertyName.set(state.secondaryPropertyName);
-				secondaryPropertyInUse.set(state.secondaryPropertyInUse);
-				useSecondaryPropertyAs.set(state.useSecondaryPropertyAs);
+				secondaryPropertyName.set(state.secondaryProperty.name);
+				secondaryPropertyInUse.set(state.secondaryProperty.inUse);
+				useSecondaryPropertyAs.set(state.secondaryProperty.useAs);
 				propertyPreferences.set(state.propertyPreferences);
 			},
 		);

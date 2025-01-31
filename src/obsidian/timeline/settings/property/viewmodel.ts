@@ -1,8 +1,10 @@
 export type TimelinePropertySettingViewModel = {
 	collapsed: boolean;
 	property: string;
-	secondaryProperty: string;
-	secondaryPropertyInUse: boolean;
-	useSecondaryPropertyAs: "length" | "end";
+	secondaryProperty: {
+		name: string;
+		inUse: boolean;
+		useAs: "length" | "end";
+	};
 	propertiesUseWholeNumbers: Record<string, boolean>;
 };
