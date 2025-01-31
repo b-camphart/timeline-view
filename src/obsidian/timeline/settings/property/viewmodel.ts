@@ -3,5 +3,6 @@ export type TimelinePropertySettingViewModel = {
 	property: string;
 	secondaryProperty: string;
 	secondaryPropertyInUse: boolean;
+	useSecondaryPropertyAs: "length" | "end";
 	propertiesUseWholeNumbers: Record<string, boolean>;
 };

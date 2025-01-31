@@ -6,6 +6,7 @@ export type TimelinePropertySelectorState = {
 	selectedPropertyName: string;
 	secondaryPropertyName: string;
 	secondaryPropertyInUse: boolean;
+	useSecondaryPropertyAs: "length" | "end";
 	propertyPreferences: Record<string, boolean>;
 };
 
@@ -47,21 +48,18 @@ export class TimelinePropertySelector {
 			}
 		}
 
-		return new TimelinePropertySelector(selector, newPreferences, preferences => {
-			savedState.propertyPreferences = preferences;
-			onStateChanged(savedState);
-		});
+		return new TimelinePropertySelector(selector, savedState, onStateChanged);
 	}
 
 	constructor(
 		public readonly timelineNoteSorterSelector: TimelineNoteSorterSelector,
-		private readonly propertiesPreferences: Record<string, boolean>,
-		private readonly onPreferencesChanged: (preferences: Record<string, boolean>) => void,
+		private readonly savedState: TimelinePropertySelectorState,
+		private readonly saveState: (state: TimelinePropertySelectorState) => void,
 	) {}
 
 	#savePropertyPreference(name: string, preferInts: boolean) {
-		this.propertiesPreferences[name] = preferInts;
-		this.onPreferencesChanged(this.propertiesPreferences);
+		this.savedState.propertyPreferences[name] = preferInts;
+		this.saveState(this.savedState);
 	}
 
 	selectedProperty() {
@@ -69,7 +67,7 @@ export class TimelinePropertySelector {
 		return new TimelineProperty(
 			sortProperty,
 			this.#savePropertyPreference.bind(this),
-			this.propertiesPreferences[sortProperty.name()],
+			this.savedState.propertyPreferences[sortProperty.name()],
 		);
 	}
 
@@ -78,7 +76,7 @@ export class TimelinePropertySelector {
 		return new TimelineProperty(
 			sortProperty,
 			this.#savePropertyPreference.bind(this),
-			this.propertiesPreferences[sortProperty.name()],
+			this.savedState.propertyPreferences[sortProperty.name()],
 		);
 	}
 
@@ -88,10 +86,11 @@ export class TimelinePropertySelector {
 
 	#secondaryPropertyInterpretation: "length" | "end" = "length";
 	secondaryPropertyInterpretation(): "length" | "end" {
-		return this.#secondaryPropertyInterpretation;
+		return this.savedState.useSecondaryPropertyAs;
 	}
 
 	interpretSecondaryPropertyAs(interpretation: "length" | "end") {
-		this.#secondaryPropertyInterpretation = interpretation;
+		this.savedState.useSecondaryPropertyAs = interpretation;
+		this.saveState(this.savedState);
 	}
 }

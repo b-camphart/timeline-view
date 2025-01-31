@@ -205,6 +205,10 @@
 			"secondaryPropertyInUse",
 			false,
 		);
+		const useSecondaryPropertyAs = orderSettings.make(
+			"useSecondaryPropertyAs",
+			"length",
+		);
 		const propertyPreferences = orderSettings.make(
 			"propertiesUseWholeNumbers",
 			{},
@@ -216,12 +220,14 @@
 				selectedPropertyName: get(selectedPropertyName),
 				secondaryPropertyName: get(secondaryPropertyName),
 				secondaryPropertyInUse: get(secondaryPropertyInUse),
+				useSecondaryPropertyAs: get(useSecondaryPropertyAs),
 				propertyPreferences: get(propertyPreferences),
 			},
 			(state) => {
 				selectedPropertyName.set(state.selectedPropertyName);
 				secondaryPropertyName.set(state.secondaryPropertyName);
 				secondaryPropertyInUse.set(state.secondaryPropertyInUse);
+				useSecondaryPropertyAs.set(state.useSecondaryPropertyAs);
 				propertyPreferences.set(state.propertyPreferences);
 			},
 		);
