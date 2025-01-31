@@ -61,6 +61,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 						property: {
 							property: timeline.order.name(),
 							secondaryProperty: {
+								name: length.propertyName,
 								inUse: length.use,
 							},
 						},

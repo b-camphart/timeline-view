@@ -198,7 +198,10 @@
 
 		const selectedPropertyName = orderSettings.make("property", "created");
 		const secondaryProperty = orderSettings.namespace("secondaryProperty");
-		const secondaryPropertyName = secondaryProperty.make("name", "created");
+		const secondaryPropertyName = secondaryProperty.make(
+			"name",
+			"modified",
+		);
 		const secondaryPropertyInUse = secondaryProperty.make("inUse", false);
 		const useSecondaryPropertyAs = secondaryProperty.make(
 			"useAs",
