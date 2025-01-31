@@ -31,21 +31,23 @@
 	bind:collapsed={$collapsed}
 	class={"timeline-property-setting"}
 >
-	<TimelineNoteSorterPropertySelect
-		tabindex={0}
-		property={selector.timelineNoteSorterSelector.selectedProperty()}
-		getProperties={() =>
-			selector.timelineNoteSorterSelector.availableProperties()}
-		on:selected={({ detail: property }) => {
-			selector.timelineNoteSorterSelector.selectProperty(property);
-			dispatch("propertySelected", selector.selectedProperty());
-		}}
-	/>
+	<section>
+		<TimelineNoteSorterPropertySelect
+			tabindex={0}
+			property={selector.timelineNoteSorterSelector.selectedProperty()}
+			getProperties={() =>
+				selector.timelineNoteSorterSelector.availableProperties()}
+			on:selected={({ detail: property }) => {
+				selector.timelineNoteSorterSelector.selectProperty(property);
+				dispatch("propertySelected", selector.selectedProperty());
+			}}
+		/>
 
-	<NumericPropertyIntToggle
-		property={selector.selectedProperty()}
-		tabindex={1}
-	/>
+		<NumericPropertyIntToggle
+			property={selector.selectedProperty()}
+			tabindex={1}
+		/>
+	</section>
 
 	<section>
 		<h6>
@@ -105,6 +107,9 @@
 <style>
 	:global(.timeline-property-setting .row) {
 		padding: var(--size-2-3) 0;
+	}
+	section {
+		font-size: var(--font-ui-small);
 	}
 	label {
 		width: 100%;
