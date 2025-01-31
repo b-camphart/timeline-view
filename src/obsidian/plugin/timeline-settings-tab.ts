@@ -46,17 +46,17 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 		const loadedSettings = await this.#getSettings();
 		return await TimelineNoteSorterSelector.sanitize(
 			loadedSettings.openWith.property,
-			loadedSettings.openWith.secondaryProperty,
-			loadedSettings.openWith.secondaryPropertyInUse,
+			loadedSettings.openWith.secondaryProperty.name,
+			loadedSettings.openWith.secondaryProperty.inUse,
 			this.#noteProperties,
 			async name => {
 				this.#updateSettings(settings => (settings.openWith.property = name));
 			},
 			async secondaryName => {
-				this.#updateSettings(settings => (settings.openWith.secondaryProperty = secondaryName));
+				this.#updateSettings(settings => (settings.openWith.secondaryProperty.name = secondaryName));
 			},
 			async useSecondary => {
-				this.#updateSettings(settings => (settings.openWith.secondaryPropertyInUse = useSecondary));
+				this.#updateSettings(settings => (settings.openWith.secondaryProperty.inUse = useSecondary));
 			},
 		);
 	}
@@ -64,9 +64,9 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 	async noteLength() {
 		const loadedSettings = await this.#getSettings();
 		return {
-			propertyName: loadedSettings.openWith.secondaryProperty,
-			use: loadedSettings.openWith.secondaryPropertyInUse,
-			useAs: loadedSettings.openWith.secondaryPropertyInterpretation,
+			propertyName: loadedSettings.openWith.secondaryProperty.name,
+			use: loadedSettings.openWith.secondaryProperty.inUse,
+			useAs: loadedSettings.openWith.secondaryProperty.useAs,
 		};
 	}
 
@@ -155,7 +155,7 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 				toggle.setValue(order.secondaryPropertyInUse());
 				toggle.onChange(value => {
 					order.toggleSecondaryProperty(value);
-					this.#updateSettings(settings => (settings.openWith.secondaryPropertyInUse = value));
+					this.#updateSettings(settings => (settings.openWith.secondaryProperty.inUse = value));
 				});
 			});
 
@@ -186,7 +186,7 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 				dropdown.onChange(value => {
 					length.useAs = value as "length" | "end";
 					this.#updateSettings(
-						settings => (settings.openWith.secondaryPropertyInterpretation = value as "length" | "end"),
+						settings => (settings.openWith.secondaryProperty.useAs = value as "length" | "end"),
 					);
 				});
 			});
@@ -227,9 +227,11 @@ function timelineSettingsSchema() {
 	return expectObject({
 		openWith: expectObject({
 			property: expectString("created"),
-			secondaryProperty: expectString("modified"),
-			secondaryPropertyInUse: expectBoolean(false),
-			secondaryPropertyInterpretation: expectEnum({length: "length" as const, end: "end" as const}, "length"),
+			secondaryProperty: expectObject({
+				name: expectString("modified"),
+				inUse: expectBoolean(false),
+				useAs: expectEnum({length: "length" as const, end: "end" as const}, "length"),
+			}),
 			filter: expectObject({
 				query: expectString(""),
 			}),
