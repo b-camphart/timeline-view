@@ -159,7 +159,7 @@ export class TimelineItemView extends obsidian.ItemView {
 			if (secondaryProperty.useAs === "length") {
 				return `${prefix}[length: ${secondaryProperty.name}]` + queryDisplay;
 			} else {
-				return `${prefix}-> [${secondaryProperty.name}]` + queryDisplay;
+				return `${prefix}→ [${secondaryProperty.name}]` + queryDisplay;
 			}
 		} else {
 			return prefix + queryDisplay;
