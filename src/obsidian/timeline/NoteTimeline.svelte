@@ -203,10 +203,7 @@
 			"modified",
 		);
 		const secondaryPropertyInUse = secondaryProperty.make("inUse", false);
-		const useSecondaryPropertyAs = secondaryProperty.make(
-			"useAs",
-			"length",
-		);
+		const useSecondaryPropertyAs = secondaryProperty.make("useAs", "end");
 		const propertyPreferences = orderSettings.make(
 			"propertiesUseWholeNumbers",
 			{},

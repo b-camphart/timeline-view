@@ -230,7 +230,7 @@ function timelineSettingsSchema() {
 			secondaryProperty: expectObject({
 				name: expectString("modified"),
 				inUse: expectBoolean(false),
-				useAs: expectEnum({length: "length" as const, end: "end" as const}, "length"),
+				useAs: expectEnum({length: "length" as const, end: "end" as const}, "end"),
 			}),
 			filter: expectObject({
 				query: expectString(""),
