@@ -5,6 +5,7 @@ import {TimelineProperty} from "./TimelineProperty";
 export type TimelinePropertySelectorState = {
 	selectedPropertyName: string;
 	secondaryPropertyName: string;
+	secondaryPropertyInUse: boolean;
 	propertyPreferences: Record<string, boolean>;
 };
 
@@ -22,6 +23,7 @@ export class TimelinePropertySelector {
 		const selector = await TimelineNoteSorterSelector.sanitize(
 			savedState.selectedPropertyName,
 			savedState.secondaryPropertyName,
+			savedState.secondaryPropertyInUse,
 			noteProperties,
 			(selectedPropertyName: string) => {
 				savedState.selectedPropertyName = selectedPropertyName;
@@ -29,6 +31,10 @@ export class TimelinePropertySelector {
 			},
 			(secondaryPropertyName: string) => {
 				savedState.secondaryPropertyName = secondaryPropertyName;
+				onStateChanged(savedState);
+			},
+			(useSecondaryProperty: boolean) => {
+				savedState.secondaryPropertyInUse = useSecondaryProperty;
 				onStateChanged(savedState);
 			},
 		);
@@ -74,5 +80,9 @@ export class TimelinePropertySelector {
 			this.#savePropertyPreference.bind(this),
 			this.propertiesPreferences[sortProperty.name()],
 		);
+	}
+
+	secondaryPropertyInUse() {
+		return this.timelineNoteSorterSelector.secondaryPropertyInUse();
 	}
 }

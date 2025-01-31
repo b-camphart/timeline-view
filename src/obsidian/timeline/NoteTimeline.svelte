@@ -201,6 +201,10 @@
 			"secondaryProperty",
 			"created",
 		);
+		const secondaryPropertyInUse = orderSettings.make(
+			"secondaryPropertyInUse",
+			false,
+		);
 		const propertyPreferences = orderSettings.make(
 			"propertiesUseWholeNumbers",
 			{},
@@ -211,11 +215,13 @@
 			{
 				selectedPropertyName: get(selectedPropertyName),
 				secondaryPropertyName: get(secondaryPropertyName),
+				secondaryPropertyInUse: get(secondaryPropertyInUse),
 				propertyPreferences: get(propertyPreferences),
 			},
 			(state) => {
 				selectedPropertyName.set(state.selectedPropertyName);
 				secondaryPropertyName.set(state.secondaryPropertyName);
+				secondaryPropertyInUse.set(state.secondaryPropertyInUse);
 				propertyPreferences.set(state.propertyPreferences);
 			},
 		);
@@ -344,6 +350,9 @@
 	}
 	const secondaryPropertyInterpretedAs: "length" | "end" = "length";
 	function lengthOf(note: Note) {
+		if (!propertySelector.secondaryPropertyInUse()) {
+			return 0;
+		}
 		const secondaryProperty = propertySelector.secondaryProperty();
 		if (secondaryPropertyInterpretedAs === "length") {
 			const length = secondaryProperty.selectValueFromNote(note);
@@ -544,6 +553,12 @@
 					onPropertySelected(event.detail)}
 				on:secondaryPropertySelected={({ detail }) =>
 					onSecondaryPropertySelected(detail)}
+				on:secondaryPropertyToggled={({ detail: inUse }) => {
+					for (const item of itemsById.values()) {
+						item.lengthSelector = lengthOf;
+					}
+					timelineView!.refresh();
+				}}
 			/>
 		{/if}
 		<TimelineFilterSection

@@ -30,9 +30,11 @@ export class TimelineNoteSorterSelector {
 	static async sanitize(
 		selectedPropertyName: string,
 		secondaryPropertyName: string,
+		secondaryPropertyInUse: boolean,
 		noteProperties: NotePropertyRepository,
 		saveSelectedPropertyName: (name: string) => void,
 		saveSecondaryPropertyName: (name: string) => void,
+		saveSecondaryPropertyUse: (use: boolean) => void,
 	) {
 		const selectedProperty = await propertyFromName(selectedPropertyName, noteProperties);
 		const secondaryProperty = await propertyFromName(secondaryPropertyName, noteProperties);
@@ -40,24 +42,30 @@ export class TimelineNoteSorterSelector {
 		return new TimelineNoteSorterSelector(
 			selectedProperty,
 			secondaryProperty,
+			secondaryPropertyInUse,
 			noteProperties,
 			saveSelectedPropertyName,
 			saveSecondaryPropertyName,
+			saveSecondaryPropertyUse,
 		);
 	}
 
 	constructor(
 		selectedProperty: TimelineNoteSorterProperty,
 		secondaryProperty: TimelineNoteSorterProperty,
+		secondaryPropertyInUse: boolean,
 		noteProperties: NotePropertyRepository,
 		saveSelectedPropertyName: (name: string) => void,
 		saveSecondaryPropertyName: (name: string) => void,
+		saveSecondaryPropertyUse: (use: boolean) => void,
 	) {
 		this.#selectedProperty = selectedProperty;
 		this.#secondaryProperty = secondaryProperty;
+		this.#secondaryPropertyInUse = secondaryPropertyInUse;
 		this.#noteProperties = noteProperties;
 		this.#saveSelectedPropertyName = saveSelectedPropertyName;
 		this.#saveSecondaryPropertyName = saveSecondaryPropertyName;
+		this.#saveSecondaryPropertyUse = saveSecondaryPropertyUse;
 	}
 
 	#selectedProperty;
@@ -82,6 +90,17 @@ export class TimelineNoteSorterSelector {
 	selectSecondaryProperty(property: TimelineNoteSorterProperty) {
 		this.#secondaryProperty = property;
 		this.#saveSecondaryPropertyName(property.name());
+	}
+
+	#secondaryPropertyInUse;
+	secondaryPropertyInUse() {
+		return this.#secondaryPropertyInUse;
+	}
+
+	#saveSecondaryPropertyUse;
+	toggleSecondaryProperty(use: boolean) {
+		this.#secondaryPropertyInUse = use;
+		this.#saveSecondaryPropertyUse(use);
 	}
 
 	#noteProperties;

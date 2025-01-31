@@ -14,20 +14,17 @@
 	interface Props {
 		collapsed: Writable<boolean>;
 		selector: TimelinePropertySelector;
-		/** @bindable */
-		useSecondaryProperty?: boolean;
 	}
 
-	let {
-		collapsed,
-		selector,
-		useSecondaryProperty = $bindable(false),
-	}: Props = $props();
+	let { collapsed, selector }: Props = $props();
 
 	const dispatch = createEventDispatcher<{
 		propertySelected: TimelineProperty;
 		secondaryPropertySelected: TimelineProperty;
+		secondaryPropertyToggled: boolean;
 	}>();
+
+	let secondaryPropertyInUse = $state(selector.secondaryPropertyInUse());
 </script>
 
 <CollapsableSection
@@ -56,10 +53,17 @@
 			<ToggleInput
 				tabindex={2}
 				name="Secondary Property"
-				bind:checked={useSecondaryProperty}
+				bind:checked={() => secondaryPropertyInUse,
+				(use) => {
+					secondaryPropertyInUse = use;
+					selector.timelineNoteSorterSelector.toggleSecondaryProperty(
+						use,
+					);
+					dispatch("secondaryPropertyToggled", use);
+				}}
 			/>
 		</h6>
-		{#if useSecondaryProperty}
+		{#if secondaryPropertyInUse}
 			<TimelineNoteSorterPropertySelect
 				tabindex={3}
 				property={selector.timelineNoteSorterSelector.secondaryProperty()}
