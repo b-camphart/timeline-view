@@ -23,8 +23,6 @@
 		secondaryPropertySelected: TimelineProperty;
 		secondaryPropertyToggled: boolean;
 	}>();
-
-	let secondaryPropertyInUse = $state(selector.secondaryPropertyInUse());
 </script>
 
 <CollapsableSection
@@ -54,9 +52,8 @@
 				row
 				tabindex={2}
 				name="Secondary Property"
-				bind:checked={() => secondaryPropertyInUse,
+				bind:checked={() => selector.secondaryPropertyInUse(),
 				(use) => {
-					secondaryPropertyInUse = use;
 					selector.timelineNoteSorterSelector.toggleSecondaryProperty(
 						use,
 					);
@@ -64,7 +61,7 @@
 				}}
 			/>
 		</h6>
-		{#if secondaryPropertyInUse}
+		{#if selector.secondaryPropertyInUse()}
 			<TimelineNoteSorterPropertySelect
 				tabindex={3}
 				property={selector.timelineNoteSorterSelector.secondaryProperty()}

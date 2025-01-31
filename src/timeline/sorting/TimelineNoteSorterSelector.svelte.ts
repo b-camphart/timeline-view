@@ -92,7 +92,7 @@ export class TimelineNoteSorterSelector {
 		this.#saveSecondaryPropertyName(property.name());
 	}
 
-	#secondaryPropertyInUse;
+	#secondaryPropertyInUse = $state(false);
 	secondaryPropertyInUse() {
 		return this.#secondaryPropertyInUse;
 	}
