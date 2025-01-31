@@ -63,6 +63,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 							secondaryProperty: {
 								name: length.propertyName,
 								inUse: length.use,
+								useAs: length.useAs,
 							},
 						},
 						filter: {

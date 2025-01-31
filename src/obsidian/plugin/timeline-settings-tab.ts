@@ -1,7 +1,7 @@
 import * as obsidian from "obsidian";
 import type {ObsidianNotePropertyRepository} from "src/note/property/obsidian-repository";
 import TimelineNoteSorterPropertySelect from "../../timeline/sorting/TimelineNoteSorterPropertySelect.svelte";
-import {expectArray, expectBoolean, expectObject, expectString, type Parsed} from "src/utils/json";
+import {expectArray, expectBoolean, expectObject, expectString, expectEnum, type Parsed} from "src/utils/json";
 import {TimelineNoteSorterSelector} from "src/timeline/sorting/TimelineNoteSorterSelector.svelte";
 import TimelineQueryFilterInput from "src/timeline/filter/TimelineQueryFilterInput.svelte";
 import {TimelineItemQueryFilter} from "src/timeline/filter/TimelineItemQueryFilter";
@@ -66,6 +66,7 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 		return {
 			propertyName: loadedSettings.openWith.secondaryProperty,
 			use: loadedSettings.openWith.secondaryPropertyInUse,
+			useAs: loadedSettings.openWith.secondaryPropertyInterpretation,
 		};
 	}
 
@@ -113,6 +114,7 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 		const containerEl = this.containerEl;
 
 		const order = await this.noteOrder();
+		const length = await this.noteLength();
 		const filter = await this.noteFilter();
 		const groups = await this.groups();
 
@@ -174,6 +176,21 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 			},
 		});
 
+		new obsidian.Setting(containerEl)
+			.setName("Interpret Secondary Property As")
+			.setDesc("By default, how should the secondary property be interpreted?")
+			.addDropdown(dropdown => {
+				dropdown.addOption("length", "Length");
+				dropdown.addOption("end", "End");
+				dropdown.setValue(length.useAs);
+				dropdown.onChange(value => {
+					length.useAs = value as "length" | "end";
+					this.#updateSettings(
+						settings => (settings.openWith.secondaryPropertyInterpretation = value as "length" | "end"),
+					);
+				});
+			});
+
 		const filterSetting = new obsidian.Setting(containerEl)
 			.setName("Default Filter")
 			.setDesc("The default filter to use for notes in the timeline when it's first opened.");
@@ -212,6 +229,7 @@ function timelineSettingsSchema() {
 			property: expectString("created"),
 			secondaryProperty: expectString("modified"),
 			secondaryPropertyInUse: expectBoolean(false),
+			secondaryPropertyInterpretation: expectEnum({length: "length" as const, end: "end" as const}, "length"),
 			filter: expectObject({
 				query: expectString(""),
 			}),
