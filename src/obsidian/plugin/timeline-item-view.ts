@@ -148,11 +148,22 @@ export class TimelineItemView extends obsidian.ItemView {
 	}
 
 	private computeDisplayText() {
+		const property = this.state?.settings?.property?.property ?? "";
+		const secondaryProperty = this.state?.settings?.property?.secondaryProperty;
 		const query = this.state?.settings?.filter?.query ?? "";
-		if (query !== "") {
-			return `Timeline view - ${query}`;
+
+		const prefix = `Timeline view [${property}] `;
+		const queryDisplay = query !== "" ? ` (filter: ${query})` : "";
+
+		if (secondaryProperty != null && secondaryProperty.inUse) {
+			if (secondaryProperty.useAs === "length") {
+				return `${prefix}[length: ${secondaryProperty.name}]` + queryDisplay;
+			} else {
+				return `${prefix}-> [${secondaryProperty.name}]` + queryDisplay;
+			}
+		} else {
+			return prefix + queryDisplay;
 		}
-		return "Timeline view";
 	}
 	#displayText = this.computeDisplayText();
 	private get displayText() {
@@ -173,7 +184,7 @@ export class TimelineItemView extends obsidian.ItemView {
 		return this.displayText;
 	}
 
-	private component: NoteTimeline | null = null;
+	private component: ReturnType<typeof NoteTimeline> | null = null;
 	private initialization?: Promise<TimelineItemViewState>;
 	private completeInitialization(_state: TimelineItemViewState) {}
 
@@ -233,7 +244,7 @@ export class TimelineItemView extends obsidian.ItemView {
 				switchToEditMode.toggle(newMode === EditMode.View);
 			});
 
-			const timelineComponent = mount(NoteTimeline, {
+			this.component = mount(NoteTimeline, {
 				target: content,
 				props: {
 					noteRepository: this.notes,
