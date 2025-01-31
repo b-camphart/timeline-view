@@ -51,6 +51,7 @@
 	<section>
 		<h6>
 			<ToggleInput
+				row
 				tabindex={2}
 				name="Secondary Property"
 				bind:checked={() => secondaryPropertyInUse,
