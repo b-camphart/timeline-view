@@ -186,6 +186,11 @@
 			);
 		}
 	}
+	const secondaryPropertyInterpretedAs = viewModel
+		.namespace("settings")
+		.namespace("property")
+		.namespace("secondaryProperty")
+		.make("useAs", "end");
 
 	// @ts-ignore
 	let timelineView: TimelineView = $state();
@@ -203,7 +208,6 @@
 			"modified",
 		);
 		const secondaryPropertyInUse = secondaryProperty.make("inUse", false);
-		const useSecondaryPropertyAs = secondaryProperty.make("useAs", "end");
 		const propertyPreferences = orderSettings.make(
 			"propertiesUseWholeNumbers",
 			{},
@@ -216,7 +220,7 @@
 				secondaryProperty: {
 					name: get(secondaryPropertyName),
 					inUse: get(secondaryPropertyInUse),
-					useAs: get(useSecondaryPropertyAs),
+					useAs: get(secondaryPropertyInterpretedAs),
 				},
 				propertyPreferences: get(propertyPreferences),
 			},
@@ -224,7 +228,9 @@
 				selectedPropertyName.set(state.selectedPropertyName);
 				secondaryPropertyName.set(state.secondaryProperty.name);
 				secondaryPropertyInUse.set(state.secondaryProperty.inUse);
-				useSecondaryPropertyAs.set(state.secondaryProperty.useAs);
+				secondaryPropertyInterpretedAs.set(
+					state.secondaryProperty.useAs,
+				);
 				propertyPreferences.set(state.propertyPreferences);
 			},
 		);
@@ -351,13 +357,12 @@
 	function getValueSelector(this: void) {
 		return propertySelector.selectedProperty();
 	}
-	let secondaryPropertyInterpretedAs: "length" | "end" = "length";
 	function lengthOf(note: Note) {
 		if (!propertySelector.secondaryPropertyInUse()) {
 			return 0;
 		}
 		const secondaryProperty = propertySelector.secondaryProperty();
-		if (secondaryPropertyInterpretedAs === "length") {
+		if ($secondaryPropertyInterpretedAs === "length") {
 			const length = secondaryProperty.selectValueFromNote(note);
 			if (length < 0) return 0;
 			return length;
@@ -565,7 +570,7 @@
 				on:secondaryPropertyReinterpreted={({
 					detail: interpretation,
 				}) => {
-					secondaryPropertyInterpretedAs = interpretation;
+					$secondaryPropertyInterpretedAs = interpretation;
 					for (const item of itemsById.values()) {
 						item.lengthSelector = lengthOf;
 					}
