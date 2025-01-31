@@ -51,6 +51,7 @@
 		<h6>
 			<ToggleInput
 				row
+				mod="mod-small"
 				tabindex={2}
 				name="Secondary Property"
 				bind:checked={() => selector.secondaryPropertyInUse(),
