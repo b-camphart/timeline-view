@@ -1,9 +1,10 @@
-import type { NotePropertyRepository } from "src/note/property/repository";
-import { TimelineNoteSorterSelector } from "../sorting/TimelineNoteSorterSelector";
-import { TimelineProperty } from "./TimelineProperty";
+import type {NotePropertyRepository} from "src/note/property/repository";
+import {TimelineNoteSorterSelector} from "../sorting/TimelineNoteSorterSelector";
+import {TimelineProperty} from "./TimelineProperty";
 
 export type TimelinePropertySelectorState = {
 	selectedPropertyName: string;
+	secondaryPropertyName: string;
 	propertyPreferences: Record<string, boolean>;
 };
 
@@ -20,9 +21,14 @@ export class TimelinePropertySelector {
 	): Promise<TimelinePropertySelector> {
 		const selector = await TimelineNoteSorterSelector.sanitize(
 			savedState.selectedPropertyName,
+			savedState.secondaryPropertyName,
 			noteProperties,
 			(selectedPropertyName: string) => {
 				savedState.selectedPropertyName = selectedPropertyName;
+				onStateChanged(savedState);
+			},
+			(secondaryPropertyName: string) => {
+				savedState.secondaryPropertyName = secondaryPropertyName;
 				onStateChanged(savedState);
 			},
 		);
@@ -30,30 +36,21 @@ export class TimelinePropertySelector {
 		const properties = await selector.availableProperties();
 		const newPreferences: Record<string, boolean> = {};
 		for (const property of properties) {
-			if (
-				savedState.propertyPreferences.hasOwnProperty(property.name())
-			) {
-				newPreferences[property.name()] =
-					savedState.propertyPreferences[property.name()];
+			if (savedState.propertyPreferences.hasOwnProperty(property.name())) {
+				newPreferences[property.name()] = savedState.propertyPreferences[property.name()];
 			}
 		}
 
-		return new TimelinePropertySelector(
-			selector,
-			newPreferences,
-			preferences => {
-				savedState.propertyPreferences = preferences;
-				onStateChanged(savedState);
-			},
-		);
+		return new TimelinePropertySelector(selector, newPreferences, preferences => {
+			savedState.propertyPreferences = preferences;
+			onStateChanged(savedState);
+		});
 	}
 
 	constructor(
 		public readonly timelineNoteSorterSelector: TimelineNoteSorterSelector,
 		private readonly propertiesPreferences: Record<string, boolean>,
-		private readonly onPreferencesChanged: (
-			preferences: Record<string, boolean>,
-		) => void,
+		private readonly onPreferencesChanged: (preferences: Record<string, boolean>) => void,
 	) {}
 
 	#savePropertyPreference(name: string, preferInts: boolean) {
@@ -63,6 +60,15 @@ export class TimelinePropertySelector {
 
 	selectedProperty() {
 		const sortProperty = this.timelineNoteSorterSelector.selectedProperty();
+		return new TimelineProperty(
+			sortProperty,
+			this.#savePropertyPreference.bind(this),
+			this.propertiesPreferences[sortProperty.name()],
+		);
+	}
+
+	secondaryProperty() {
+		const sortProperty = this.timelineNoteSorterSelector.secondaryProperty();
 		return new TimelineProperty(
 			sortProperty,
 			this.#savePropertyPreference.bind(this),

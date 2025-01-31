@@ -46,9 +46,13 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 		const loadedSettings = await this.#getSettings();
 		return await TimelineNoteSorterSelector.sanitize(
 			loadedSettings.openWith.property,
+			loadedSettings.openWith.secondaryProperty,
 			this.#noteProperties,
 			async name => {
 				this.#updateSettings(settings => (settings.openWith.property = name));
+			},
+			async secondaryName => {
+				this.#updateSettings(settings => (settings.openWith.secondaryProperty = secondaryName));
 			},
 		);
 	}
@@ -119,7 +123,8 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 		mount(TimelineNoteSorterPropertySelect, {
 			target: propertySetting.controlEl,
 			props: {
-				order,
+				property: order.selectedProperty(),
+				getProperties: () => order.availableProperties(),
 				tabindex: 0,
 			},
 			events: {
@@ -165,6 +170,7 @@ function timelineSettingsSchema() {
 	return expectObject({
 		openWith: expectObject({
 			property: expectString("created"),
+			secondaryProperty: expectString("created"),
 			filter: expectObject({
 				query: expectString(""),
 			}),

@@ -125,6 +125,7 @@
 		dispatch("noteSelected", { note, event });
 	}
 
+	// @ts-ignore
 	let propertySelector: TimelinePropertySelector = $state();
 
 	async function createItem(item: { value: number }) {
@@ -186,7 +187,9 @@
 		}
 	}
 
+	// @ts-ignore
 	let timelineView: TimelineView = $state();
+	// @ts-ignore
 	let display: RulerValueDisplay = $state();
 	onMount(async () => {
 		const orderSettings = viewModel
@@ -194,6 +197,10 @@
 			.namespace("property");
 
 		const selectedPropertyName = orderSettings.make("property", "created");
+		const secondaryPropertyName = orderSettings.make(
+			"secondaryProperty",
+			"created",
+		);
 		const propertyPreferences = orderSettings.make(
 			"propertiesUseWholeNumbers",
 			{},
@@ -203,20 +210,23 @@
 			notePropertyRepository,
 			{
 				selectedPropertyName: get(selectedPropertyName),
+				secondaryPropertyName: get(secondaryPropertyName),
 				propertyPreferences: get(propertyPreferences),
 			},
 			(state) => {
 				selectedPropertyName.set(state.selectedPropertyName);
+				secondaryPropertyName.set(state.secondaryPropertyName);
 				propertyPreferences.set(state.propertyPreferences);
 			},
 		);
 
 		display = propertySelector.selectedProperty().displayedAs();
 
-		for (const note of await noteRepository.listAll()) {
+		for (const note of noteRepository.listAll()) {
 			const item = new TimelineNoteItem(
 				note,
 				getValueSelector,
+				lengthOf,
 				itemColorSupplier,
 			);
 			itemsById.set(item.id(), item);
@@ -332,12 +342,29 @@
 	function getValueSelector(this: void) {
 		return propertySelector.selectedProperty();
 	}
+	const secondaryPropertyInterpretedAs: "length" | "end" = "length";
+	function lengthOf(note: Note) {
+		const secondaryProperty = propertySelector.secondaryProperty();
+		if (secondaryPropertyInterpretedAs === "length") {
+			const length = secondaryProperty.selectValueFromNote(note);
+			if (length < 0) return 0;
+			return length;
+		}
+		const start = propertySelector
+			.selectedProperty()
+			.selectValueFromNote(note);
+		const end = secondaryProperty.selectValueFromNote(note);
+		const length = end - start;
+		if (length < 0) return 0;
+		return length;
+	}
 	export async function addFile(file: Note) {
 		if (timelineView == null) return;
 		if (itemsById.has(file.id())) return;
 		const item = new TimelineNoteItem(
 			file,
 			getValueSelector,
+			lengthOf,
 			itemColorSupplier,
 		);
 		itemsById.set(file.id(), item);
@@ -408,6 +435,13 @@
 		items = new MutableSortedArray((item) => item.value(), ...items);
 		display = property.displayedAs();
 		timelineView.zoomToFit(items);
+	}
+
+	function onSecondaryPropertySelected(property: TimelineProperty) {
+		for (const item of itemsById.values()) {
+			item.lengthSelector = lengthOf;
+		}
+		timelineView!.refresh();
 	}
 
 	function onPreviewNewItemValue(item: TimelineItem, value: number): number {
@@ -508,6 +542,8 @@
 				selector={propertySelector}
 				on:propertySelected={(event) =>
 					onPropertySelected(event.detail)}
+				on:secondaryPropertySelected={({ detail }) =>
+					onSecondaryPropertySelected(detail)}
 			/>
 		{/if}
 		<TimelineFilterSection

@@ -1,9 +1,26 @@
-import type { NotePropertyRepository } from "src/note/property/repository";
-import {
-	isNumericNoteProperty,
-	NotePropertyTypes,
-	TimelineNoteSorterProperty,
-} from "./TimelineNoteSorterProperty";
+import type {NotePropertyRepository} from "src/note/property/repository";
+import {isNumericNoteProperty, NotePropertyTypes, TimelineNoteSorterProperty} from "./TimelineNoteSorterProperty";
+
+async function propertyFromName(name: string, noteProperties: NotePropertyRepository) {
+	if (name === TimelineNoteSorterProperty.Created.name()) {
+		return TimelineNoteSorterProperty.Created;
+	}
+
+	if (name === TimelineNoteSorterProperty.Modified.name()) {
+		return TimelineNoteSorterProperty.Modified;
+	}
+
+	const selectedProperty = await noteProperties.getPropertyByName(name);
+	if (selectedProperty == null) {
+		return TimelineNoteSorterProperty.Created;
+	}
+
+	if (!isNumericNoteProperty(selectedProperty)) {
+		return TimelineNoteSorterProperty.Created;
+	}
+
+	return TimelineNoteSorterProperty.fromNoteProperty(selectedProperty);
+}
 
 export class TimelineNoteSorterSelector {
 	/**
@@ -12,53 +29,35 @@ export class TimelineNoteSorterSelector {
 	 */
 	static async sanitize(
 		selectedPropertyName: string,
+		secondaryPropertyName: string,
 		noteProperties: NotePropertyRepository,
 		saveSelectedPropertyName: (name: string) => void,
+		saveSecondaryPropertyName: (name: string) => void,
 	) {
-		const createWithProperty = (property: TimelineNoteSorterProperty) => {
-			return new TimelineNoteSorterSelector(
-				property,
-				noteProperties,
-				saveSelectedPropertyName,
-			);
-		};
+		const selectedProperty = await propertyFromName(selectedPropertyName, noteProperties);
+		const secondaryProperty = await propertyFromName(secondaryPropertyName, noteProperties);
 
-		if (
-			selectedPropertyName === TimelineNoteSorterProperty.Created.name()
-		) {
-			return createWithProperty(TimelineNoteSorterProperty.Created);
-		}
-
-		if (
-			selectedPropertyName === TimelineNoteSorterProperty.Modified.name()
-		) {
-			return createWithProperty(TimelineNoteSorterProperty.Modified);
-		}
-
-		const selectedProperty = await noteProperties.getPropertyByName(
-			selectedPropertyName,
-		);
-		if (selectedProperty == null) {
-			return createWithProperty(TimelineNoteSorterProperty.Created);
-		}
-
-		if (!isNumericNoteProperty(selectedProperty)) {
-			return createWithProperty(TimelineNoteSorterProperty.Created);
-		}
-
-		return createWithProperty(
-			TimelineNoteSorterProperty.fromNoteProperty(selectedProperty),
+		return new TimelineNoteSorterSelector(
+			selectedProperty,
+			secondaryProperty,
+			noteProperties,
+			saveSelectedPropertyName,
+			saveSecondaryPropertyName,
 		);
 	}
 
 	constructor(
 		selectedProperty: TimelineNoteSorterProperty,
+		secondaryProperty: TimelineNoteSorterProperty,
 		noteProperties: NotePropertyRepository,
 		saveSelectedPropertyName: (name: string) => void,
+		saveSecondaryPropertyName: (name: string) => void,
 	) {
 		this.#selectedProperty = selectedProperty;
+		this.#secondaryProperty = secondaryProperty;
 		this.#noteProperties = noteProperties;
 		this.#saveSelectedPropertyName = saveSelectedPropertyName;
+		this.#saveSecondaryPropertyName = saveSecondaryPropertyName;
 	}
 
 	#selectedProperty;
@@ -67,31 +66,35 @@ export class TimelineNoteSorterSelector {
 		return this.#selectedProperty;
 	}
 
+	#secondaryProperty;
+
+	secondaryProperty() {
+		return this.#secondaryProperty;
+	}
+
 	#saveSelectedPropertyName;
 	selectProperty(property: TimelineNoteSorterProperty) {
 		this.#selectedProperty = property;
 		this.#saveSelectedPropertyName(property.name());
 	}
 
+	#saveSecondaryPropertyName;
+	selectSecondaryProperty(property: TimelineNoteSorterProperty) {
+		this.#secondaryProperty = property;
+		this.#saveSecondaryPropertyName(property.name());
+	}
+
 	#noteProperties;
 	async availableProperties() {
-		const noteProperties = await this.#noteProperties.listPropertiesOfTypes(
-			NotePropertyTypes,
-		);
+		const noteProperties = await this.#noteProperties.listPropertiesOfTypes(NotePropertyTypes);
 
-		const properties: [
-			TimelineNoteSorterProperty,
-			TimelineNoteSorterProperty,
-			...TimelineNoteSorterProperty[],
-		] = [
+		const properties: [TimelineNoteSorterProperty, TimelineNoteSorterProperty, ...TimelineNoteSorterProperty[]] = [
 			TimelineNoteSorterProperty.Created,
 			TimelineNoteSorterProperty.Modified,
 		];
 
 		for (const property of noteProperties) {
-			properties.push(
-				TimelineNoteSorterProperty.fromNoteProperty(property),
-			);
+			properties.push(TimelineNoteSorterProperty.fromNoteProperty(property));
 		}
 
 		return properties;

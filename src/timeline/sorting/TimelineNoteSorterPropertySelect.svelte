@@ -3,7 +3,6 @@
 	import PropertySelectionOption from "./TimelineNoteSorterPropertySelectOption.svelte";
 	import { createEventDispatcher, onMount } from "svelte";
 	import { TimelineNoteSorterProperty } from "src/timeline/sorting/TimelineNoteSorterProperty";
-	import type { TimelineNoteSorterSelector } from "src/timeline/sorting/TimelineNoteSorterSelector";
 
 	const alwaysAvailableProperties = [
 		TimelineNoteSorterProperty.Created,
@@ -11,13 +10,14 @@
 	];
 
 	interface Props {
-		order: TimelineNoteSorterSelector;
+		property: TimelineNoteSorterProperty;
+		getProperties(): Promise<TimelineNoteSorterProperty[]>;
 		tabindex: number;
 	}
 
-	let { order, tabindex }: Props = $props();
+	let { property, getProperties, tabindex }: Props = $props();
 
-	let selectedPropertyName = $state(order.selectedProperty().name());
+	let selectedPropertyName = $state(property.name());
 
 	const dispatch = createEventDispatcher<{
 		selected: TimelineNoteSorterProperty;
@@ -36,7 +36,6 @@
 		selectedIndex = index;
 		consideredIndex = -1;
 		const selectedProperty = availableProperties[index];
-		order.selectProperty(selectedProperty);
 		dispatch("selected", selectedProperty);
 	}
 
@@ -53,7 +52,7 @@
 	}
 
 	async function getPropertyList() {
-		const propertyList = await order.availableProperties();
+		const propertyList = await getProperties();
 		availableProperties = propertyList;
 		selectedIndex = propertyList.findIndex(
 			(property) => property.name() === selectedPropertyName,
