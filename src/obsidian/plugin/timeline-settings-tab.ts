@@ -61,6 +61,13 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 		);
 	}
 
+	async noteLength() {
+		const loadedSettings = await this.#getSettings();
+		return {
+			use: loadedSettings.openWith.secondaryPropertyInUse,
+		};
+	}
+
 	async noteFilter(): Promise<TimelineItemQueryFilter> {
 		const loadedSettings = await this.#getSettings();
 		return new TimelineItemQueryFilter(this.#notes, loadedSettings.openWith.filter.query, async query => {
@@ -137,6 +144,17 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 				},
 			},
 		});
+
+		const secondaryPropertySetting = new obsidian.Setting(containerEl)
+			.setName("Use Secondary Property")
+			.setDesc("Should a secondary property be used by default when the timeline is first opened?")
+			.addToggle(toggle => {
+				toggle.setValue(order.secondaryPropertyInUse());
+				toggle.onChange(value => {
+					order.toggleSecondaryProperty(value);
+					this.#updateSettings(settings => (settings.openWith.secondaryPropertyInUse = value));
+				});
+			});
 
 		const filterSetting = new obsidian.Setting(containerEl)
 			.setName("Default Filter")

@@ -14,26 +14,13 @@ export const LUCID_ICON = "waypoints";
 
 export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 	async onload(): Promise<void> {
-		const notes = new note.ObsidianNoteRepository(
-			this.app.vault,
-			this.app.metadataCache,
-			this.app.fileManager,
-		);
+		const notes = new note.ObsidianNoteRepository(this.app.vault, this.app.metadataCache, this.app.fileManager);
 		const properties = new property.ObsidianNotePropertyRepository(
-			() =>
-				this.app.vault.adapter.read(
-					obsidian.normalizePath(".obsidian/types.json"),
-				),
+			() => this.app.vault.adapter.read(obsidian.normalizePath(".obsidian/types.json")),
 			() => MetadataTypeManager.getMetadataTypeManager(this.app),
 		);
 
-		const timelineSettings =
-			new timelineSettingsTab.ObsidianSettingsTimelineTab(
-				this.app,
-				this,
-				properties,
-				notes,
-			);
+		const timelineSettings = new timelineSettingsTab.ObsidianSettingsTimelineTab(this.app, this, properties, notes);
 		this.addSettingTab(timelineSettings);
 
 		const assignTimelineViewToLeaf = (
@@ -56,18 +43,15 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 				filterQuery?: string;
 			},
 		) => {
-			const sorter = (
-				await timelineSettings.noteOrder()
-			).selectedProperty();
+			const sorter = (await timelineSettings.noteOrder()).selectedProperty();
+			const length = await timelineSettings.noteLength();
 			const filter = await timelineSettings.noteFilter();
 			const groups = await timelineSettings.groups();
 			const timeline = await createTimeline.createNewTimeline(
 				notes,
 				sorter,
 				overrides?.filterQuery
-					? notes.getInclusiveNoteFilterForQuery(
-							overrides.filterQuery,
-					  )
+					? notes.getInclusiveNoteFilterForQuery(overrides.filterQuery)
 					: filter.noteFilter(),
 			);
 			assignTimelineViewToLeaf(
@@ -76,6 +60,9 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 					settings: {
 						property: {
 							property: timeline.order.name(),
+							secondaryProperty: {
+								inUse: length.use,
+							},
 						},
 						filter: {
 							query: timeline.filter.query(),
@@ -96,15 +83,8 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 			);
 		};
 
-		const openTimelineViewInNewLeaf = (overrides?: {
-			orderedBy?: string;
-			filterQuery?: string;
-		}) => {
-			openTimelineView(
-				this.app.workspace.getLeaf(true),
-				undefined,
-				overrides,
-			);
+		const openTimelineViewInNewLeaf = (overrides?: {orderedBy?: string; filterQuery?: string}) => {
+			openTimelineView(this.app.workspace.getLeaf(true), undefined, overrides);
 		};
 
 		this.registerView(OBSIDIAN_LEAF_VIEW_TYPE, leaf => {
@@ -121,8 +101,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 		});
 
 		this.addRibbonIcon(LUCID_ICON, "Open timeline view", event => {
-			const previousState =
-				timelineItemView.TimelineItemView.getPreviouslyClosedState();
+			const previousState = timelineItemView.TimelineItemView.getPreviouslyClosedState();
 			if (event.button === 2) {
 				const menu = new obsidian.Menu().addItem(item => {
 					item.setTitle("Open new timeline view").onClick(() => {
@@ -131,22 +110,17 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 				});
 				if (previousState != null) {
 					menu.addItem(item => {
-						item.setTitle("Re-open closed timeline view").onClick(
-							() => {
-								assignTimelineViewToLeaf(
-									this.app.workspace.getLeaf(true),
-									{...previousState, isNew: false},
-								);
-							},
-						);
+						item.setTitle("Re-open closed timeline view").onClick(() => {
+							assignTimelineViewToLeaf(this.app.workspace.getLeaf(true), {
+								...previousState,
+								isNew: false,
+							});
+						});
 					});
 				}
 				menu.showAtMouseEvent(event);
 			} else {
-				if (
-					timelineSettings.usePreviousState() &&
-					previousState != null
-				) {
+				if (timelineSettings.usePreviousState() && previousState != null) {
 					assignTimelineViewToLeaf(this.app.workspace.getLeaf(true), {
 						...previousState,
 						isNew: false,
@@ -166,11 +140,9 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 			id: "reopen-timeline-view",
 			name: "Re-open timeline view",
 			checkCallback: checking => {
-				if (checking)
-					return timelineItemView.TimelineItemView.hasClosedState();
+				if (checking) return timelineItemView.TimelineItemView.hasClosedState();
 
-				const previousState =
-					timelineItemView.TimelineItemView.getPreviouslyClosedState();
+				const previousState = timelineItemView.TimelineItemView.getPreviouslyClosedState();
 				if (previousState != null) {
 					assignTimelineViewToLeaf(this.app.workspace.getLeaf(true), {
 						...previousState,
@@ -192,20 +164,13 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 						item.setIcon(LUCID_ICON);
 						item.onClick(() => {
 							openTimelineView(
-								this.app.workspace.getLeaf(
-									"split",
-									"horizontal",
-								),
-								this.app.workspace.getMostRecentLeaf() ??
-									undefined,
+								this.app.workspace.getLeaf("split", "horizontal"),
+								this.app.workspace.getMostRecentLeaf() ?? undefined,
 							);
 						});
 					});
 				}
-				if (
-					file instanceof obsidian.TFolder &&
-					info === "file-explorer-context-menu"
-				) {
+				if (file instanceof obsidian.TFolder && info === "file-explorer-context-menu") {
 					menu.addItem(item => {
 						item.setTitle("View as timeline")
 							.setIcon(LUCID_ICON)
@@ -223,22 +188,16 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 			if (event.button !== 2) return;
 			if (!(event.target instanceof HTMLElement)) return;
 
-			const tagDom = event.target.matchParent(
-				"div.tree-item-self.tag-pane-tag.is-clickable",
-			);
+			const tagDom = event.target.matchParent("div.tree-item-self.tag-pane-tag.is-clickable");
 			if (!(tagDom instanceof HTMLElement)) return;
 
-			const tagLeaf = this.app.workspace
-				.getLeavesOfType("tag")
-				.at(0)?.view;
+			const tagLeaf = this.app.workspace.getLeavesOfType("tag").at(0)?.view;
 
 			if (tagLeaf == null) return;
 			const tagDomObj = tags.tagDomRecordInTagView(tagLeaf);
 			if (tagDomObj == null) return;
 
-			const tag = Object.entries(tagDomObj).find(
-				([_, value]) => value.selfEl === tagDom,
-			);
+			const tag = Object.entries(tagDomObj).find(([_, value]) => value.selfEl === tagDom);
 			if (tag == null) return;
 
 			event.preventDefault();
@@ -257,24 +216,26 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 				.showAtMouseEvent(event);
 		});
 
-		this.registerEvent(this.app.workspace.on("editor-menu", (menu, editor, info) => {
-			const pos = editor.getCursor();
-			const line = editor.getLine(pos.line);
+		this.registerEvent(
+			this.app.workspace.on("editor-menu", (menu, editor, info) => {
+				const pos = editor.getCursor();
+				const line = editor.getLine(pos.line);
 
-			const tag = tags.findSurroundingTagInLine(line, pos.ch);
-			if (tag == null) return;
+				const tag = tags.findSurroundingTagInLine(line, pos.ch);
+				if (tag == null) return;
 
-			menu.addItem(item => {
-				item.setSection("selection")
-					.setTitle("View notes with tag in timeline")
-					.setIcon(LUCID_ICON)
-					.onClick(async () => {
-						openTimelineViewInNewLeaf({
-							filterQuery: `tag:${tag}`,
+				menu.addItem(item => {
+					item.setSection("selection")
+						.setTitle("View notes with tag in timeline")
+						.setIcon(LUCID_ICON)
+						.onClick(async () => {
+							openTimelineViewInNewLeaf({
+								filterQuery: `tag:${tag}`,
+							});
 						});
-					});
-			});
-		}));
+				});
+			}),
+		);
 
 		this.registerEvent(
 			this.app.workspace.on(
@@ -292,13 +253,10 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 							});
 					}).addItem(item => {
 						item.setSection("timeline")
-							.setTitle(
-								"Save as default filter for timeline views",
-							)
+							.setTitle("Save as default filter for timeline views")
 							.setIcon(LUCID_ICON)
 							.onClick(async () => {
-								const filter =
-									await timelineSettings.noteFilter();
+								const filter = await timelineSettings.noteFilter();
 								filter.filterByQuery(view.searchQuery.query);
 							});
 					});
@@ -314,13 +272,10 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 			this.registerEvent(
 				this.app.workspace.on("file-open", file => {
 					if (file?.path === "___reload.md") {
-						this.app.vault.adapter
-							.remove(file.path)
-							.then(() => location.reload());
+						this.app.vault.adapter.remove(file.path).then(() => location.reload());
 					}
 				}),
 			);
 		}
 	}
-
 }
