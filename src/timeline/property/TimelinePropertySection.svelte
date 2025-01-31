@@ -22,6 +22,7 @@
 		propertySelected: TimelineProperty;
 		secondaryPropertySelected: TimelineProperty;
 		secondaryPropertyToggled: boolean;
+		secondaryPropertyReinterpreted: "length" | "end";
 	}>();
 </script>
 
@@ -62,6 +63,20 @@
 			/>
 		</h6>
 		{#if selector.secondaryPropertyInUse()}
+			<label>
+				Interpret as <select
+					class="dropdown"
+					bind:value={() =>
+						selector.secondaryPropertyInterpretation(),
+					(value: "length" | "end") => {
+						selector.interpretSecondaryPropertyAs(value);
+						dispatch("secondaryPropertyReinterpreted", value);
+					}}
+				>
+					<option value="length">Length</option>
+					<option value="end">End</option>
+				</select>
+			</label>
 			<TimelineNoteSorterPropertySelect
 				tabindex={3}
 				property={selector.timelineNoteSorterSelector.secondaryProperty()}
@@ -89,5 +104,11 @@
 <style>
 	:global(.timeline-property-setting .row) {
 		padding: var(--size-2-3) 0;
+	}
+	label {
+		width: 100%;
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
 	}
 </style>

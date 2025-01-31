@@ -85,4 +85,13 @@ export class TimelinePropertySelector {
 	secondaryPropertyInUse() {
 		return this.timelineNoteSorterSelector.secondaryPropertyInUse();
 	}
+
+	#secondaryPropertyInterpretation: "length" | "end" = "length";
+	secondaryPropertyInterpretation(): "length" | "end" {
+		return this.#secondaryPropertyInterpretation;
+	}
+
+	interpretSecondaryPropertyAs(interpretation: "length" | "end") {
+		this.#secondaryPropertyInterpretation = interpretation;
+	}
 }

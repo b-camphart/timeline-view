@@ -348,7 +348,7 @@
 	function getValueSelector(this: void) {
 		return propertySelector.selectedProperty();
 	}
-	const secondaryPropertyInterpretedAs: "length" | "end" = "length";
+	let secondaryPropertyInterpretedAs: "length" | "end" = "length";
 	function lengthOf(note: Note) {
 		if (!propertySelector.secondaryPropertyInUse()) {
 			return 0;
@@ -554,6 +554,15 @@
 				on:secondaryPropertySelected={({ detail }) =>
 					onSecondaryPropertySelected(detail)}
 				on:secondaryPropertyToggled={({ detail: inUse }) => {
+					for (const item of itemsById.values()) {
+						item.lengthSelector = lengthOf;
+					}
+					timelineView!.refresh();
+				}}
+				on:secondaryPropertyReinterpreted={({
+					detail: interpretation,
+				}) => {
+					secondaryPropertyInterpretedAs = interpretation;
 					for (const item of itemsById.values()) {
 						item.lengthSelector = lengthOf;
 					}
