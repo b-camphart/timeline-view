@@ -68,13 +68,13 @@ export class TimelineNoteSorterSelector {
 		this.#saveSecondaryPropertyUse = saveSecondaryPropertyUse;
 	}
 
-	#selectedProperty;
+	#selectedProperty = $state(TimelineNoteSorterProperty.Created);
 
 	selectedProperty(): TimelineNoteSorterProperty {
 		return this.#selectedProperty;
 	}
 
-	#secondaryProperty;
+	#secondaryProperty = $state(TimelineNoteSorterProperty.Created);
 
 	secondaryProperty() {
 		return this.#secondaryProperty;

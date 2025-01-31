@@ -1,5 +1,5 @@
 import type {NotePropertyRepository} from "src/note/property/repository";
-import {TimelineNoteSorterSelector} from "../sorting/TimelineNoteSorterSelector";
+import {TimelineNoteSorterSelector} from "../sorting/TimelineNoteSorterSelector.svelte.js";
 import {TimelineProperty} from "./TimelineProperty";
 
 export type TimelinePropertySelectorState = {

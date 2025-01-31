@@ -2,7 +2,7 @@ import * as obsidian from "obsidian";
 import type {ObsidianNotePropertyRepository} from "src/note/property/obsidian-repository";
 import TimelineNoteSorterPropertySelect from "../../timeline/sorting/TimelineNoteSorterPropertySelect.svelte";
 import {expectArray, expectBoolean, expectObject, expectString, type Parsed} from "src/utils/json";
-import {TimelineNoteSorterSelector} from "src/timeline/sorting/TimelineNoteSorterSelector";
+import {TimelineNoteSorterSelector} from "src/timeline/sorting/TimelineNoteSorterSelector.svelte";
 import TimelineQueryFilterInput from "src/timeline/filter/TimelineQueryFilterInput.svelte";
 import {TimelineItemQueryFilter} from "src/timeline/filter/TimelineItemQueryFilter";
 import type {ObsidianNoteRepository} from "src/note/obsidian-repository";
@@ -47,12 +47,16 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 		return await TimelineNoteSorterSelector.sanitize(
 			loadedSettings.openWith.property,
 			loadedSettings.openWith.secondaryProperty,
+			loadedSettings.openWith.secondaryPropertyInUse,
 			this.#noteProperties,
 			async name => {
 				this.#updateSettings(settings => (settings.openWith.property = name));
 			},
 			async secondaryName => {
 				this.#updateSettings(settings => (settings.openWith.secondaryProperty = secondaryName));
+			},
+			async useSecondary => {
+				this.#updateSettings(settings => (settings.openWith.secondaryPropertyInUse = useSecondary));
 			},
 		);
 	}
@@ -171,6 +175,7 @@ function timelineSettingsSchema() {
 		openWith: expectObject({
 			property: expectString("created"),
 			secondaryProperty: expectString("created"),
+			secondaryPropertyInUse: expectBoolean(false),
 			filter: expectObject({
 				query: expectString(""),
 			}),
