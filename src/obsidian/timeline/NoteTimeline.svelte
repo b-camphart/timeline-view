@@ -378,13 +378,12 @@
 		const secondaryProperty = propertySelector.secondaryProperty();
 		if ($secondaryPropertyInterpretedAs === "length") {
 			const length = secondaryProperty.selectValueFromNote(note);
-			if (length < 0) return 0;
+			if (length === null || length < 0) return 0;
 			return length;
 		}
-		const start = propertySelector
-			.selectedProperty()
-			.selectValueFromNote(note);
-		const end = secondaryProperty.selectValueFromNote(note);
+		const start =
+			propertySelector.selectedProperty().selectValueFromNote(note) ?? 0;
+		const end = secondaryProperty.selectValueFromNote(note) ?? start;
 		const length = end - start;
 		if (length < 0) return 0;
 		return length;

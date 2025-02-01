@@ -47,7 +47,7 @@ export class TimelineNoteItem {
 
 	#calculateValue(): number {
 		const getValueSelector = this.getValueSelector;
-		const value = getValueSelector().selectValueFromNote(this.note);
+		const value = getValueSelector().selectValueFromNote(this.note) ?? 0;
 		this.#value = value;
 		this.value = this.#getCachedValue;
 		return value;
