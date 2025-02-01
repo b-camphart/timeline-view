@@ -598,6 +598,7 @@
 		if (!note) return item.name();
 		return summarizeNote(note);
 	}}
+	itemsResizable={propertySelector?.secondaryPropertyInUse() ?? false}
 	namespacedWritable={viewModel}
 	{display}
 	groups={timelineGroups}

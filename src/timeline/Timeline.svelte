@@ -46,6 +46,7 @@
 			value: number,
 			endValue: number,
 		): boolean;
+		itemsResizable: boolean;
 		onItemsResized(
 			resized: {
 				item: TimelineItem;
@@ -73,6 +74,7 @@
 
 	export let onPreviewNewItemValue: $$Props["onPreviewNewItemValue"];
 	export let onMoveItem: $$Props["onMoveItem"];
+	export let itemsResizable: $$Props["itemsResizable"];
 	export let onItemsResized: $$Props["onItemsResized"];
 	export let oncontextmenu: $$Props["oncontextmenu"] = () => {};
 
@@ -224,6 +226,7 @@
 		bind:width={$stageWidth}
 		bind:clientWidth={stageClientWidth}
 		editable={mode != null ? $mode === "edit" : false}
+		{itemsResizable}
 		on:scrollToValue={(event) => navigation.scrollToValue(event.detail)}
 		on:scrollX={({ detail }) =>
 			navigation.scrollToValue($focalValue + detail)}

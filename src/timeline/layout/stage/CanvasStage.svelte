@@ -49,6 +49,7 @@
 		clientWidth?: number;
 		clientHeight?: number;
 		editable: boolean;
+		itemsResizable: boolean;
 		summarizeItem: (item: TimelineItem) => string;
 		onPreviewNewItemValue?: (item: TimelineItem, value: number) => number;
 		oncontextmenu?: (e: MouseEvent, items: TimelineItem[]) => void;
@@ -70,6 +71,7 @@
 		clientWidth = $bindable(0),
 		clientHeight = $bindable(0),
 		editable,
+		itemsResizable,
 		summarizeItem,
 		onPreviewNewItemValue = (_, value) => value,
 		oncontextmenu = () => {},
@@ -853,14 +855,19 @@
 			for (let i = 0; i < elements.arr.length; i++) {
 				const element = elements.arr[i];
 				if (element.contains(event.offsetX, event.offsetY)) {
-					const side: "middle" | "left" | "right" =
-						event.offsetX <
-						element.offsetLeft + element.offsetHeight / 4
-							? "left"
-							: event.offsetX >
-								  element.offsetRight - element.offsetHeight / 4
-								? "right"
-								: "middle";
+					let side: "middle" | "left" | "right" = "middle";
+					if (itemsResizable) {
+						side =
+							event.offsetX <
+							element.offsetLeft + element.offsetHeight / 4
+								? "left"
+								: event.offsetX >
+									  element.offsetRight -
+											element.offsetHeight / 4
+									? "right"
+									: "middle";
+					}
+
 					hover = {
 						element: element,
 						side,
