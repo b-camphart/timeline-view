@@ -934,7 +934,7 @@
 					const element =
 						elements.arr[i] ?? new TimelineItemElement(item);
 					element.layoutItem = item;
-					element.offsetCenterX = item.centerX - scrollLeft;
+					element.offsetCenterX = item.valueX - scrollLeft;
 					element.offsetCenterY = item.centerY - scrollTop;
 					element.offsetLeft = element.offsetCenterX - item.radius;
 					element.offsetTop = element.offsetCenterY - item.radius;
@@ -948,7 +948,6 @@
 					if (selection.selectedItems.has(item.item.id())) {
 						selection.selectedItems.set(item.item.id(), element);
 					}
-
 					elements.arr[i] = element;
 				}
 

@@ -12,7 +12,7 @@ describe("laying out items", it => {
 			t.expect(
 				positioned.map(it => ({
 					left: it.left,
-					centerX: it.centerX,
+					centerX: it.valueX,
 					right: it.right,
 				})),
 				inspect(s),

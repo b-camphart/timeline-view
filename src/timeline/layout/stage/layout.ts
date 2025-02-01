@@ -17,10 +17,11 @@ class LayoutItem {
 	right;
 	bottom;
 
-	get centerX() {
+	/** the absolute x position represented by the value of the item */
+	get valueX() {
 		return this.left + this.radius;
 	}
-	set centerX(value: number) {
+	set valueX(value: number) {
 		this.left = value - this.radius;
 		this.right = this.left + this.width;
 	}
@@ -72,7 +73,7 @@ export function layoutPoints(
 		layoutItem.height = point.width;
 		layoutItem.radius = pointRadius;
 
-		layoutItem.centerX = absolutePixelCenter;
+		layoutItem.valueX = absolutePixelCenter;
 		layoutItem.centerY = startCenterY;
 
 		const relativeLeftMargin = layoutItem.left - point.margin.horizontal;
