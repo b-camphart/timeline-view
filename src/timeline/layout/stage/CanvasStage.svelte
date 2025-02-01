@@ -2,11 +2,8 @@
 	import { run } from "svelte/legacy";
 
 	import { createEventDispatcher, onMount } from "svelte";
-	import {
-		layoutPoints,
-		renderLayout,
-		type BackgroundColor,
-	} from "./CanvasStage";
+	import { layoutPoints, type BackgroundColor } from "./CanvasStage";
+	import { renderLayout } from "./draw";
 	import type { TimelineItem, ValueDisplay } from "../../Timeline";
 	import {
 		TimelineItemElement,
