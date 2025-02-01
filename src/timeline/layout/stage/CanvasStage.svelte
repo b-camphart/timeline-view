@@ -258,7 +258,7 @@
 		}
 
 		get offsetRight() {
-			return this.offsetCenterX + this.element.offsetHeight / 2;
+			return this.offsetCenterX + this.element.offsetWidth;
 		}
 
 		get offsetBottom() {
