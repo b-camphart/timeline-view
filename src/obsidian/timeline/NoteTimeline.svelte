@@ -52,10 +52,11 @@
 		};
 		modifyNote: {
 			note: Note;
-			modification:
-				| { created: number }
-				| { modified: number }
-				| { property: { name: string; value: number } };
+			modification: {
+				created?: number;
+				modified?: number;
+				properties: Record<string, number>;
+			};
 		};
 	}>();
 
@@ -146,45 +147,58 @@
 		dispatch("createNote", creation);
 	}
 
-	function moveItem(item: TimelineItem, value: number) {
+	function moveItem(item: TimelineItem, value: number, endValue: number) {
 		const noteItem = itemsById.get(item.id());
 		if (noteItem == null) {
 			return false;
 		}
 
+		const modification = {
+			created: undefined as number | undefined,
+			modified: undefined as number | undefined,
+			properties: {} as Record<string, number>,
+		};
+
 		const property = propertySelector.selectedProperty();
-		value = property.sanitizeValue(value);
+		// value = property.sanitizeValue(value);
 
 		if (property.isCreatedProperty()) {
-			return dispatch(
-				"modifyNote",
-				{
-					note: noteItem.note,
-					modification: { created: value },
-				},
-				{ cancelable: true },
-			);
+			modification["created"] = value;
 		} else if (property.isModifiedProperty()) {
-			return dispatch(
-				"modifyNote",
-				{
-					note: noteItem.note,
-					modification: { modified: value },
-				},
-				{ cancelable: true },
-			);
+			modification["modified"] = value;
 		} else {
-			return dispatch(
-				"modifyNote",
-				{
-					note: noteItem.note,
-					modification: {
-						property: { name: property.name(), value: value },
-					},
-				},
-				{ cancelable: true },
-			);
+			modification.properties[property.name()] = value;
 		}
+
+		if (
+			propertySelector.secondaryPropertyInUse() &&
+			// if we're using it as a length, moving the item has no effect
+			propertySelector.secondaryPropertyInterpretation() === "end"
+		) {
+			if (endValue - value !== item.length()) {
+				throw new Error(
+					`end value should be ${value + item.length()}, but received ${endValue}`,
+				);
+			}
+			const secondaryProperty = propertySelector.secondaryProperty();
+			endValue = secondaryProperty.sanitizeValue(endValue);
+			if (secondaryProperty.isCreatedProperty()) {
+				modification["created"] = endValue;
+			} else if (secondaryProperty.isModifiedProperty()) {
+				modification["modified"] = endValue;
+			} else {
+				modification.properties[secondaryProperty.name()] = endValue;
+			}
+		}
+
+		return dispatch(
+			"modifyNote",
+			{
+				note: noteItem.note,
+				modification,
+			},
+			{ cancelable: true },
+		);
 	}
 	const secondaryPropertyInterpretedAs = viewModel
 		.namespace("settings")

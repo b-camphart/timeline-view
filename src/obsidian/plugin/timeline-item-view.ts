@@ -244,6 +244,10 @@ export class TimelineItemView extends obsidian.ItemView {
 				switchToEditMode.toggle(newMode === EditMode.View);
 			});
 
+			type Events<T extends {}> = {
+				[K in keyof T]: (event: T[K]) => void;
+			};
+
 			this.component = mount(NoteTimeline, {
 				target: content,
 				props: {
@@ -291,23 +295,10 @@ export class TimelineItemView extends obsidian.ItemView {
 					},
 					modifyNote: async event => {
 						const note = event.detail.note;
-						if ("created" in event.detail.modification) {
-							await this.notes.modifyNote(note, {
-								created: event.detail.modification.created,
-							});
-						} else if ("modified" in event.detail.modification) {
-							await this.notes.modifyNote(note, {
-								modified: event.detail.modification.modified,
-							});
-						} else {
-							await this.notes.modifyNote(note, {
-								property: {
-									[event.detail.modification.property.name]: event.detail.modification.property.value,
-								},
-							});
-						}
+						const modification = event.detail.modification;
+						await this.notes.modifyNote(note, modification);
 					},
-				},
+				} satisfies Events<NoteTimeline["$$events_def"]>,
 			});
 		});
 	}

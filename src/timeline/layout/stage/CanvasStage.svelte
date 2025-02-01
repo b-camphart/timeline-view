@@ -24,6 +24,7 @@
 	import type { SortedArray } from "src/utils/collections";
 	import Background from "src/timeline/layout/stage/Background.svelte";
 	import type { LayoutItem } from "src/timeline/layout/stage/layout";
+	import { on } from "events";
 
 	type ZoomEvent = {
 		keepValue: number;
@@ -39,7 +40,7 @@
 		focus: TimelineItem;
 		create: { value: number };
 		/** Cancelable.  Called just before 'on:itemMoved' */
-		moveItems: { item: TimelineItem; value: number }[];
+		moveItems: { item: TimelineItem; value: number; endValue: number }[];
 	}>();
 
 	interface Props {
@@ -109,7 +110,7 @@
 	});
 
 	let layoutNeeded = true;
-	let scrollNeeded = $state(true);
+	let scrollNeeded = true;
 	let redrawNeeded = true;
 
 	const resizeObserver = new ResizeObserver((a) => {
@@ -223,6 +224,7 @@
 		constructor(
 			private element: TimelineItemElement,
 			public value: number,
+			public endValue: number,
 			public offsetCenterX: number,
 			public readonly backgroundColor: BackgroundColor | undefined,
 			public readonly borderColor: BackgroundColor | undefined,
@@ -293,11 +295,14 @@
 		}
 	}
 
-	let dragPreview: DragPreview | null = $state(null);
+	let dragPreview: DragPreview | null = $state.raw(null);
+	function onDragPreviewChanged(_: DragPreview | null) {
+		console.log("draw preview changed, triggering scroll");
+		scrollNeeded = true;
+	}
 	$effect(() => {
 		// when dragPreview changes, we need to force a redraw
-		dragPreview;
-		scrollNeeded = true;
+		onDragPreviewChanged(dragPreview);
 	});
 
 	function clearSelection() {
@@ -457,18 +462,24 @@
 					selectedItems[i].layoutItem.item.value() +
 						(mouseValue - startMouseValue),
 				);
+				const newEndValue = onPreviewNewItemValue(
+					selectedItems[i].layoutItem.item,
+					newItemValue + selectedItems[i].layoutItem.item.length(),
+				);
 				const offsetCenterX =
 					scale.toPixels(newItemValue - focalValue) +
 					viewport.width / 2;
 
 				if (dragPreview.at(i) != null) {
 					dragPreview.at(i).value = newItemValue;
+					dragPreview.at(i).endValue = newEndValue;
 					dragPreview.at(i).offsetCenterX = offsetCenterX;
 				} else {
 					dragPreview.add(
 						new DragPreviewElement(
 							item,
 							newItemValue,
+							newEndValue,
 							offsetCenterX,
 							startItemBackground,
 							startItemBorder,
@@ -477,7 +488,7 @@
 					);
 				}
 			}
-			dragPreview = dragPreview;
+			scrollNeeded = true;
 
 			if (mouseX < startViewportBounds.left + viewport.padding.left) {
 				const delta =

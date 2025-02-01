@@ -40,7 +40,11 @@
 		): void;
 
 		onPreviewNewItemValue(item: TimelineItem, value: number): number;
-		onMoveItem(item: TimelineItem, value: number): boolean;
+		onMoveItem(
+			item: TimelineItem,
+			value: number,
+			endValue: number,
+		): boolean;
 		oncontextmenu?(e: MouseEvent, items: TimelineItem[]): void;
 	}
 
@@ -140,10 +144,12 @@
 	}
 
 	function moveItems(
-		event: CustomEvent<{ item: TimelineItem; value: number }[]>,
+		event: CustomEvent<
+			{ item: TimelineItem; value: number; endValue: number }[]
+		>,
 	) {
-		event.detail.forEach(({ item, value }) => {
-			if (!onMoveItem(item, value)) {
+		event.detail.forEach(({ item, value, endValue }) => {
+			if (!onMoveItem(item, value, endValue)) {
 				return;
 			}
 			item.value = () => value;
