@@ -400,16 +400,22 @@
 
 		const secondaryProperty = propertySelector.secondaryProperty();
 		const secondaryValue = secondaryProperty.selectValueFromNote(note);
-		const secondaryValueStr =
-			secondaryValue === null ? "" : display.displayValue(secondaryValue);
 
 		if (propertySelector.secondaryPropertyInterpretation() === "end") {
+			const secondaryValueStr =
+				secondaryValue === null
+					? ""
+					: display.displayValue(secondaryValue);
 			const length =
 				(secondaryValue ?? primaryValue ?? 0) - (primaryValue ?? 0);
 			return `${note.name()}\n[${primaryProperty.name()}: ${primaryValueStr}] → [${secondaryProperty.name()}: ${secondaryValueStr}]\nlength: ${display.displayLength(length)}`;
 		}
 
 		const end = (primaryValue ?? 0) + (secondaryValue ?? primaryValue ?? 0);
+		const secondaryValueStr =
+			secondaryValue === null
+				? ""
+				: display.displayLength(secondaryValue);
 
 		return `${note.name()}\n[${primaryProperty.name()}: ${primaryValueStr}] → ${display.displayValue(end)}\n[${secondaryProperty.name()}: ${secondaryValueStr}]`;
 	}
