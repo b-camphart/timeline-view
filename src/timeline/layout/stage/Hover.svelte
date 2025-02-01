@@ -67,7 +67,7 @@
 			return `${name}\n${formatter.formatValue(value)}`;
 		}
 
-		return `${name}\nlength: ${formatter.formatLength(length)}\nstart: ${formatter.formatValue(value)} - end: ${formatter.formatValue(endValue)}`;
+		return `${name}\nstart: ${formatter.formatValue(value)} - end: ${formatter.formatValue(endValue)}\nlength: ${formatter.formatLength(length)}`;
 	});
 
 	let hovered = $state(false);
