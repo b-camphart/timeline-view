@@ -31,6 +31,14 @@
 		viewModel: NamespacedWritableFactory<ObsidianNoteTimelineViewModel>;
 		isNew?: boolean;
 		oncontextmenu?: (e: MouseEvent, notes: Note[]) => void;
+		onResizeNotes?(
+			mods: {
+				note: Note;
+				created?: number;
+				modified?: number;
+				properties?: Record<string, number>;
+			}[],
+		): Promise<void>;
 	}
 
 	let {
@@ -40,6 +48,7 @@
 		viewModel,
 		isNew = false,
 		oncontextmenu = () => {},
+		onResizeNotes = async () => {},
 	}: Props = $props();
 
 	const dispatch = createEventDispatcher<{
@@ -200,6 +209,77 @@
 			{ cancelable: true },
 		);
 	}
+	async function resizeItems(
+		items: {
+			item: TimelineItem;
+			value: number;
+			length: number;
+			endValue: number;
+		}[],
+	) {
+		if (!propertySelector.secondaryPropertyInUse()) return;
+		const noteResizes = new Array<{
+			note: Note;
+			item: TimelineNoteItem;
+			created?: number;
+			modified?: number;
+			properties: Record<string, number>;
+		}>();
+
+		function setValue(
+			modification: (typeof noteResizes)[number],
+			property: TimelineProperty,
+			value: number,
+		) {
+			value = property.sanitizeValue(value);
+			if (property.isCreatedProperty()) {
+				modification.created = value;
+			} else if (property.isModifiedProperty()) {
+				modification.modified = value;
+			} else {
+				modification.properties[property.name()] = value;
+			}
+		}
+
+		for (let i = 0; i < items.length; i++) {
+			const { value, length, endValue } = items[i];
+			const item = itemsById.get(items[i].item.id());
+			if (!item) continue;
+			const note = item.note;
+
+			const modification = {
+				note,
+				item,
+				created: undefined as number | undefined,
+				modified: undefined as number | undefined,
+				properties: {} as Record<string, number>,
+			};
+
+			setValue(modification, propertySelector.selectedProperty(), value);
+			if (propertySelector.secondaryPropertyInterpretation() === "end") {
+				setValue(
+					modification,
+					propertySelector.secondaryProperty(),
+					endValue,
+				);
+			} else {
+				setValue(
+					modification,
+					propertySelector.secondaryProperty(),
+					length,
+				);
+			}
+
+			noteResizes.push(modification);
+		}
+
+		await onResizeNotes(noteResizes);
+		for (let i = 0; i < noteResizes.length; i++) {
+			noteResizes[i].item._invalidateValueCache();
+			noteResizes[i].item.lengthSelector = lengthOf;
+		}
+	}
+
 	const secondaryPropertyInterpretedAs = viewModel
 		.namespace("settings")
 		.namespace("property")
@@ -586,6 +666,7 @@
 		dispatch("noteFocused", itemsById.get(e.detail.id())?.note)}
 	on:create={(e) => createItem(e.detail)}
 	onMoveItem={moveItem}
+	onItemsResized={resizeItems}
 	{onPreviewNewItemValue}
 	oncontextmenu={(e, triggerItems) => {
 		const items = triggerItems

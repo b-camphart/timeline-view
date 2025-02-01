@@ -3,7 +3,7 @@ import type {TimelineItemElement} from "src/timeline/layout/stage/TimelineItemEl
 
 export class DragPreviewElement {
 	constructor(
-		private element: TimelineItemElement,
+		readonly element: TimelineItemElement,
 		value: number,
 		length: number,
 		endValue: number,
@@ -16,12 +16,19 @@ export class DragPreviewElement {
 		this.length = length;
 		this.endValue = endValue;
 		this.offsetCenterX = offsetCenterX;
+
+		this.offsetWidth = element.offsetWidth;
+		this.offsetRight = element.offsetRight;
+		this.offsetLeft = element.offsetLeft;
 	}
 
 	value = $state(0);
 	length = $state(0);
 	endValue = $state(0);
 	offsetCenterX = $state(0);
+	offsetWidth = $state(0);
+	offsetRight = $state(0);
+	offsetLeft = $state(0);
 
 	get item() {
 		return this.element.layoutItem.item;
@@ -30,23 +37,13 @@ export class DragPreviewElement {
 	get offsetCenterY() {
 		return this.offsetTop + this.element.offsetHeight / 2;
 	}
-	get offsetLeft() {
-		return this.offsetCenterX - this.element.offsetHeight / 2;
-	}
 
 	get offsetTop() {
 		return this.element.offsetTop;
 	}
 
-	get offsetRight() {
-		return this.offsetCenterX + this.element.offsetWidth;
-	}
-
 	get offsetBottom() {
 		return this.offsetTop + this.element.offsetHeight;
-	}
-	get offsetWidth() {
-		return this.element.offsetWidth;
 	}
 	get offsetHeight() {
 		return this.element.offsetHeight;

@@ -22,6 +22,7 @@
 	import Background from "src/timeline/layout/stage/Background.svelte";
 	import type { LayoutItem } from "src/timeline/layout/stage/layout";
 	import { DragPreviewElement } from "src/timeline/layout/stage/drag.svelte";
+	import { on } from "svelte/events";
 
 	type ZoomEvent = {
 		keepValue: number;
@@ -51,6 +52,14 @@
 		summarizeItem: (item: TimelineItem) => string;
 		onPreviewNewItemValue?: (item: TimelineItem, value: number) => number;
 		oncontextmenu?: (e: MouseEvent, items: TimelineItem[]) => void;
+		onItemsChanged?(
+			items: {
+				item: TimelineItem;
+				value: number;
+				length: number;
+				endValue: number;
+			}[],
+		): Promise<void>;
 	}
 
 	let {
@@ -64,6 +73,7 @@
 		summarizeItem,
 		onPreviewNewItemValue = (_, value) => value,
 		oncontextmenu = () => {},
+		onItemsChanged = async () => {},
 	}: Props = $props();
 
 	let canvas: HTMLCanvasElement | undefined = $state();
@@ -219,9 +229,11 @@
 
 	class DragPreview {
 		private items: Set<TimelineItem> = new Set();
-		private elements: Array<DragPreviewElement> = [];
+		private elements: Array<DragPreviewElement>;
 
-		constructor() {}
+		constructor(initialSize: number = 0) {
+			this.elements = new Array(initialSize);
+		}
 
 		arr(): readonly DragPreviewElement[] {
 			return this.elements;
@@ -237,9 +249,7 @@
 		}
 
 		movedItems() {
-			return this.elements.map((element, index) => {
-				return element;
-			});
+			return this.elements.slice();
 		}
 
 		has(item: TimelineItem) {
@@ -383,7 +393,11 @@
 			}
 		}
 
-		prepareDragSelection(event);
+		if (hover.side === "middle") {
+			prepareDragSelection(event);
+		} else {
+			prepareResizeSelection(event, hover.side === "right");
+		}
 	}
 
 	function prepareDragSelection(event: MouseEvent) {
@@ -436,6 +450,10 @@
 					previousPreview.endValue = newEndValue;
 					previousPreview.length = newEndValue - newItemValue;
 					previousPreview.offsetCenterX = offsetCenterX;
+					previousPreview.offsetLeft =
+						offsetCenterX - item.offsetHeight / 2;
+					previousPreview.offsetRight =
+						offsetCenterX + item.offsetWidth;
 				} else {
 					dragPreview.add(
 						new DragPreviewElement(
@@ -482,6 +500,114 @@
 			window.addEventListener("mouseup", releaseItemListener);
 			window.addEventListener("mousemove", dragItemListener);
 		}
+	}
+
+	function prepareResizeSelection(
+		event: Pick<MouseEvent, "clientX">,
+		pureResize: boolean,
+	) {
+		if (!editable) return;
+		const selectedItems = Array.from(selection.selectedItems.values());
+		if (selectedItems.length === 0) {
+			return;
+		}
+		const startItemBackground = selectedItems[0].backgroundColor;
+		const startItemBorder = selectedItems[0].borderColor;
+		const startItemBorderWidth = selectedItems[0].strokeWidth;
+
+		const startMouseValue =
+			focalValue -
+			scale.toValue(viewport.width / 2) -
+			scale.toValue(stageCSSTarget!.getBoundingClientRect().left) +
+			scale.toValue(event.clientX);
+
+		function resizeSelection(event: Pick<MouseEvent, "clientX">) {
+			const mouseValue =
+				focalValue -
+				scale.toValue(viewport.width / 2) -
+				scale.toValue(stageCSSTarget!.getBoundingClientRect().left) +
+				scale.toValue(event.clientX);
+
+			const deltaValue = mouseValue - startMouseValue;
+
+			if (dragPreview === null) {
+				dragPreview = new DragPreview();
+				for (let i = 0; i < selectedItems.length; i++) {
+					const selectedItem = selectedItems[i];
+					dragPreview.add(
+						new DragPreviewElement(
+							selectedItem,
+							selectedItem.layoutItem.item.value(),
+							selectedItem.layoutItem.item.length(),
+							selectedItem.layoutItem.item.value() +
+								selectedItem.layoutItem.item.length(),
+							selectedItem.offsetCenterX,
+							startItemBackground,
+							startItemBorder,
+							startItemBorderWidth,
+						),
+					);
+				}
+			}
+			if (pureResize) {
+				for (let i = 0; i < selectedItems.length; i++) {
+					const selectedItem = selectedItems[i];
+					const previewItem = dragPreview.at(i);
+					dragPreview.add(previewItem);
+
+					previewItem.length =
+						selectedItem.layoutItem.item.length() + deltaValue;
+					previewItem.endValue =
+						previewItem.value + previewItem.length;
+					previewItem.offsetWidth =
+						scale.toPixels(previewItem.length) +
+						selectedItem.offsetHeight;
+					previewItem.offsetRight =
+						previewItem.offsetLeft + previewItem.offsetWidth;
+				}
+			} else {
+				for (let i = 0; i < selectedItems.length; i++) {
+					const selectedItem = selectedItems[i];
+					const previewItem = dragPreview.at(i);
+					dragPreview.add(previewItem);
+
+					previewItem.value =
+						selectedItem.layoutItem.item.value() + deltaValue;
+					previewItem.length =
+						previewItem.endValue - previewItem.value;
+
+					previewItem.offsetWidth =
+						scale.toPixels(previewItem.length) +
+						selectedItem.offsetHeight;
+					previewItem.offsetLeft =
+						previewItem.offsetRight - previewItem.offsetWidth;
+				}
+			}
+
+			dragPreview = dragPreview;
+			scrollNeeded = true;
+		}
+
+		const removeMouseMoveListener = on(
+			window,
+			"mousemove",
+			resizeSelection,
+		);
+		on(
+			window,
+			"mouseup",
+			() => {
+				removeMouseMoveListener();
+
+				if (dragPreview === null) return;
+
+				onItemsChanged(dragPreview.movedItems()).finally(() => {
+					dragPreview = null;
+					redrawNeeded = true;
+				});
+			},
+			{ once: true },
+		);
 	}
 
 	let selection: {

@@ -272,6 +272,9 @@ export class TimelineItemView extends obsidian.ItemView {
 					openModal: open => {
 						openModal(this.app, open);
 					},
+					onResizeNotes: async mods => {
+						await Promise.all(mods.map(mod => this.notes.modifyNote(mod.note, mod)));
+					},
 				},
 				events: {
 					noteSelected: event => {

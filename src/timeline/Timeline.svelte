@@ -46,6 +46,14 @@
 			value: number,
 			endValue: number,
 		): boolean;
+		onItemsResized(
+			resized: {
+				item: TimelineItem;
+				value: number;
+				length: number;
+				endValue: number;
+			}[],
+		): Promise<void>;
 		oncontextmenu?(e: MouseEvent, items: TimelineItem[]): void;
 	}
 
@@ -65,6 +73,7 @@
 
 	export let onPreviewNewItemValue: $$Props["onPreviewNewItemValue"];
 	export let onMoveItem: $$Props["onMoveItem"];
+	export let onItemsResized: $$Props["onItemsResized"];
 	export let oncontextmenu: $$Props["oncontextmenu"] = () => {};
 
 	const stageWidth = writable(0);
@@ -224,6 +233,10 @@
 		on:focus
 		on:create
 		on:moveItems={moveItems}
+		onItemsChanged={async (detail) => {
+			await onItemsResized(detail);
+			items = new SortedArray((item) => item.value(), ...items);
+		}}
 		{onPreviewNewItemValue}
 		{oncontextmenu}
 	/>
