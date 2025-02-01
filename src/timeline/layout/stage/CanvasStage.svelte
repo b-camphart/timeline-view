@@ -651,6 +651,11 @@
 	};
 	let hover: {
 		element: TimelineItemElement;
+		side: "middle" | "left" | "right";
+		/**
+		 * keeps track of the moues position that caused the hover so it can
+		 * be checked again when the timeline is scaled/scrolled
+		 */
 		pos: [number, number];
 	} | null = $state(null);
 	let focus: {
@@ -722,8 +727,17 @@
 			for (let i = 0; i < elements.arr.length; i++) {
 				const element = elements.arr[i];
 				if (element.contains(event.offsetX, event.offsetY)) {
+					const side: "middle" | "left" | "right" =
+						event.offsetX <
+						element.offsetLeft + element.offsetHeight / 4
+							? "left"
+							: event.offsetX >
+								  element.offsetRight - element.offsetHeight / 4
+								? "right"
+								: "middle";
 					hover = {
 						element: element,
+						side,
 						pos: [event.offsetX, event.offsetY],
 					};
 					return;
@@ -1022,8 +1036,9 @@
 <div
 	id="stage"
 	bind:this={stageCSSTarget}
-	class:has-hover={hover != null}
-	class:editable
+	aria-readonly={!editable}
+	class:hovered={hover != null}
+	data-hover-side={hover != null ? hover.side : undefined}
 >
 	<Background {scrollTop} itemDimensions={item} {viewport} />
 	<div style="display: flex;flex-direction: row;">
@@ -1219,7 +1234,17 @@
 		overflow: hidden;
 		--scrollbar-width: var(--size-4-1);
 	}
-	div#stage.has-hover {
+	div#stage.hovered[data-hover-side="middle"] {
+		cursor: pointer;
+	}
+	div#stage.hovered[data-hover-side="left"] {
+		cursor: e-resize;
+	}
+	div#stage.hovered[data-hover-side="right"] {
+		cursor: w-resize;
+	}
+	div#stage[aria-readonly="true"][data-hover-side="left"],
+	div#stage[aria-readonly="true"][data-hover-side="right"] {
 		cursor: pointer;
 	}
 
