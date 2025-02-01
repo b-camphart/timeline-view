@@ -2,9 +2,9 @@
 	import { run } from "svelte/legacy";
 
 	import { createEventDispatcher, onMount } from "svelte";
-	import { layoutPoints, type BackgroundColor } from "./CanvasStage";
+	import { layoutPoints } from "./CanvasStage";
 	import { renderLayout } from "./draw";
-	import type { TimelineItem, ValueDisplay } from "../../Timeline";
+	import type { TimelineItem } from "../../Timeline";
 	import {
 		TimelineItemElement,
 		TimelineItemElementStyle,
@@ -21,7 +21,7 @@
 	import type { SortedArray } from "src/utils/collections";
 	import Background from "src/timeline/layout/stage/Background.svelte";
 	import type { LayoutItem } from "src/timeline/layout/stage/layout";
-	import { on } from "events";
+	import { DragPreviewElement } from "src/timeline/layout/stage/drag.svelte";
 
 	type ZoomEvent = {
 		keepValue: number;
@@ -216,58 +216,6 @@
 
 	let focusCausedByClick = $state(false);
 	let mouseDownOn: TimelineItemElement | null = null;
-
-	class DragPreviewElement {
-		constructor(
-			private element: TimelineItemElement,
-			value: number,
-			length: number,
-			endValue: number,
-			offsetCenterX: number,
-			public readonly backgroundColor: BackgroundColor | undefined,
-			public readonly borderColor: BackgroundColor | undefined,
-			public readonly strokeWidth: number | undefined,
-		) {
-			this.value = value;
-			this.length = length;
-			this.endValue = endValue;
-			this.offsetCenterX = offsetCenterX;
-		}
-
-		value = $state(0);
-		length = $state(0);
-		endValue = $state(0);
-		offsetCenterX = $state(0);
-
-		get item() {
-			return this.element.layoutItem.item;
-		}
-
-		get offsetCenterY() {
-			return this.offsetTop + this.element.offsetHeight / 2;
-		}
-		get offsetLeft() {
-			return this.offsetCenterX - this.element.offsetHeight / 2;
-		}
-
-		get offsetTop() {
-			return this.element.offsetTop;
-		}
-
-		get offsetRight() {
-			return this.offsetCenterX + this.element.offsetWidth;
-		}
-
-		get offsetBottom() {
-			return this.offsetTop + this.element.offsetHeight;
-		}
-		get offsetWidth() {
-			return this.element.offsetWidth;
-		}
-		get offsetHeight() {
-			return this.element.offsetHeight;
-		}
-	}
 
 	class DragPreview {
 		private items: Set<TimelineItem> = new Set();
@@ -465,13 +413,14 @@
 				scale.toValue(stageCSSTarget!.getBoundingClientRect().left) +
 				scale.toValue(event.clientX);
 
+			const deltaValue = mouseValue - startMouseValue;
+
 			dragPreview = dragPreview ?? new DragPreview();
 			for (let i = 0; i < selectedItems.length; i++) {
 				const item = selectedItems[i];
 				const newItemValue = onPreviewNewItemValue(
 					selectedItems[i].layoutItem.item,
-					selectedItems[i].layoutItem.item.value() +
-						(mouseValue - startMouseValue),
+					selectedItems[i].layoutItem.item.value() + deltaValue,
 				);
 				const newEndValue = onPreviewNewItemValue(
 					selectedItems[i].layoutItem.item,
