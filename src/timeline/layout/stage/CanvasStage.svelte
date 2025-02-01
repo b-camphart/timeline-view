@@ -223,13 +223,24 @@
 	class DragPreviewElement {
 		constructor(
 			private element: TimelineItemElement,
-			public value: number,
-			public endValue: number,
-			public offsetCenterX: number,
+			value: number,
+			length: number,
+			endValue: number,
+			offsetCenterX: number,
 			public readonly backgroundColor: BackgroundColor | undefined,
 			public readonly borderColor: BackgroundColor | undefined,
 			public readonly strokeWidth: number | undefined,
-		) {}
+		) {
+			this.value = value;
+			this.length = length;
+			this.endValue = endValue;
+			this.offsetCenterX = offsetCenterX;
+		}
+
+		value = $state(0);
+		length = $state(0);
+		endValue = $state(0);
+		offsetCenterX = $state(0);
 
 		get item() {
 			return this.element.layoutItem.item;
@@ -239,7 +250,7 @@
 			return this.offsetTop + this.element.offsetHeight / 2;
 		}
 		get offsetLeft() {
-			return this.offsetCenterX - this.element.offsetWidth / 2;
+			return this.offsetCenterX - this.element.offsetHeight / 2;
 		}
 
 		get offsetTop() {
@@ -247,7 +258,7 @@
 		}
 
 		get offsetRight() {
-			return this.offsetCenterX + this.element.offsetWidth / 2;
+			return this.offsetCenterX + this.element.offsetHeight / 2;
 		}
 
 		get offsetBottom() {
@@ -295,9 +306,8 @@
 		}
 	}
 
-	let dragPreview: DragPreview | null = $state.raw(null);
+	let dragPreview: DragPreview | null = $state(null);
 	function onDragPreviewChanged(_: DragPreview | null) {
-		console.log("draw preview changed, triggering scroll");
 		scrollNeeded = true;
 	}
 	$effect(() => {
@@ -471,14 +481,17 @@
 					viewport.width / 2;
 
 				if (dragPreview.at(i) != null) {
-					dragPreview.at(i).value = newItemValue;
-					dragPreview.at(i).endValue = newEndValue;
-					dragPreview.at(i).offsetCenterX = offsetCenterX;
+					const previousPreview = dragPreview.at(i);
+					previousPreview.value = newItemValue;
+					previousPreview.endValue = newEndValue;
+					previousPreview.length = newEndValue - newItemValue;
+					previousPreview.offsetCenterX = offsetCenterX;
 				} else {
 					dragPreview.add(
 						new DragPreviewElement(
 							item,
 							newItemValue,
+							newEndValue - newItemValue,
 							newEndValue,
 							offsetCenterX,
 							startItemBackground,
@@ -488,6 +501,7 @@
 					);
 				}
 			}
+			dragPreview = dragPreview;
 			scrollNeeded = true;
 
 			if (mouseX < startViewportBounds.left + viewport.padding.left) {
@@ -1165,10 +1179,12 @@
 	{/if}
 	{#if dragPreview != null && formatter != null && dragPreview.getCount() === 1}
 		<DraggedItem
-			display={{ displayValue: formatter.formatValue.bind(formatter) }}
+			{formatter}
 			position={dragPreview.at(0)}
 			name={dragPreview.at(0).item.name()}
 			value={dragPreview.at(0).value}
+			length={dragPreview.at(0).length}
+			endValue={dragPreview.at(0).endValue}
 		/>
 	{/if}
 	{#if focus != null}

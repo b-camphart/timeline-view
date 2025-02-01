@@ -1,25 +1,39 @@
 <script lang="ts">
+	import { ValueFormatter } from "src/timeline/layout/stage/Hover.svelte";
 	import type { ValueDisplay } from "src/timeline/Timeline";
 	import { hoverTooltip } from "src/view/Tooltip";
 
 	interface Props {
-		display: ValueDisplay;
+		formatter: ValueFormatter;
 		position: {
-		offsetTop: number;
-		offsetLeft: number;
-	};
+			offsetTop: number;
+			offsetLeft: number;
+			offsetWidth: number;
+		};
 		name: string;
 		value: number;
+		length?: number;
+		endValue?: number;
 	}
 
 	let {
-		display,
+		formatter,
 		position,
 		name,
-		value
+		value,
+		length: providedLength,
+		endValue: providedEndValue,
 	}: Props = $props();
+	const length = $derived(providedLength ?? 0);
+	const endValue = $derived(providedEndValue ?? value + length);
 
-	let label = $derived(`${name}: ${display.displayValue(value)}`);
+	const label = $derived.by(() => {
+		if (providedLength === undefined) {
+			return `${name}\n${formatter.formatValue(value)}`;
+		}
+
+		return `${name}\nlength: ${formatter.formatLength(length)}\nstart: ${formatter.formatValue(value)} - end: ${formatter.formatValue(endValue)}`;
+	});
 </script>
 
 <div
@@ -31,6 +45,7 @@
 	aria-label={label}
 	style:top="{position.offsetTop}px"
 	style:left="{position.offsetLeft}px"
+	style:width="{position.offsetWidth}px"
 ></div>
 
 <style>
