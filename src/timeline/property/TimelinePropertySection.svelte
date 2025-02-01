@@ -10,6 +10,7 @@
 	import type { TimelineProperty } from "src/timeline/property/TimelineProperty";
 	import type { Writable } from "svelte/store";
 	import ToggleInput from "src/view/inputs/ToggleInput.svelte";
+	import { TimelineNoteSorterPropertyType } from "src/timeline/sorting/TimelineNoteSorterProperty";
 
 	interface Props {
 		collapsed: Writable<boolean>;
@@ -24,7 +25,34 @@
 		secondaryPropertyToggled: boolean;
 		secondaryPropertyReinterpreted: "length" | "end";
 	}>();
+
+	const incompatibleTypes = $derived.by(() => {
+		if (!selector.secondaryPropertyInUse()) {
+			return false;
+		}
+		const primaryType = selector.timelineNoteSorterSelector
+			.selectedProperty()
+			.type();
+		const secondaryType = selector.timelineNoteSorterSelector
+			.secondaryProperty()
+			.type();
+
+		return (
+			(primaryType === TimelineNoteSorterPropertyType.Number &&
+				secondaryType !== TimelineNoteSorterPropertyType.Number) ||
+			(primaryType !== TimelineNoteSorterPropertyType.Number &&
+				secondaryType === TimelineNoteSorterPropertyType.Number)
+		);
+	});
 </script>
+
+{#snippet incompatibilityWarning()}
+	{#if incompatibleTypes}
+		<span class="warning"
+			>These properties have different types and may be nonsensical.</span
+		>
+	{/if}
+{/snippet}
 
 <CollapsableSection
 	name="Property"
@@ -32,6 +60,7 @@
 	class={"timeline-property-setting"}
 >
 	<section>
+		{@render incompatibilityWarning()}
 		<TimelineNoteSorterPropertySelect
 			tabindex={0}
 			property={selector.timelineNoteSorterSelector.selectedProperty()}
@@ -80,6 +109,7 @@
 					<option value="end">End</option>
 				</select>
 			</label>
+			{@render incompatibilityWarning()}
 			<TimelineNoteSorterPropertySelect
 				tabindex={3}
 				property={selector.timelineNoteSorterSelector.secondaryProperty()}
@@ -116,5 +146,9 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: baseline;
+	}
+
+	.warning {
+		color: var(--text-warning);
 	}
 </style>
