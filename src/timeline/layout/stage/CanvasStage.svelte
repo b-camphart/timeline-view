@@ -12,7 +12,7 @@
 	import { type Scale } from "src/timeline/scale";
 	import Scrollbar from "src/view/controls/Scrollbar.svelte";
 	import type { ChangeEvent } from "src/view/controls/Scrollbar";
-	import Hover, { ValueFormatter } from "./Hover.svelte";
+	import Hover from "./Hover.svelte";
 	import FocusedItem from "./FocusedItem.svelte";
 	import { Platform } from "obsidian";
 	import SelectionArea from "./CanvasSelectionArea.svelte";
@@ -41,7 +41,6 @@
 	}>();
 
 	interface Props {
-		formatter: ValueFormatter;
 		sortedItems: SortedArray<TimelineItem>;
 		scale: Scale;
 		focalValue: number;
@@ -49,12 +48,12 @@
 		clientWidth?: number;
 		clientHeight?: number;
 		editable: boolean;
+		summarizeItem: (item: TimelineItem) => string;
 		onPreviewNewItemValue?: (item: TimelineItem, value: number) => number;
 		oncontextmenu?: (e: MouseEvent, items: TimelineItem[]) => void;
 	}
 
 	let {
-		formatter,
 		sortedItems,
 		scale,
 		focalValue,
@@ -62,6 +61,7 @@
 		clientWidth = $bindable(0),
 		clientHeight = $bindable(0),
 		editable,
+		summarizeItem,
 		onPreviewNewItemValue = (_, value) => value,
 		oncontextmenu = () => {},
 	}: Props = $props();
@@ -1122,23 +1122,16 @@
 		}}
 		onwheel={handleScroll}
 	/>
-	{#if hover != null && formatter != null}
+	{#if hover != null}
 		<Hover
-			{formatter}
 			position={hover.element}
-			name={hover.element.layoutItem.item.name()}
-			value={hover.element.layoutItem.item.value()}
-			length={hover.element.layoutItem.item.length()}
+			summary={summarizeItem(hover.element.layoutItem.item)}
 		/>
 	{/if}
-	{#if dragPreview != null && formatter != null && dragPreview.getCount() === 1}
+	{#if dragPreview != null && dragPreview.getCount() === 1}
 		<DraggedItem
-			{formatter}
 			position={dragPreview.at(0)}
-			name={dragPreview.at(0).item.name()}
-			value={dragPreview.at(0).value}
-			length={dragPreview.at(0).length}
-			endValue={dragPreview.at(0).endValue}
+			summary={summarizeItem(dragPreview.at(0).item)}
 		/>
 	{/if}
 	{#if focus != null}

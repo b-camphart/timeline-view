@@ -388,6 +388,32 @@
 		if (length < 0) return 0;
 		return length;
 	}
+
+	function summarizeNote(note: Note) {
+		const primaryProperty = propertySelector.selectedProperty();
+		const primaryValue = primaryProperty.selectValueFromNote(note);
+		const primaryValueStr =
+			primaryValue === null ? "" : display.displayValue(primaryValue);
+		if (!propertySelector.secondaryPropertyInUse()) {
+			return `${note.name()}\n[${primaryProperty.name()}: ${primaryValueStr}]`;
+		}
+
+		const secondaryProperty = propertySelector.secondaryProperty();
+		const secondaryValue = secondaryProperty.selectValueFromNote(note);
+		const secondaryValueStr =
+			secondaryValue === null ? "" : display.displayValue(secondaryValue);
+
+		if (propertySelector.secondaryPropertyInterpretation() === "end") {
+			const length =
+				(secondaryValue ?? primaryValue ?? 0) - (primaryValue ?? 0);
+			return `${note.name()}\n[${primaryProperty.name()}: ${primaryValueStr}] → [${secondaryProperty.name()}: ${secondaryValueStr}]\nlength: ${display.displayLength(length)}`;
+		}
+
+		const end = (primaryValue ?? 0) + (secondaryValue ?? primaryValue ?? 0);
+
+		return `${note.name()}\n[${primaryProperty.name()}: ${primaryValueStr}] → ${display.displayValue(end)}\n[${secondaryProperty.name()}: ${secondaryValueStr}]`;
+	}
+
 	export async function addFile(file: Note) {
 		if (timelineView == null) return;
 		if (itemsById.has(file.id())) return;
@@ -481,6 +507,11 @@
 
 <TimelineView
 	{items}
+	summarizeItem={(item) => {
+		const note = itemsById.get(item.id())?.note;
+		if (!note) return item.name();
+		return summarizeNote(note);
+	}}
 	namespacedWritable={viewModel}
 	{display}
 	groups={timelineGroups}

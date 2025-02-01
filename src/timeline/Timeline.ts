@@ -208,12 +208,12 @@ function formatDateLength(length: Duration, scale: number): string {
 
 export interface ValueDisplay {
 	displayValue(value: number): string;
+	displayLength(value: number): string;
 }
 
 export interface RulerValueDisplay extends ValueDisplay {
 	getSmallestLabelStepValue(scale: Scale): number;
 	labels(labelCount: number, labelStepValue: number, firstLabelValue: number): {text: string; value: number}[];
-	formatter: ValueFormatter;
 }
 
 class DateValueDisplay implements RulerValueDisplay {
@@ -223,15 +223,12 @@ class DateValueDisplay implements RulerValueDisplay {
 		this.labelStepValue = 1001;
 	}
 
-	get formatter() {
-		return new ValueFormatter(
-			value => displayDateValue(value, this.labelStepValue),
-			length => formatDateLength(length, this.labelStepValue),
-		);
-	}
-
 	displayValue(value: number) {
 		return displayDateValue(value, this.labelStepValue);
+	}
+
+	displayLength(value: number): string {
+		return formatDateLength(value, this.labelStepValue);
 	}
 
 	getSmallestLabelStepValue(scale: Scale): number {
@@ -303,10 +300,6 @@ export function timelineDateValueDisplay(): RulerValueDisplay {
 }
 
 const numericValueDisplay: RulerValueDisplay = {
-	formatter: new ValueFormatter(
-		value => value.toLocaleString(),
-		length => length.toLocaleString(),
-	),
 	labels(labelCount, labelStepValue, firstLabelValue) {
 		if (labelCount < 1 || Number.isNaN(labelCount)) {
 			labelCount = 1;
@@ -320,6 +313,9 @@ const numericValueDisplay: RulerValueDisplay = {
 		return getSmallestMultipleOf10Above(minStepValue);
 	},
 	displayValue(value) {
+		return value.toLocaleString();
+	},
+	displayLength(value) {
 		return value.toLocaleString();
 	},
 };

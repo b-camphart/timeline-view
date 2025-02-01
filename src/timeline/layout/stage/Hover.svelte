@@ -39,36 +39,15 @@
 	import { fade } from "svelte/transition";
 
 	interface Props {
-		formatter: ValueFormatter;
 		position: {
 			offsetTop: number;
 			offsetLeft: number;
 			offsetWidth: number;
 		};
-		name: string;
-		value: number;
-		length?: number;
-		endValue?: number;
+		summary: string;
 	}
 
-	let {
-		formatter,
-		position,
-		name,
-		value,
-		length: providedLength,
-		endValue: providedEndValue,
-	}: Props = $props();
-	const length = $derived(providedLength ?? 0);
-	const endValue = $derived(providedEndValue ?? value + length);
-
-	const label = $derived.by(() => {
-		if (providedLength === undefined) {
-			return `${name}\n${formatter.formatValue(value)}`;
-		}
-
-		return `${name}\nstart: ${formatter.formatValue(value)} - end: ${formatter.formatValue(endValue)}\nlength: ${formatter.formatLength(length)}`;
-	});
+	let { position, summary }: Props = $props();
 
 	let hovered = $state(false);
 </script>
@@ -76,7 +55,7 @@
 <div
 	use:hoverTooltip={{
 		visible: hovered,
-		label,
+		label: summary,
 		className: "timeline-item-tooltip",
 		elementPosition: constrainedWithinBody.bind(null, hoverTooltip.center),
 	}}
@@ -84,7 +63,7 @@
 	onintroend={() => (hovered = true)}
 	onoutrostart={() => (hovered = false)}
 	class="timeline-item hover"
-	aria-label={label}
+	aria-label={summary}
 	style:top="{position.offsetTop}px"
 	style:left="{position.offsetLeft}px"
 	style:width="{position.offsetWidth}px"

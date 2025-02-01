@@ -1,51 +1,27 @@
 <script lang="ts">
-	import {
-		ValueFormatter,
-		constrainedWithinBody,
-	} from "src/timeline/layout/stage/Hover.svelte";
+	import { constrainedWithinBody } from "src/timeline/layout/stage/Hover.svelte";
 	import { hoverTooltip } from "src/view/Tooltip";
 
 	interface Props {
-		formatter: ValueFormatter;
 		position: {
 			offsetTop: number;
 			offsetLeft: number;
 			offsetWidth: number;
 		};
-		name: string;
-		value: number;
-		length?: number;
-		endValue?: number;
+		summary: string;
 	}
 
-	let {
-		formatter,
-		position,
-		name,
-		value,
-		length: providedLength,
-		endValue: providedEndValue,
-	}: Props = $props();
-	const length = $derived(providedLength ?? 0);
-	const endValue = $derived(providedEndValue ?? value + length);
-
-	const label = $derived.by(() => {
-		if (providedLength === undefined) {
-			return `${name}\n${formatter.formatValue(value)}`;
-		}
-
-		return `${name}\nstart: ${formatter.formatValue(value)} - end: ${formatter.formatValue(endValue)}\nlength: ${formatter.formatLength(length)}`;
-	});
+	let { position, summary }: Props = $props();
 </script>
 
 <div
 	use:hoverTooltip={{
 		visible: true,
-		label,
+		label: summary,
 		className: "timeline-item-tooltip",
 		elementPosition: constrainedWithinBody.bind(null, hoverTooltip.center),
 	}}
-	aria-label={label}
+	aria-label={summary}
 	style:top="{position.offsetTop}px"
 	style:left="{position.offsetLeft}px"
 	style:width="{position.offsetWidth}px"
