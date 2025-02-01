@@ -1,5 +1,8 @@
 <script module lang="ts">
-	function centerWithinBody(bounds: DOMRect) {
+	export function constrainedWithinBody(
+		position: (rect: DOMRect) => { x: number; y: number },
+		bounds: DOMRect,
+	) {
 		const bodyBounds = document.body.getBoundingClientRect();
 
 		let left = Math.max(0, Math.min(bodyBounds.width, bounds.x));
@@ -7,9 +10,7 @@
 		let right = Math.max(0, Math.min(bodyBounds.width, bounds.right));
 		let bottom = Math.max(0, Math.min(bodyBounds.height, bounds.bottom));
 
-		return hoverTooltip.center(
-			new DOMRect(left, top, right - left, bottom - top),
-		);
+		return position(new DOMRect(left, top, right - left, bottom - top));
 	}
 
 	export class ValueFormatter {
@@ -77,7 +78,7 @@
 		visible: hovered,
 		label,
 		className: "timeline-item-tooltip",
-		elementPosition: centerWithinBody,
+		elementPosition: constrainedWithinBody.bind(null, hoverTooltip.center),
 	}}
 	transition:fade={{ duration: 500 }}
 	onintroend={() => (hovered = true)}

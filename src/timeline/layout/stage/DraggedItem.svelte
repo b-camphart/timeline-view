@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { ValueFormatter } from "src/timeline/layout/stage/Hover.svelte";
-	import type { ValueDisplay } from "src/timeline/Timeline";
+	import {
+		ValueFormatter,
+		constrainedWithinBody,
+	} from "src/timeline/layout/stage/Hover.svelte";
 	import { hoverTooltip } from "src/view/Tooltip";
 
 	interface Props {
@@ -41,6 +43,7 @@
 		visible: true,
 		label,
 		className: "timeline-item-tooltip",
+		elementPosition: constrainedWithinBody.bind(null, hoverTooltip.center),
 	}}
 	aria-label={label}
 	style:top="{position.offsetTop}px"
