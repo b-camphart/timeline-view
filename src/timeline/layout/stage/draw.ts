@@ -14,9 +14,9 @@ export function renderLayout(
 	context.beginPath();
 	context.clearRect(0, 0, viewport.width, viewport.height);
 
-	batchRenderItems(context, viewport, layout);
+	renderItemsSequentially(context, viewport, layout);
 	if (dragPreview != null && dragPreview.length > 0) {
-		batchRenderItems(context, viewport, dragPreview);
+		renderItemsSequentially(context, viewport, dragPreview);
 	}
 }
 
