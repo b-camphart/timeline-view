@@ -1,6 +1,6 @@
 import type {CanvasElement} from "src/timeline/layout/stage/CanvasStage";
 import {batchRenderItems, renderItemsSequentially} from "src/timeline/layout/stage/draw";
-import {beforeEach, bench, describe, vi, vitest} from "vitest";
+import {bench, describe, vi} from "vitest";
 
 const viewport = {width: 800, height: 600};
 
@@ -36,10 +36,7 @@ describe("drawing 10,000 items", () => {
 				roundRect: vi.fn(),
 			},
 			viewport,
-			{
-				getCount: () => items.length,
-				[Symbol.iterator]: () => items[Symbol.iterator](),
-			},
+			items,
 		);
 	});
 	bench("in batches", () => {
@@ -56,10 +53,7 @@ describe("drawing 10,000 items", () => {
 				roundRect: vi.fn(),
 			},
 			viewport,
-			{
-				getCount: () => items.length,
-				[Symbol.iterator]: () => items[Symbol.iterator](),
-			},
+			items,
 		);
 	});
 });

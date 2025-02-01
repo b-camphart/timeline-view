@@ -1,4 +1,4 @@
-import type {CanvasElement, CanvasElementCollection, CanvasViewport} from "src/timeline/layout/stage/CanvasStage";
+import type {CanvasElement, CanvasViewport} from "src/timeline/layout/stage/CanvasStage";
 
 export type Context = Pick<
 	CanvasRenderingContext2D,
@@ -8,25 +8,26 @@ export type Context = Pick<
 export function renderLayout(
 	context: CanvasRenderingContext2D,
 	viewport: CanvasViewport,
-	layout: CanvasElementCollection,
-	dragPreview: CanvasElementCollection | null,
+	layout: readonly CanvasElement[],
+	dragPreview: readonly CanvasElement[] | null,
 ) {
 	context.beginPath();
 	context.clearRect(0, 0, viewport.width, viewport.height);
 
 	batchRenderItems(context, viewport, layout);
-	if (dragPreview != null && dragPreview.getCount() > 0) {
+	if (dragPreview != null && dragPreview.length > 0) {
 		batchRenderItems(context, viewport, dragPreview);
 	}
 }
 
-export function batchRenderItems(context: Context, viewport: CanvasViewport, items: CanvasElementCollection) {
+export function batchRenderItems(context: Context, viewport: CanvasViewport, items: readonly CanvasElement[]) {
 	const batches = new Map<string, CanvasElement[]>();
 
 	const defaultColor = context.fillStyle;
 	const defaultBorderColor = context.strokeStyle;
 	const defaultStrokeWidth = 0;
-	for (const item of items) {
+	for (let i = 0; i < items.length; i++) {
+		const item = items[i];
 		if (
 			item.visible === false ||
 			item.offsetTop > viewport.height ||
@@ -45,10 +46,6 @@ export function batchRenderItems(context: Context, viewport: CanvasViewport, ite
 		}
 		batches.get(key)!.push(item);
 	}
-
-	// let currentBorderColor = defaultBorderColor;
-	// let currentFillColor = defaultColor;
-	// let currentStrokeWidth = 2;
 
 	for (const entry of batches) {
 		const [backgroundColor, borderColor, strokeWidth] = entry[0].split("|");
@@ -74,7 +71,7 @@ export function batchRenderItems(context: Context, viewport: CanvasViewport, ite
 	}
 }
 
-export function renderItemsSequentially(context: Context, viewport: CanvasViewport, items: CanvasElementCollection) {
+export function renderItemsSequentially(context: Context, viewport: CanvasViewport, items: readonly CanvasElement[]) {
 	const defaultBorderColor = context.strokeStyle;
 	const defaultColor = context.fillStyle;
 	const defaultStrokeWidth = 0;
@@ -85,7 +82,8 @@ export function renderItemsSequentially(context: Context, viewport: CanvasViewpo
 
 	context.beginPath();
 
-	for (const item of items) {
+	for (let i = 0; i < items.length; i++) {
+		const item = items[i];
 		if (item.visible === false) continue;
 		if (item.offsetTop > viewport.height || item.offsetBottom < 0) continue;
 		if (item.offsetLeft > viewport.width || item.offsetRight < 0) continue;

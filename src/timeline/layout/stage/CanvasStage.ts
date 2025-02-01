@@ -25,10 +25,6 @@ export interface CanvasElement {
 	readonly strokeWidth: number | undefined;
 }
 
-export interface CanvasElementCollection extends Iterable<CanvasElement> {
-	getCount(): number;
-}
-
 export {
 	/** @deprecated import from "./layout" */
 	layoutPoints,

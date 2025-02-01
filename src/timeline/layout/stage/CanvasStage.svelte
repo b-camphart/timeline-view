@@ -275,6 +275,10 @@
 
 		constructor() {}
 
+		arr(): readonly DragPreviewElement[] {
+			return this.elements;
+		}
+
 		add(element: DragPreviewElement) {
 			this.elements.push(element);
 			this.items.add(element.item);
@@ -1048,7 +1052,12 @@
 					renderContext.scale(ratio, ratio);
 				}
 
-				renderLayout(renderContext, viewport, elements, dragPreview);
+				renderLayout(
+					renderContext,
+					viewport,
+					elements.arr,
+					dragPreview?.arr() ?? null,
+				);
 			}
 			layoutNeeded = false;
 			scrollNeeded = false;
