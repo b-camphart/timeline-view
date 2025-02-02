@@ -21,11 +21,7 @@ export class ObsidianNoteRepository implements MutableNoteRepository {
 		this.#files = files;
 	}
 
-	async createNote(note: {
-		created?: number;
-		modified?: number;
-		properties?: Record<string, unknown>;
-	}): Promise<Note> {
+	async createNote(note: {created?: number; modified?: number; properties?: Record<string, unknown>}): Promise<Note> {
 		let count = 0;
 		let name = "Untitled.md";
 		while (await this.#vault.adapter.exists(name)) {
@@ -49,7 +45,7 @@ export class ObsidianNoteRepository implements MutableNoteRepository {
 		modification: {
 			created?: number;
 			modified?: number;
-			property?: {[name: string]: unknown};
+			properties?: {[name: string]: unknown};
 		},
 	) {
 		const tFile = this.getFileFromNote(note);
@@ -60,19 +56,15 @@ export class ObsidianNoteRepository implements MutableNoteRepository {
 		if (modification.created != null || modification.modified != null) {
 			// just modifying the tFile.ctime and tFile.mtime didn't actually
 			// persist the changes.  Writing is the only way to do so.
-			await this.#vault.adapter.write(
-				tFile.path,
-				await this.#vault.adapter.read(tFile.path),
-				{
-					ctime: truncate(modification.created),
-					mtime: truncate(modification.modified),
-				},
-			);
+			await this.#vault.adapter.write(tFile.path, await this.#vault.adapter.read(tFile.path), {
+				ctime: truncate(modification.created),
+				mtime: truncate(modification.modified),
+			});
 		}
-		if (modification.property != null) {
-			const property = modification.property;
+		if (modification.properties != null) {
+			const properties = modification.properties;
 			await this.#files.processFrontMatter(tFile, frontmatter => {
-				for (const [key, value] of Object.entries(property)) {
+				for (const [key, value] of Object.entries(properties)) {
 					frontmatter[key] = value;
 				}
 			});
@@ -111,40 +103,29 @@ export class ObsidianNoteRepository implements MutableNoteRepository {
 							return new ObsidianNote(tFile, metadata);
 						}
 						return null;
-					}
+				  }
 				: async (tFile: TFile) => {
 						const note = new ObsidianNote(tFile, metadata);
 						if (await filter.matches(note)) {
 							return note;
 						}
 						return null;
-					};
+				  };
 
-		const notesOrNull = await Promise.all(
-			vault.getMarkdownFiles().map(processFile),
-		);
+		const notesOrNull = await Promise.all(vault.getMarkdownFiles().map(processFile));
 		return notesOrNull.filter(exists);
 	}
 
 	getNoteFilterForQuery(query: string): NoteFilter {
-		return new ObsidianNoteFilter(
-			parse(query, this.#metadata, MatchAllEmptyQuery),
-			query,
-		);
+		return new ObsidianNoteFilter(parse(query, this.#metadata, MatchAllEmptyQuery), query);
 	}
 
 	getInclusiveNoteFilterForQuery(query: string): NoteFilter {
-		return new ObsidianNoteFilter(
-			parse(query, this.#metadata, MatchAllEmptyQuery),
-			query,
-		);
+		return new ObsidianNoteFilter(parse(query, this.#metadata, MatchAllEmptyQuery), query);
 	}
 
 	getExclusiveNoteFilterForQuery(query: string): NoteFilter {
-		return new ObsidianNoteFilter(
-			parse(query, this.#metadata, EmtpyFilter),
-			query,
-		);
+		return new ObsidianNoteFilter(parse(query, this.#metadata, EmtpyFilter), query);
 	}
 }
 

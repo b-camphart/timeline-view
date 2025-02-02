@@ -39,7 +39,7 @@ function config(
 					return `main.js`;
 				},
 			},
-			target: "es2018",
+			target: "es2023",
 			minify: false,
 			cssMinify: false,
 			rollupOptions: {

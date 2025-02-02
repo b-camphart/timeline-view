@@ -1,9 +1,10 @@
 <script lang="ts">
 	interface Props {
 		focus: {
-		offsetTop: number;
-		offsetLeft: number;
-	};
+			offsetTop: number;
+			offsetLeft: number;
+			offsetWidth: number;
+		};
 	}
 
 	let { focus }: Props = $props();
@@ -12,6 +13,7 @@
 <div
 	class="timeline-item focus"
 	style="top: {focus.offsetTop}px; left: {focus.offsetLeft}px;"
+	style:width="{focus.offsetWidth}px"
 ></div>
 
 <style>

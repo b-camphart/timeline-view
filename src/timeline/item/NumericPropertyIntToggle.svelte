@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
+	import { run } from "svelte/legacy";
 
 	import ToggleInput from "src/view/inputs/ToggleInput.svelte";
 
@@ -26,6 +26,7 @@
 
 <ToggleInput
 	class="numeric-property-int-toggle"
+	row
 	name="Use whole numbers"
 	hint="When creating a new note, round to the nearest whole number for this property value"
 	{tabindex}
@@ -36,10 +37,6 @@
 
 <style>
 	:global(.numeric-property-int-toggle) {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
 		padding: var(--size-2-3) 0;
-		width: 100%;
 	}
 </style>

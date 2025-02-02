@@ -5,7 +5,7 @@ type Tooltip = {
 	visible: boolean;
 	label: string;
 
-	elementPosition?: (rect: DOMRect) => { x: number; y: number };
+	elementPosition?: (rect: DOMRect) => {x: number; y: number};
 	className?: string;
 	styles?: Partial<CSSStyleDeclaration>;
 };
@@ -19,12 +19,10 @@ export function hoverTooltip(element: HTMLElement, args: Tooltip) {
 	tooltipArrow.className = "tooltip-arrow";
 	tooltip.appendChild(tooltipArrow);
 
-	function position({ elementPosition, styles }: Tooltip) {
+	function position({elementPosition = hoverTooltip.center, styles}: Tooltip) {
 		const clientBounds = element.getBoundingClientRect();
 
-		const relativePosition = (elementPosition ?? hoverTooltip.center)(
-			clientBounds,
-		);
+		const relativePosition = elementPosition(clientBounds);
 
 		tooltip.setCssStyles({
 			...styles,
@@ -39,7 +37,7 @@ export function hoverTooltip(element: HTMLElement, args: Tooltip) {
 	}
 
 	let observer = new MutationObserver(() => position(args));
-	observer.observe(element, { attributes: true });
+	observer.observe(element, {attributes: true});
 
 	return {
 		destroy() {
@@ -55,13 +53,10 @@ export function hoverTooltip(element: HTMLElement, args: Tooltip) {
 			position(args);
 			observer.disconnect();
 			observer = new MutationObserver(() => position(args));
-			observer.observe(element, { attributes: true });
+			observer.observe(element, {attributes: true});
 			if (args.visible && tooltip.parentElement != document.body) {
 				document.body.appendChild(tooltip);
-			} else if (
-				!args.visible &&
-				tooltip.parentElement == document.body
-			) {
+			} else if (!args.visible && tooltip.parentElement == document.body) {
 				tooltip.remove();
 			}
 		},

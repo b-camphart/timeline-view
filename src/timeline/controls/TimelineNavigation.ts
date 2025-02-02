@@ -1,6 +1,7 @@
-import { type Readable, type Writable } from "svelte/store";
-import type { TimelineItem } from "../Timeline";
-import { ValuePerPixelScale, type Scale } from "../scale";
+import {type Readable, type Writable} from "svelte/store";
+import type {TimelineItem} from "../Timeline";
+import {ValuePerPixelScale, type Scale} from "../scale";
+import {zoomToFit} from "src/timeline/controls/navigation/zoomToFit";
 
 export type ZoomConstraints = {
 	keepValue: number;
@@ -21,7 +22,7 @@ class TimelineNavigationSvelteImpl implements TimelineNavigation {
 
 	constructor(
 		private scaleProperty: Vetoable<Scale>,
-		private items: { get(): Iterable<TimelineItem> },
+		private items: {get(): Iterable<TimelineItem>},
 		private setFocalValue: Writable<number>["update"],
 		private availableWidth: () => number,
 	) {
@@ -43,11 +44,9 @@ class TimelineNavigationSvelteImpl implements TimelineNavigation {
 			orderOfMagnitude -= 1;
 		}
 
-		const newScale = this.scaleProperty.set(
-			new ValuePerPixelScale(multiple * Math.pow(10, orderOfMagnitude)),
-		);
+		const newScale = this.scaleProperty.set(new ValuePerPixelScale(multiple * Math.pow(10, orderOfMagnitude)));
 		if (constraints != null) {
-			const { keepValue, at } = constraints;
+			const {keepValue, at} = constraints;
 			this.setFocalValue(() => keepValue - newScale.toValue(at));
 		}
 	}
@@ -64,32 +63,16 @@ class TimelineNavigationSvelteImpl implements TimelineNavigation {
 			orderOfMagnitude += 1;
 		}
 
-		const newScale = this.scaleProperty.set(
-			new ValuePerPixelScale(multiple * Math.pow(10, orderOfMagnitude)),
-		);
+		const newScale = this.scaleProperty.set(new ValuePerPixelScale(multiple * Math.pow(10, orderOfMagnitude)));
 		if (constraints != null) {
-			const { keepValue, at } = constraints;
+			const {keepValue, at} = constraints;
 			this.setFocalValue(() => keepValue - newScale.toValue(at));
 		}
 	}
 
-	zoomToFit(
-		items: Iterable<TimelineItem> = this.items.get(),
-		width: number = this.availableWidth(),
-	) {
-		const minimum = this.minimumValue(items);
-		const maximum = this.maximumValue(items);
-
-		const span = maximum - minimum;
-
-		if (span === 0) {
-			this.scaleProperty.set(new ValuePerPixelScale(1));
-			this.setFocalValue(() => minimum);
-			return;
-		}
-
-		this.scaleProperty.set(new ValuePerPixelScale(span / width));
-		const centerValue = this.centerValue(items);
+	zoomToFit(items: Iterable<TimelineItem> = this.items.get(), width: number = this.availableWidth()) {
+		const [scale, centerValue] = zoomToFit(items, width);
+		this.scaleProperty.set(scale);
 		this.setFocalValue(() => centerValue);
 	}
 
@@ -146,14 +129,9 @@ export interface Vetoable<T> extends Readable<T> {
 
 export function timelineNavigation(
 	scale: Vetoable<Scale>,
-	items: { get(): Iterable<TimelineItem> },
+	items: {get(): Iterable<TimelineItem>},
 	focalValue: Writable<number>["update"],
 	availableWidth: () => number,
 ): TimelineNavigation {
-	return new TimelineNavigationSvelteImpl(
-		scale,
-		items,
-		focalValue,
-		availableWidth,
-	);
+	return new TimelineNavigationSvelteImpl(scale, items, focalValue, availableWidth);
 }

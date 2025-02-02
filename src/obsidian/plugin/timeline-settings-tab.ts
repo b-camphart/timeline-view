@@ -1,8 +1,8 @@
 import * as obsidian from "obsidian";
 import type {ObsidianNotePropertyRepository} from "src/note/property/obsidian-repository";
 import TimelineNoteSorterPropertySelect from "../../timeline/sorting/TimelineNoteSorterPropertySelect.svelte";
-import {expectArray, expectBoolean, expectObject, expectString, type Parsed} from "src/utils/json";
-import {TimelineNoteSorterSelector} from "src/timeline/sorting/TimelineNoteSorterSelector";
+import {expectArray, expectBoolean, expectObject, expectString, expectEnum, type Parsed} from "src/utils/json";
+import {TimelineNoteSorterSelector} from "src/timeline/sorting/TimelineNoteSorterSelector.svelte";
 import TimelineQueryFilterInput from "src/timeline/filter/TimelineQueryFilterInput.svelte";
 import {TimelineItemQueryFilter} from "src/timeline/filter/TimelineItemQueryFilter";
 import type {ObsidianNoteRepository} from "src/note/obsidian-repository";
@@ -46,11 +46,28 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 		const loadedSettings = await this.#getSettings();
 		return await TimelineNoteSorterSelector.sanitize(
 			loadedSettings.openWith.property,
+			loadedSettings.openWith.secondaryProperty.name,
+			loadedSettings.openWith.secondaryProperty.inUse,
 			this.#noteProperties,
 			async name => {
 				this.#updateSettings(settings => (settings.openWith.property = name));
 			},
+			async secondaryName => {
+				this.#updateSettings(settings => (settings.openWith.secondaryProperty.name = secondaryName));
+			},
+			async useSecondary => {
+				this.#updateSettings(settings => (settings.openWith.secondaryProperty.inUse = useSecondary));
+			},
 		);
+	}
+
+	async noteLength() {
+		const loadedSettings = await this.#getSettings();
+		return {
+			propertyName: loadedSettings.openWith.secondaryProperty.name,
+			use: loadedSettings.openWith.secondaryProperty.inUse,
+			useAs: loadedSettings.openWith.secondaryProperty.useAs,
+		};
 	}
 
 	async noteFilter(): Promise<TimelineItemQueryFilter> {
@@ -97,6 +114,7 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 		const containerEl = this.containerEl;
 
 		const order = await this.noteOrder();
+		const length = await this.noteLength();
 		const filter = await this.noteFilter();
 		const groups = await this.groups();
 
@@ -119,7 +137,8 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 		mount(TimelineNoteSorterPropertySelect, {
 			target: propertySetting.controlEl,
 			props: {
-				order,
+				property: order.selectedProperty(),
+				getProperties: () => order.availableProperties(),
 				tabindex: 0,
 			},
 			events: {
@@ -128,6 +147,49 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 				},
 			},
 		});
+
+		new obsidian.Setting(containerEl)
+			.setName("Use Secondary Property")
+			.setDesc("Should a secondary property be used by default when the timeline is first opened?")
+			.addToggle(toggle => {
+				toggle.setValue(order.secondaryPropertyInUse());
+				toggle.onChange(value => {
+					order.toggleSecondaryProperty(value);
+					this.#updateSettings(settings => (settings.openWith.secondaryProperty.inUse = value));
+				});
+			});
+
+		const secondaryPropertySetting = new obsidian.Setting(containerEl)
+			.setName("Default Secondary Property")
+			.setDesc("The default property to use as the secondary property when the timeline is first opened.");
+		mount(TimelineNoteSorterPropertySelect, {
+			target: secondaryPropertySetting.controlEl,
+			props: {
+				property: order.secondaryProperty(),
+				getProperties: () => order.availableProperties(),
+				tabindex: 0,
+			},
+			events: {
+				selected: event => {
+					order.selectSecondaryProperty(event.detail);
+				},
+			},
+		});
+
+		new obsidian.Setting(containerEl)
+			.setName("Interpret Secondary Property As")
+			.setDesc("By default, how should the secondary property be interpreted?")
+			.addDropdown(dropdown => {
+				dropdown.addOption("length", "Length");
+				dropdown.addOption("end", "End");
+				dropdown.setValue(length.useAs);
+				dropdown.onChange(value => {
+					length.useAs = value as "length" | "end";
+					this.#updateSettings(
+						settings => (settings.openWith.secondaryProperty.useAs = value as "length" | "end"),
+					);
+				});
+			});
 
 		const filterSetting = new obsidian.Setting(containerEl)
 			.setName("Default Filter")
@@ -165,6 +227,11 @@ function timelineSettingsSchema() {
 	return expectObject({
 		openWith: expectObject({
 			property: expectString("created"),
+			secondaryProperty: expectObject({
+				name: expectString("modified"),
+				inUse: expectBoolean(false),
+				useAs: expectEnum({length: "length" as const, end: "end" as const}, "end"),
+			}),
 			filter: expectObject({
 				query: expectString(""),
 			}),

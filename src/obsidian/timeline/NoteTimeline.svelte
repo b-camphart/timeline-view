@@ -31,6 +31,14 @@
 		viewModel: NamespacedWritableFactory<ObsidianNoteTimelineViewModel>;
 		isNew?: boolean;
 		oncontextmenu?: (e: MouseEvent, notes: Note[]) => void;
+		onResizeNotes?(
+			mods: {
+				note: Note;
+				created?: number;
+				modified?: number;
+				properties?: Record<string, number>;
+			}[],
+		): Promise<void>;
 	}
 
 	let {
@@ -40,6 +48,7 @@
 		viewModel,
 		isNew = false,
 		oncontextmenu = () => {},
+		onResizeNotes = async () => {},
 	}: Props = $props();
 
 	const dispatch = createEventDispatcher<{
@@ -52,10 +61,11 @@
 		};
 		modifyNote: {
 			note: Note;
-			modification:
-				| { created: number }
-				| { modified: number }
-				| { property: { name: string; value: number } };
+			modification: {
+				created?: number;
+				modified?: number;
+				properties: Record<string, number>;
+			};
 		};
 	}>();
 
@@ -125,6 +135,7 @@
 		dispatch("noteSelected", { note, event });
 	}
 
+	// @ts-ignore
 	let propertySelector: TimelinePropertySelector = $state();
 
 	async function createItem(item: { value: number }) {
@@ -145,48 +156,139 @@
 		dispatch("createNote", creation);
 	}
 
-	function moveItem(item: TimelineItem, value: number) {
+	function moveItem(item: TimelineItem, value: number, endValue: number) {
 		const noteItem = itemsById.get(item.id());
 		if (noteItem == null) {
 			return false;
 		}
 
+		const modification = {
+			created: undefined as number | undefined,
+			modified: undefined as number | undefined,
+			properties: {} as Record<string, number>,
+		};
+
 		const property = propertySelector.selectedProperty();
-		value = property.sanitizeValue(value);
+		// value = property.sanitizeValue(value);
 
 		if (property.isCreatedProperty()) {
-			return dispatch(
-				"modifyNote",
-				{
-					note: noteItem.note,
-					modification: { created: value },
-				},
-				{ cancelable: true },
-			);
+			modification["created"] = value;
 		} else if (property.isModifiedProperty()) {
-			return dispatch(
-				"modifyNote",
-				{
-					note: noteItem.note,
-					modification: { modified: value },
-				},
-				{ cancelable: true },
-			);
+			modification["modified"] = value;
 		} else {
-			return dispatch(
-				"modifyNote",
-				{
-					note: noteItem.note,
-					modification: {
-						property: { name: property.name(), value: value },
-					},
-				},
-				{ cancelable: true },
-			);
+			modification.properties[property.name()] = value;
+		}
+
+		if (
+			propertySelector.secondaryPropertyInUse() &&
+			// if we're using it as a length, moving the item has no effect
+			propertySelector.secondaryPropertyInterpretation() === "end"
+		) {
+			if (endValue - value !== item.length()) {
+				throw new Error(
+					`end value should be ${value + item.length()}, but received ${endValue}`,
+				);
+			}
+			const secondaryProperty = propertySelector.secondaryProperty();
+			endValue = secondaryProperty.sanitizeValue(endValue);
+			if (secondaryProperty.isCreatedProperty()) {
+				modification["created"] = endValue;
+			} else if (secondaryProperty.isModifiedProperty()) {
+				modification["modified"] = endValue;
+			} else {
+				modification.properties[secondaryProperty.name()] = endValue;
+			}
+		}
+
+		return dispatch(
+			"modifyNote",
+			{
+				note: noteItem.note,
+				modification,
+			},
+			{ cancelable: true },
+		);
+	}
+	async function resizeItems(
+		items: {
+			item: TimelineItem;
+			value: number;
+			length: number;
+			endValue: number;
+		}[],
+	) {
+		if (!propertySelector.secondaryPropertyInUse()) return;
+		const noteResizes = new Array<{
+			note: Note;
+			item: TimelineNoteItem;
+			created?: number;
+			modified?: number;
+			properties: Record<string, number>;
+		}>();
+
+		function setValue(
+			modification: (typeof noteResizes)[number],
+			property: TimelineProperty,
+			value: number,
+		) {
+			value = property.sanitizeValue(value);
+			if (property.isCreatedProperty()) {
+				modification.created = value;
+			} else if (property.isModifiedProperty()) {
+				modification.modified = value;
+			} else {
+				modification.properties[property.name()] = value;
+			}
+		}
+
+		for (let i = 0; i < items.length; i++) {
+			const { value, length, endValue } = items[i];
+			const item = itemsById.get(items[i].item.id());
+			if (!item) continue;
+			const note = item.note;
+
+			const modification = {
+				note,
+				item,
+				created: undefined as number | undefined,
+				modified: undefined as number | undefined,
+				properties: {} as Record<string, number>,
+			};
+
+			setValue(modification, propertySelector.selectedProperty(), value);
+			if (propertySelector.secondaryPropertyInterpretation() === "end") {
+				setValue(
+					modification,
+					propertySelector.secondaryProperty(),
+					endValue,
+				);
+			} else {
+				setValue(
+					modification,
+					propertySelector.secondaryProperty(),
+					length,
+				);
+			}
+
+			noteResizes.push(modification);
+		}
+
+		await onResizeNotes(noteResizes);
+		for (let i = 0; i < noteResizes.length; i++) {
+			noteResizes[i].item._invalidateValueCache();
+			noteResizes[i].item.lengthSelector = lengthOf;
 		}
 	}
 
+	const secondaryPropertyInterpretedAs = viewModel
+		.namespace("settings")
+		.namespace("property")
+		.namespace("secondaryProperty")
+		.make("useAs", "end");
+
+	// @ts-ignore
 	let timelineView: TimelineView = $state();
+	// @ts-ignore
 	let display: RulerValueDisplay = $state();
 	onMount(async () => {
 		const orderSettings = viewModel
@@ -194,6 +296,12 @@
 			.namespace("property");
 
 		const selectedPropertyName = orderSettings.make("property", "created");
+		const secondaryProperty = orderSettings.namespace("secondaryProperty");
+		const secondaryPropertyName = secondaryProperty.make(
+			"name",
+			"modified",
+		);
+		const secondaryPropertyInUse = secondaryProperty.make("inUse", false);
 		const propertyPreferences = orderSettings.make(
 			"propertiesUseWholeNumbers",
 			{},
@@ -203,20 +311,31 @@
 			notePropertyRepository,
 			{
 				selectedPropertyName: get(selectedPropertyName),
+				secondaryProperty: {
+					name: get(secondaryPropertyName),
+					inUse: get(secondaryPropertyInUse),
+					useAs: get(secondaryPropertyInterpretedAs),
+				},
 				propertyPreferences: get(propertyPreferences),
 			},
 			(state) => {
 				selectedPropertyName.set(state.selectedPropertyName);
+				secondaryPropertyName.set(state.secondaryProperty.name);
+				secondaryPropertyInUse.set(state.secondaryProperty.inUse);
+				secondaryPropertyInterpretedAs.set(
+					state.secondaryProperty.useAs,
+				);
 				propertyPreferences.set(state.propertyPreferences);
 			},
 		);
 
 		display = propertySelector.selectedProperty().displayedAs();
 
-		for (const note of await noteRepository.listAll()) {
+		for (const note of noteRepository.listAll()) {
 			const item = new TimelineNoteItem(
 				note,
 				getValueSelector,
+				lengthOf,
 				itemColorSupplier,
 			);
 			itemsById.set(item.id(), item);
@@ -332,12 +451,84 @@
 	function getValueSelector(this: void) {
 		return propertySelector.selectedProperty();
 	}
+	function lengthOf(note: Note) {
+		if (!propertySelector.secondaryPropertyInUse()) {
+			return 0;
+		}
+		const secondaryProperty = propertySelector.secondaryProperty();
+		if ($secondaryPropertyInterpretedAs === "length") {
+			const length = secondaryProperty.selectValueFromNote(note);
+			if (length === null || length < 0) return 0;
+			return length;
+		}
+		const start =
+			propertySelector.selectedProperty().selectValueFromNote(note) ?? 0;
+		const end = secondaryProperty.selectValueFromNote(note) ?? start;
+		const length = end - start;
+		if (length < 0) return 0;
+		return length;
+	}
+
+	function summarizeNote(note: Note) {
+		const primaryProperty = propertySelector.selectedProperty();
+		const primaryValue = primaryProperty.selectValueFromNote(note);
+		const primaryValueStr =
+			primaryValue === null ? "" : display.displayValue(primaryValue);
+		if (!propertySelector.secondaryPropertyInUse()) {
+			return `${note.name()}\n[${primaryProperty.name()}: ${primaryValueStr}]`;
+		}
+
+		const secondaryProperty = propertySelector.secondaryProperty();
+		const secondaryValue = secondaryProperty.selectValueFromNote(note);
+
+		if (propertySelector.secondaryPropertyInterpretation() === "end") {
+			const secondaryValueStr =
+				secondaryValue === null
+					? ""
+					: display.displayValue(secondaryValue);
+			const length =
+				(secondaryValue ?? primaryValue ?? 0) - (primaryValue ?? 0);
+			return `${note.name()}\n[${primaryProperty.name()}: ${primaryValueStr}] → [${secondaryProperty.name()}: ${secondaryValueStr}]\nlength: ${display.displayLength(length)}`;
+		}
+
+		const end = (primaryValue ?? 0) + (secondaryValue ?? primaryValue ?? 0);
+		const secondaryValueStr =
+			secondaryValue === null
+				? ""
+				: display.displayLength(secondaryValue);
+
+		return `${note.name()}\n[${primaryProperty.name()}: ${primaryValueStr}] → ${display.displayValue(end)}\n[${secondaryProperty.name()}: ${secondaryValueStr}]`;
+	}
+
+	function summarizeItem(
+		name: string,
+		value: number,
+		length: number,
+		endValue: number,
+	) {
+		const primaryProperty = propertySelector.selectedProperty();
+		const primaryValueStr = display.displayValue(value);
+		if (!propertySelector.secondaryPropertyInUse()) {
+			return `${name}\n[${primaryProperty.name()}: ${primaryValueStr}]`;
+		}
+
+		const secondaryProperty = propertySelector.secondaryProperty();
+		const lengthStr = display.displayLength(length);
+		const endValueStr = display.displayValue(endValue);
+
+		if (propertySelector.secondaryPropertyInterpretation() === "end") {
+			return `${name}\n[${primaryProperty.name()}: ${primaryValueStr}] → [${secondaryProperty.name()}: ${endValueStr}]\nlength: ${lengthStr}`;
+		}
+		return `${name}\n[${primaryProperty.name()}: ${primaryValueStr}] → ${endValueStr}\n[${secondaryProperty.name()}: ${lengthStr}]`;
+	}
+
 	export async function addFile(file: Note) {
 		if (timelineView == null) return;
 		if (itemsById.has(file.id())) return;
 		const item = new TimelineNoteItem(
 			file,
 			getValueSelector,
+			lengthOf,
 			itemColorSupplier,
 		);
 		itemsById.set(file.id(), item);
@@ -410,6 +601,13 @@
 		timelineView.zoomToFit(items);
 	}
 
+	function onSecondaryPropertySelected(property: TimelineProperty) {
+		for (const item of itemsById.values()) {
+			item.lengthSelector = lengthOf;
+		}
+		timelineView!.refresh();
+	}
+
 	function onPreviewNewItemValue(item: TimelineItem, value: number): number {
 		return propertySelector.selectedProperty().sanitizeValue(value);
 	}
@@ -417,6 +615,21 @@
 
 <TimelineView
 	{items}
+	previewItem={(name, value, length, endValue) => {
+		return summarizeItem(name, value, length, endValue);
+	}}
+	summarizeItem={(item) => {
+		const note = itemsById.get(item.id())?.note;
+		if (!note)
+			return summarizeItem(
+				item.name(),
+				item.value(),
+				item.length(),
+				item.value() + item.length(),
+			);
+		return summarizeNote(note);
+	}}
+	itemsResizable={propertySelector?.secondaryPropertyInUse() ?? false}
 	namespacedWritable={viewModel}
 	{display}
 	groups={timelineGroups}
@@ -485,6 +698,7 @@
 		dispatch("noteFocused", itemsById.get(e.detail.id())?.note)}
 	on:create={(e) => createItem(e.detail)}
 	onMoveItem={moveItem}
+	onItemsResized={resizeItems}
 	{onPreviewNewItemValue}
 	oncontextmenu={(e, triggerItems) => {
 		const items = triggerItems
@@ -508,6 +722,23 @@
 				selector={propertySelector}
 				on:propertySelected={(event) =>
 					onPropertySelected(event.detail)}
+				on:secondaryPropertySelected={({ detail }) =>
+					onSecondaryPropertySelected(detail)}
+				on:secondaryPropertyToggled={({ detail: inUse }) => {
+					for (const item of itemsById.values()) {
+						item.lengthSelector = lengthOf;
+					}
+					timelineView!.refresh();
+				}}
+				on:secondaryPropertyReinterpreted={({
+					detail: interpretation,
+				}) => {
+					$secondaryPropertyInterpretedAs = interpretation;
+					for (const item of itemsById.values()) {
+						item.lengthSelector = lengthOf;
+					}
+					timelineView!.refresh();
+				}}
 			/>
 		{/if}
 		<TimelineFilterSection

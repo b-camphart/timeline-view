@@ -1,21 +1,12 @@
-import type { NumericNoteValueSelector } from "src/note/property/valueSelector";
-import {
-	TimelineItemValueProperty,
-	type NumberPreferenceReaderWriter,
-} from "../item/valuePreference";
-import { TimelineNoteSorterPropertyType } from "../sorting/TimelineNoteSorterProperty";
-import { TimelineNoteSorterProperty } from "../sorting/TimelineNoteSorterProperty";
-import {
-	timelineDateValueDisplay,
-	timelineNumericValueDisplay,
-	type RulerValueDisplay,
-} from "../Timeline";
-import type { TimelineNoteItem } from "../TimelineNoteItem";
-import type { Note } from "src/note";
+import type {NumericNoteValueSelector} from "src/note/property/valueSelector";
+import {TimelineItemValueProperty, type NumberPreferenceReaderWriter} from "../item/valuePreference";
+import {TimelineNoteSorterPropertyType} from "../sorting/TimelineNoteSorterProperty";
+import {TimelineNoteSorterProperty} from "../sorting/TimelineNoteSorterProperty";
+import {timelineDateValueDisplay, timelineNumericValueDisplay, type RulerValueDisplay} from "../Timeline";
+import type {TimelineNoteItem} from "../TimelineNoteItem";
+import type {Note} from "src/note";
 
-export class TimelineProperty
-	implements NumberPreferenceReaderWriter, NumericNoteValueSelector
-{
+export class TimelineProperty implements NumberPreferenceReaderWriter, NumericNoteValueSelector {
 	private readonly preference: TimelineItemValueProperty;
 	constructor(
 		private readonly sorter: TimelineNoteSorterProperty,
@@ -24,12 +15,7 @@ export class TimelineProperty
 	) {
 		if (sorter.type() !== TimelineNoteSorterPropertyType.Number) {
 			this.preference = new TimelineItemValueProperty.Date(sorter.name());
-		} else
-			this.preference = new TimelineItemValueProperty.Number(
-				sorter.name(),
-				savePreference,
-				preferInts,
-			);
+		} else this.preference = new TimelineItemValueProperty.Number(sorter.name(), savePreference, preferInts);
 	}
 
 	name() {
@@ -46,10 +32,7 @@ export class TimelineProperty
 	sortItems(items: TimelineNoteItem[]) {
 		const sortProperty = this.sorter;
 		items.sort((a, b) => {
-			return (
-				sortProperty.selectValueFromNote(a.note) -
-				sortProperty.selectValueFromNote(b.note)
-			);
+			return (sortProperty.selectValueFromNote(a.note) ?? 0) - (sortProperty.selectValueFromNote(b.note) ?? 0);
 		});
 	}
 
@@ -57,7 +40,7 @@ export class TimelineProperty
 		return this.preference.sanitizeValue(value);
 	}
 
-	selectValueFromNote(note: Note): number {
+	selectValueFromNote(note: Note): number | null {
 		return this.sorter.selectValueFromNote(note);
 	}
 

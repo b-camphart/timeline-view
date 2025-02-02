@@ -29,6 +29,13 @@
 		controlBindings: {};
 
 		items: SortedArray<TimelineItem>;
+		summarizeItem: (item: TimelineItem) => string;
+		previewItem: (
+			name: string,
+			value: number,
+			length: number,
+			endValue: number,
+		) => string;
 		pendingGroupUpdates: number;
 		openDialog(
 			callback: (modal: {
@@ -40,7 +47,20 @@
 		): void;
 
 		onPreviewNewItemValue(item: TimelineItem, value: number): number;
-		onMoveItem(item: TimelineItem, value: number): boolean;
+		onMoveItem(
+			item: TimelineItem,
+			value: number,
+			endValue: number,
+		): boolean;
+		itemsResizable: boolean;
+		onItemsResized(
+			resized: {
+				item: TimelineItem;
+				value: number;
+				length: number;
+				endValue: number;
+			}[],
+		): Promise<void>;
 		oncontextmenu?(e: MouseEvent, items: TimelineItem[]): void;
 	}
 
@@ -54,11 +74,15 @@
 	const persistedValuePerPixel = namespacedWritable.make("scale", 1);
 
 	export let items: $$Props["items"];
+	export let previewItem: $$Props["previewItem"];
+	export let summarizeItem: $$Props["summarizeItem"];
 	export let pendingGroupUpdates: $$Props["pendingGroupUpdates"];
 	export let openDialog: $$Props["openDialog"];
 
 	export let onPreviewNewItemValue: $$Props["onPreviewNewItemValue"];
 	export let onMoveItem: $$Props["onMoveItem"];
+	export let itemsResizable: $$Props["itemsResizable"];
+	export let onItemsResized: $$Props["onItemsResized"];
 	export let oncontextmenu: $$Props["oncontextmenu"] = () => {};
 
 	const stageWidth = writable(0);
@@ -140,10 +164,12 @@
 	}
 
 	function moveItems(
-		event: CustomEvent<{ item: TimelineItem; value: number }[]>,
+		event: CustomEvent<
+			{ item: TimelineItem; value: number; endValue: number }[]
+		>,
 	) {
-		event.detail.forEach(({ item, value }) => {
-			if (!onMoveItem(item, value)) {
+		event.detail.forEach(({ item, value, endValue }) => {
+			if (!onMoveItem(item, value, endValue)) {
 				return;
 			}
 			item.value = () => value;
@@ -200,13 +226,15 @@
 	/>
 	<CanvasStage
 		bind:this={canvasStage}
-		{display}
+		{previewItem}
+		{summarizeItem}
 		sortedItems={items}
 		scale={$scale}
 		focalValue={$focalValue}
 		bind:width={$stageWidth}
 		bind:clientWidth={stageClientWidth}
 		editable={mode != null ? $mode === "edit" : false}
+		{itemsResizable}
 		on:scrollToValue={(event) => navigation.scrollToValue(event.detail)}
 		on:scrollX={({ detail }) =>
 			navigation.scrollToValue($focalValue + detail)}
@@ -216,6 +244,10 @@
 		on:focus
 		on:create
 		on:moveItems={moveItems}
+		onItemsChanged={async (detail) => {
+			await onItemsResized(detail);
+			items = new SortedArray((item) => item.value(), ...items);
+		}}
 		{onPreviewNewItemValue}
 		{oncontextmenu}
 	/>
