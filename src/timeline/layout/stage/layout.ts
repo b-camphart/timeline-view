@@ -1,42 +1,25 @@
 import type {Scale} from "src/timeline/scale";
 import type {TimelineItem} from "src/timeline/Timeline";
 
-class LayoutItem {
-	constructor(
-		public item: TimelineItem,
-		public left: number = 0,
-		public top: number = 0,
-		public width: number = 0,
-		public height: number = 0,
-		public radius: number = 0,
-	) {
-		this.right = left + width;
-		this.bottom = top + height;
-	}
+export class LayoutItem {
+	constructor(public item: TimelineItem) {}
 
-	right;
-	bottom;
+	top: number = 0;
+	left: number = 0;
+	bottom: number = 0;
+	right: number = 0;
+	radius: number = 0;
 
-	/** the absolute x position represented by the value of the item */
-	get valueX() {
-		return this.left + this.radius;
-	}
-	set valueX(value: number) {
-		this.left = value - this.radius;
-		this.right = this.left + this.width;
-	}
-
-	get centerY() {
-		return this.top + this.radius;
-	}
-	set centerY(value: number) {
-		this.top = value - this.radius;
-		this.bottom = this.top + this.height;
+	layout(top: number, left: number, bottom: number, right: number, radius: number) {
+		this.top = top;
+		this.left = left;
+		this.bottom = bottom;
+		this.right = right;
+		this.radius = radius;
 	}
 }
-export {type LayoutItem};
 
-export function layoutPoints(
+export function layoutPoints<T extends LayoutItem>(
 	viewport: {
 		padding: {
 			top: number;
@@ -51,7 +34,8 @@ export function layoutPoints(
 	},
 	scale: Scale,
 	sortedItems: readonly TimelineItem[],
-	previousLayout: LayoutItem[] = [],
+	makeLayoutItem: (item: TimelineItem) => T,
+	previousLayout: T[] = [],
 ) {
 	const pointRadius = Math.floor(point.width / 2);
 
@@ -67,24 +51,27 @@ export function layoutPoints(
 		const item = sortedItems[i];
 		const absolutePixelCenter = scale.toPixels(item.value());
 
-		const layoutItem = previousLayout[i] ?? new LayoutItem(item);
-		layoutItem.item = item;
-		layoutItem.width = scale.toPixels(item.length()) + point.width;
-		layoutItem.height = point.width;
-		layoutItem.radius = pointRadius;
+		const width = scale.toPixels(item.length()) + point.width;
+		const height = point.width;
+		const radius = pointRadius;
 
-		layoutItem.valueX = absolutePixelCenter;
-		layoutItem.centerY = startCenterY;
+		const left = absolutePixelCenter - radius;
+		const right = left + width;
 
-		const relativeLeftMargin = layoutItem.left - point.margin.horizontal;
+		const relativeLeftMargin = left - point.margin.horizontal;
 		let r = 0;
 		while (r < rows.length && rows[r] >= relativeLeftMargin) {
 			r++;
 		}
 
-		layoutItem.centerY = startCenterY + r * rowHeight;
-		rows[r] = layoutItem.right;
+		const centerY = startCenterY + r * rowHeight;
+		const top = centerY - radius;
+		const bottom = top + height;
+		rows[r] = right;
 
+		const layoutItem = previousLayout[i] ?? makeLayoutItem(item);
+		layoutItem.item = item;
+		layoutItem.layout(top, left, bottom, right, radius);
 		previousLayout[i] = layoutItem;
 	}
 

@@ -5,10 +5,7 @@
 	import { layoutPoints } from "./CanvasStage";
 	import { renderLayout } from "./draw";
 	import type { TimelineItem } from "../../Timeline";
-	import {
-		TimelineItemElement,
-		TimelineItemElementStyle,
-	} from "src/timeline/layout/stage/TimelineItemElement";
+	import { TimelineItemElementStyle } from "src/timeline/layout/stage/TimelineItemElement";
 	import { type Scale } from "src/timeline/scale";
 	import Scrollbar from "src/view/controls/Scrollbar.svelte";
 	import type { ChangeEvent } from "src/view/controls/Scrollbar";
@@ -20,9 +17,12 @@
 	import DraggedItem from "./DraggedItem.svelte";
 	import type { SortedArray } from "src/utils/collections";
 	import Background from "src/timeline/layout/stage/Background.svelte";
-	import type { LayoutItem } from "src/timeline/layout/stage/layout";
 	import { DragPreviewElement } from "src/timeline/layout/stage/drag.svelte";
 	import { on } from "svelte/events";
+	import {
+		type PlotAreaItem,
+		plotAreaItem,
+	} from "src/timeline/layout/stage/item";
 
 	type ZoomEvent = {
 		keepValue: number;
@@ -227,7 +227,7 @@
 	}
 
 	let focusCausedByClick = $state(false);
-	let mouseDownOn: TimelineItemElement | null = null;
+	let mouseDownOn: PlotAreaItem | null = null;
 
 	class DragPreview {
 		private items: Set<TimelineItem> = new Set();
@@ -284,19 +284,17 @@
 		selection.bounds = null;
 		selection = selection;
 	}
-	function selectElement(element: TimelineItemElement) {
-		if (selection.selectedItems.has(element.layoutItem.item.id())) return;
+	function selectElement(element: PlotAreaItem) {
+		if (selection.selectedItems.has(element.item.id())) return;
 		clearSelection();
-		selection.selectedItems = new Map([
-			[element.layoutItem.item.id(), element],
-		]);
+		selection.selectedItems = new Map([[element.item.id(), element]]);
 		redrawNeeded = true;
 		selection = selection;
 	}
-	function selectElements(elements: TimelineItemElement[]) {
+	function selectElements(elements: PlotAreaItem[]) {
 		clearSelection();
 		selection.selectedItems = new Map(
-			elements.map((it) => [it.layoutItem.item.id(), it]),
+			elements.map((it) => [it.item.id(), it]),
 		);
 		if (selection.selectedItems.size > 1) {
 			selection.bounds = selectionBounds(
@@ -309,8 +307,8 @@
 	function shouldExtendSelection(event: MouseEvent) {
 		return (Platform.isMacOS && event.metaKey) || event.ctrlKey;
 	}
-	function includeElementInSelection(element: TimelineItemElement) {
-		selection.selectedItems.set(element.layoutItem.item.id(), element);
+	function includeElementInSelection(element: PlotAreaItem) {
+		selection.selectedItems.set(element.item.id(), element);
 		if (selection.selectedItems.size > 1) {
 			selection.bounds = selectionBounds(
 				selection.selectedItems.values(),
@@ -319,9 +317,9 @@
 		redrawNeeded = true;
 		selection = selection;
 	}
-	function includeElementsInSelection(elements: TimelineItemElement[]) {
+	function includeElementsInSelection(elements: PlotAreaItem[]) {
 		for (const element of elements) {
-			selection.selectedItems.set(element.layoutItem.item.id(), element);
+			selection.selectedItems.set(element.item.id(), element);
 		}
 		if (selection.selectedItems.size > 1) {
 			selection.bounds = selectionBounds(
@@ -344,7 +342,7 @@
 			offsetHeight: height,
 		};
 	}
-	function selectionBounds(elements: Iterable<TimelineItemElement>) {
+	function selectionBounds(elements: Iterable<PlotAreaItem>) {
 		let minX = Number.POSITIVE_INFINITY;
 		let minY = Number.POSITIVE_INFINITY;
 		let maxX = Number.NEGATIVE_INFINITY;
@@ -383,11 +381,11 @@
 			return;
 		}
 		if (event.button === 2) {
-			focusOn(hover.element, elements.arr.indexOf(hover.element));
+			focusOn(hover.element, elements.indexOf(hover.element));
 			return;
 		}
 		mouseDownOn = hover.element;
-		if (!selection.selectedItems.has(mouseDownOn.layoutItem.item.id())) {
+		if (!selection.selectedItems.has(mouseDownOn.item.id())) {
 			if (shouldExtendSelection(event)) {
 				includeElementInSelection(mouseDownOn);
 			} else {
@@ -435,12 +433,12 @@
 			for (let i = 0; i < selectedItems.length; i++) {
 				const item = selectedItems[i];
 				const newItemValue = onPreviewNewItemValue(
-					selectedItems[i].layoutItem.item,
-					selectedItems[i].layoutItem.item.value() + deltaValue,
+					selectedItems[i].item,
+					selectedItems[i].item.value() + deltaValue,
 				);
 				const newEndValue = onPreviewNewItemValue(
-					selectedItems[i].layoutItem.item,
-					newItemValue + selectedItems[i].layoutItem.item.length(),
+					selectedItems[i].item,
+					newItemValue + selectedItems[i].item.length(),
 				);
 				const offsetCenterX =
 					scale.toPixels(newItemValue - focalValue) +
@@ -539,11 +537,11 @@
 					dragPreview.add(
 						new DragPreviewElement(
 							selectedItem,
-							selectedItem.layoutItem.item.value(),
-							selectedItem.layoutItem.item.length(),
-							selectedItem.layoutItem.item.value() +
-								selectedItem.layoutItem.item.length(),
-							selectedItem.offsetCenterX,
+							selectedItem.item.value(),
+							selectedItem.item.length(),
+							selectedItem.item.value() +
+								selectedItem.item.length(),
+							selectedItem.offsetLeft + selectedItem.radius,
 							startItemBackground,
 							startItemBorder,
 							startItemBorderWidth,
@@ -558,7 +556,7 @@
 					dragPreview.add(previewItem);
 
 					previewItem.length =
-						selectedItem.layoutItem.item.length() + deltaValue;
+						selectedItem.item.length() + deltaValue;
 					previewItem.endValue =
 						previewItem.value + previewItem.length;
 					previewItem.offsetWidth =
@@ -573,8 +571,7 @@
 					const previewItem = dragPreview.at(i);
 					dragPreview.add(previewItem);
 
-					previewItem.value =
-						selectedItem.layoutItem.item.value() + deltaValue;
+					previewItem.value = selectedItem.item.value() + deltaValue;
 					previewItem.length =
 						previewItem.endValue - previewItem.value;
 
@@ -619,7 +616,7 @@
 			offsetWidth: number;
 			offsetHeight: number;
 		};
-		selectedItems: Map<string, TimelineItemElement>;
+		selectedItems: Map<string, PlotAreaItem>;
 		bounds: null | {
 			offsetLeft: number;
 			offsetTop: number;
@@ -658,16 +655,16 @@
 
 			isDragging = true;
 
-			const selectedItems: TimelineItemElement[] = [];
+			const selectedItems: PlotAreaItem[] = [];
 			// find all items in the selection area
-			for (let i = 0; i < elements.arr.length; i++) {
-				const element = elements.arr[i];
+			for (let i = 0; i < elements.length; i++) {
+				const element = elements[i];
 				if (element.offsetLeft > maxX) {
 					// no more of these ordered elements can intersect the
 					// selection area
 					break;
 				}
-				if (element.intersects(minX, minY, width, height)) {
+				if (element.intersectsScrolled(minX, minY, width, height)) {
 					selectedItems.push(element);
 				}
 			}
@@ -726,7 +723,7 @@
 			if (hover == null || hover.element == null) {
 				return;
 			}
-			oncontextmenu(event, [hover.element.layoutItem.item]);
+			oncontextmenu(event, [hover.element.item]);
 			return;
 		}
 		if (mouseDownOn == null) {
@@ -742,7 +739,7 @@
 		}
 
 		focus = null;
-		const hoveredItem = hover.element.layoutItem.item;
+		const hoveredItem = hover.element.item;
 		hover = null;
 
 		if (!shouldExtendSelection(event)) {
@@ -768,17 +765,10 @@
 		dispatch("create", { value });
 	}
 
-	let elements = {
-		arr: [] as TimelineItemElement[],
-		getCount() {
-			return this.arr.length;
-		},
-		[Symbol.iterator]() {
-			return this.arr[Symbol.iterator]();
-		},
-	};
+	let elements: PlotAreaItem[] = [];
+
 	let hover: {
-		element: TimelineItemElement;
+		element: PlotAreaItem;
 		side: "middle" | "left" | "right";
 		/**
 		 * keeps track of the moues position that caused the hover so it can
@@ -787,25 +777,25 @@
 		pos: [number, number];
 	} | null = $state(null);
 	let focus: {
-		element: TimelineItemElement;
+		element: PlotAreaItem;
 		index: number;
 	} | null = $state(null);
-	function verticalScrollToFocusItem(element: TimelineItemElement) {
+	function verticalScrollToFocusItem(element: PlotAreaItem) {
 		if (element.offsetTop < 0) {
-			scrollTop = element.layoutItem.top;
+			scrollTop = element.top;
 			scrollNeeded = true;
 		} else if (element.offsetBottom > viewport.height) {
-			scrollTop = element.layoutItem.bottom - viewport.height;
+			scrollTop = element.bottom - viewport.height;
 			scrollNeeded = true;
 		}
 	}
 	function focusOn(
-		element: TimelineItemElement,
+		element: PlotAreaItem,
 		index: number,
 		skipEvent: boolean = false,
 	) {
 		if (!skipEvent) {
-			dispatch("focus", element.layoutItem.item);
+			dispatch("focus", element.item);
 		}
 		focus = {
 			element,
@@ -816,16 +806,16 @@
 		verticalScrollToFocusItem(element);
 
 		if (focus.element.offsetLeft < 0) {
-			dispatch("scrollToValue", focus.element.layoutItem.item.value());
+			dispatch("scrollToValue", focus.element.item.value());
 		} else if (focus.element.offsetRight > viewport.width) {
-			dispatch("scrollToValue", focus.element.layoutItem.item.value());
+			dispatch("scrollToValue", focus.element.item.value());
 		}
 	}
 	function focusNextItem(back: boolean = false) {
 		const index =
 			focus == null ? 0 : back ? focus.index - 1 : focus.index + 1;
-		if (index < elements.arr.length && index >= 0) {
-			focusOn(elements.arr[index], index);
+		if (index < elements.length && index >= 0) {
+			focusOn(elements[index], index);
 			return true;
 		} else {
 			focus = null;
@@ -833,11 +823,9 @@
 		}
 	}
 	export function focusOnItem(item: TimelineItem) {
-		const index = elements.arr.findIndex(
-			(element) => element.layoutItem.item === item,
-		);
+		const index = elements.findIndex((element) => element.item === item);
 		if (index >= 0) {
-			focusOn(elements.arr[index], index, true);
+			focusOn(elements[index], index, true);
 		}
 	}
 
@@ -852,9 +840,9 @@
 			dragPreview == null &&
 			selection.area == null
 		) {
-			for (let i = 0; i < elements.arr.length; i++) {
-				const element = elements.arr[i];
-				if (element.contains(event.offsetX, event.offsetY)) {
+			for (let i = 0; i < elements.length; i++) {
+				const element = elements[i];
+				if (element.containsScrolled(event.offsetX, event.offsetY)) {
 					let side: "middle" | "left" | "right" = "middle";
 					if (itemsResizable) {
 						side =
@@ -886,12 +874,12 @@
 	) {
 		if (focus) {
 			const index = points.items.findIndex(
-				(item) => item === focus!.element.layoutItem.item,
+				(item) => item === focus!.element.item,
 			);
 			if (index >= 0) {
 				focus = {
 					index,
-					element: elements.arr[index],
+					element: elements[index],
 				};
 			} else {
 				focus = null;
@@ -974,26 +962,24 @@
 		);
 		resizeObserver.observe(stageCSSTarget);
 
-		function draw(
-			layout: LayoutItem[] = [],
-			pointStyle?: TimelineItemElementStyle,
-		) {
+		function draw(pointStyle?: TimelineItemElementStyle) {
 			if (canvas == null) return;
 			const renderContext = canvas.getContext("2d");
 			if (renderContext == null) return;
 
 			if (layoutNeeded) {
-				layout = layoutPoints(
+				layoutPoints(
 					viewport,
 					item,
 					scale,
 					sortedItems.items,
-					layout,
+					plotAreaItem,
+					elements,
 				);
 
-				if (layout.length > 0) {
+				if (elements.length > 0) {
 					scrollHeight = 0;
-					for (const bounds of layout) {
+					for (const bounds of elements) {
 						scrollHeight = Math.max(
 							scrollHeight,
 							bounds.bottom +
@@ -1005,17 +991,13 @@
 					scrollHeight = 0;
 				}
 				if (focus != null) {
-					if (focus.index > layout.length) {
+					if (focus.index > elements.length) {
 						focus = null;
 					}
 				}
 			}
 
 			if (scrollNeeded || layoutNeeded) {
-				if (elements.arr.length > layout.length) {
-					elements.arr = elements.arr.slice(0, layout.length);
-				}
-
 				const scrollLeft =
 					scale.toPixels(focalValue) - viewport.width / 2;
 
@@ -1025,27 +1007,9 @@
 				);
 				visibleVAmount = viewport.height;
 
-				for (let i = 0; i < layout.length; i++) {
-					const item = layout[i];
-
-					const element =
-						elements.arr[i] ?? new TimelineItemElement(item);
-					element.layoutItem = item;
-					element.offsetCenterX = item.valueX - scrollLeft;
-					element.offsetCenterY = item.centerY - scrollTop;
-					element.offsetLeft = element.offsetCenterX - item.radius;
-					element.offsetTop = element.offsetCenterY - item.radius;
-					element.offsetWidth = item.width;
-					element.offsetHeight = item.height;
-					element.offsetRight =
-						element.offsetLeft + element.offsetWidth;
-					element.offsetBottom =
-						element.offsetTop + element.offsetHeight;
-
-					if (selection.selectedItems.has(item.item.id())) {
-						selection.selectedItems.set(item.item.id(), element);
-					}
-					elements.arr[i] = element;
+				for (let i = 0; i < elements.length; i++) {
+					const item = elements[i];
+					item.scroll(scrollLeft, scrollTop);
 				}
 
 				selection.bounds = selectionBounds(
@@ -1080,7 +1044,7 @@
 					});
 				}
 				if (focus) {
-					focus.element = elements.arr[focus.index];
+					focus.element = elements[focus.index];
 					if (!focus.element) {
 						focus = null;
 					} else {
@@ -1108,30 +1072,26 @@
 				let dragPreviewed = dragPreview != null;
 				const hasSelectedItems = selection.selectedItems.size > 0;
 
-				elements.arr.forEach((el) => (el.style = currentPointStyle));
+				elements.forEach((el) => el.applyStyle(currentPointStyle));
 
 				if (hasSelectedItems || dragPreviewed) {
 					const selectedStyle = new TimelineItemElementStyle(
 						getComputedStyle(pointElements.selected!),
 					);
 
-					for (let i = 0; i < elements.arr.length; i++) {
-						const element = elements.arr[i];
-						if (
-							dragPreviewed &&
-							dragPreview!.has(element.layoutItem.item)
-						) {
-							element.visible = false;
+					for (let i = 0; i < elements.length; i++) {
+						const element = elements[i];
+						if (dragPreviewed && dragPreview!.has(element.item)) {
+							element.hide();
 							continue;
 						}
+						element.show();
 
 						if (
 							hasSelectedItems &&
-							selection.selectedItems.has(
-								element.layoutItem.item.id(),
-							)
+							selection.selectedItems.has(element.item.id())
 						) {
-							element.style = selectedStyle;
+							element.applyStyle(selectedStyle);
 						}
 					}
 				}
@@ -1151,7 +1111,7 @@
 				renderLayout(
 					renderContext,
 					viewport,
-					elements.arr,
+					elements,
 					dragPreview?.arr() ?? null,
 				);
 			}
@@ -1159,7 +1119,7 @@
 			scrollNeeded = false;
 			redrawNeeded = false;
 
-			requestAnimationFrame(() => draw(layout, currentPointStyle));
+			requestAnimationFrame(() => draw(currentPointStyle));
 		}
 
 		requestAnimationFrame(() => draw());
@@ -1263,7 +1223,7 @@
 				oncontextmenu(
 					e,
 					Array.from(selection.selectedItems.values()).map(
-						(it) => it.layoutItem.item,
+						(it) => it.item,
 					),
 				);
 			}
@@ -1273,7 +1233,7 @@
 	{#if hover != null}
 		<Hover
 			position={hover.element}
-			summary={summarizeItem(hover.element.layoutItem.item)}
+			summary={summarizeItem(hover.element.item)}
 		/>
 	{/if}
 	{#if dragPreview != null && dragPreview.getCount() === 1}

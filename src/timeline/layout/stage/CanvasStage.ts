@@ -1,7 +1,3 @@
-import type {Scale} from "src/timeline/scale";
-import type {TimelineItem} from "../../Timeline";
-import {TimelineLayoutItem} from "./TimelineItemElement";
-
 export type BackgroundColor = string | CanvasGradient | CanvasPattern;
 
 export interface CanvasViewport {
@@ -14,8 +10,6 @@ export interface CanvasElement {
 	readonly offsetBottom: number;
 	readonly offsetLeft: number;
 	readonly offsetRight: number;
-	readonly offsetCenterY: number;
-	readonly offsetCenterX: number;
 	readonly offsetWidth: number;
 	readonly offsetHeight: number;
 

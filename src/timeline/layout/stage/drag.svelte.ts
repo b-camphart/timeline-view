@@ -1,9 +1,8 @@
 import type {BackgroundColor} from "src/timeline/layout/stage/CanvasStage";
-import type {TimelineItemElement} from "src/timeline/layout/stage/TimelineItemElement";
-
+import type {PlotAreaItem} from "src/timeline/layout/stage/item";
 export class DragPreviewElement {
 	constructor(
-		readonly element: TimelineItemElement,
+		readonly element: PlotAreaItem,
 		value: number,
 		length: number,
 		endValue: number,
@@ -31,7 +30,7 @@ export class DragPreviewElement {
 	offsetLeft = $state(0);
 
 	get item() {
-		return this.element.layoutItem.item;
+		return this.element.item;
 	}
 
 	get offsetCenterY() {
