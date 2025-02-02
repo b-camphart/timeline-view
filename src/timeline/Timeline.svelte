@@ -30,6 +30,12 @@
 
 		items: SortedArray<TimelineItem>;
 		summarizeItem: (item: TimelineItem) => string;
+		previewItem: (
+			name: string,
+			value: number,
+			length: number,
+			endValue: number,
+		) => string;
 		pendingGroupUpdates: number;
 		openDialog(
 			callback: (modal: {
@@ -68,6 +74,7 @@
 	const persistedValuePerPixel = namespacedWritable.make("scale", 1);
 
 	export let items: $$Props["items"];
+	export let previewItem: $$Props["previewItem"];
 	export let summarizeItem: $$Props["summarizeItem"];
 	export let pendingGroupUpdates: $$Props["pendingGroupUpdates"];
 	export let openDialog: $$Props["openDialog"];
@@ -219,6 +226,7 @@
 	/>
 	<CanvasStage
 		bind:this={canvasStage}
+		{previewItem}
 		{summarizeItem}
 		sortedItems={items}
 		scale={$scale}

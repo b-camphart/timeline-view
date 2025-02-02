@@ -51,6 +51,12 @@
 		editable: boolean;
 		itemsResizable: boolean;
 		summarizeItem: (item: TimelineItem) => string;
+		previewItem: (
+			name: string,
+			value: number,
+			length: number,
+			endValue: number,
+		) => string;
 		onPreviewNewItemValue?: (item: TimelineItem, value: number) => number;
 		oncontextmenu?: (e: MouseEvent, items: TimelineItem[]) => void;
 		onItemsChanged?(
@@ -73,6 +79,7 @@
 		editable,
 		itemsResizable,
 		summarizeItem,
+		previewItem,
 		onPreviewNewItemValue = (_, value) => value,
 		oncontextmenu = () => {},
 		onItemsChanged = async () => {},
@@ -1239,7 +1246,12 @@
 	{#if dragPreview != null && dragPreview.getCount() === 1}
 		<DraggedItem
 			position={dragPreview.at(0)}
-			summary={summarizeItem(dragPreview.at(0).item)}
+			summary={previewItem(
+				dragPreview.at(0).item.name(),
+				dragPreview.at(0).value,
+				dragPreview.at(0).length,
+				dragPreview.at(0).value + dragPreview.at(0).length,
+			)}
 		/>
 	{/if}
 	{#if focus != null}

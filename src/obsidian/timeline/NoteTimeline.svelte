@@ -500,6 +500,28 @@
 		return `${note.name()}\n[${primaryProperty.name()}: ${primaryValueStr}] → ${display.displayValue(end)}\n[${secondaryProperty.name()}: ${secondaryValueStr}]`;
 	}
 
+	function summarizeItem(
+		name: string,
+		value: number,
+		length: number,
+		endValue: number,
+	) {
+		const primaryProperty = propertySelector.selectedProperty();
+		const primaryValueStr = display.displayValue(value);
+		if (!propertySelector.secondaryPropertyInUse()) {
+			return `${name}\n[${primaryProperty.name()}: ${primaryValueStr}]`;
+		}
+
+		const secondaryProperty = propertySelector.secondaryProperty();
+		const lengthStr = display.displayLength(length);
+		const endValueStr = display.displayValue(endValue);
+
+		if (propertySelector.secondaryPropertyInterpretation() === "end") {
+			return `${name}\n[${primaryProperty.name()}: ${primaryValueStr}] → [${secondaryProperty.name()}: ${endValueStr}]\nlength: ${lengthStr}`;
+		}
+		return `${name}\n[${primaryProperty.name()}: ${primaryValueStr}] → ${endValueStr}\n[${secondaryProperty.name()}: ${lengthStr}]`;
+	}
+
 	export async function addFile(file: Note) {
 		if (timelineView == null) return;
 		if (itemsById.has(file.id())) return;
@@ -593,9 +615,18 @@
 
 <TimelineView
 	{items}
+	previewItem={(name, value, length, endValue) => {
+		return summarizeItem(name, value, length, endValue);
+	}}
 	summarizeItem={(item) => {
 		const note = itemsById.get(item.id())?.note;
-		if (!note) return item.name();
+		if (!note)
+			return summarizeItem(
+				item.name(),
+				item.value(),
+				item.length(),
+				item.value() + item.length(),
+			);
 		return summarizeNote(note);
 	}}
 	itemsResizable={propertySelector?.secondaryPropertyInUse() ?? false}
