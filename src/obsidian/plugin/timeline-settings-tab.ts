@@ -10,6 +10,7 @@ import Groups from "src/timeline/group/TimelineGroupsList.svelte";
 import {TimelineGroups} from "src/timeline/group/groups";
 import {TimelineGroup} from "src/timeline/group/group";
 import {mount} from "svelte";
+import {TimelineNoteSorterPropertyType} from "src/timeline/sorting/TimelineNoteSorterProperty";
 
 export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 	#plugin;
@@ -131,9 +132,34 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 
 		new obsidian.Setting(containerEl).setName("Defaults").setClass("setting-item-heading");
 
+		const propertyDescription = new DocumentFragment();
+		propertyDescription.createSpan("", span => {
+			span.innerText = "The default property to use for ordering notes in the timeline when it's first opened.";
+		});
+		const propertyWarnings = [
+			propertyDescription.createSpan("", span => {
+				span.addClass("mod-warning");
+				span.innerText =
+					"\nThe selected properties are of different types and may result in nonsensical behaviour.";
+			}),
+		];
+
+		function checkPropertyTypes() {
+			if (
+				(order.selectedProperty().type() === TimelineNoteSorterPropertyType.Number &&
+					order.secondaryProperty().type() !== TimelineNoteSorterPropertyType.Number) ||
+				(order.selectedProperty().type() !== TimelineNoteSorterPropertyType.Number &&
+					order.secondaryProperty().type() === TimelineNoteSorterPropertyType.Number)
+			) {
+				propertyWarnings.forEach(it => it.show());
+			} else {
+				propertyWarnings.forEach(it => it.hide());
+			}
+		}
+
 		const propertySetting = new obsidian.Setting(containerEl)
 			.setName("Default Ordering Property")
-			.setDesc("The default property to use for ordering notes in the timeline when it's first opened.");
+			.setDesc(propertyDescription);
 		mount(TimelineNoteSorterPropertySelect, {
 			target: propertySetting.controlEl,
 			props: {
@@ -144,6 +170,7 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 			events: {
 				selected: event => {
 					order.selectProperty(event.detail);
+					checkPropertyTypes();
 				},
 			},
 		});
@@ -159,9 +186,22 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 				});
 			});
 
+		const secondaryPropertyDesc = new DocumentFragment();
+		secondaryPropertyDesc.createSpan("", span => {
+			span.innerText = "The default property to use as the secondary property when the timeline is first opened.";
+		});
+		propertyWarnings.push(
+			secondaryPropertyDesc.createSpan("", span => {
+				span.addClass("mod-warning");
+				span.innerText =
+					"\nThe selected properties are of different types and may result in nonsensical behaviour.";
+			}),
+		);
+
 		const secondaryPropertySetting = new obsidian.Setting(containerEl)
 			.setName("Default Secondary Property")
-			.setDesc("The default property to use as the secondary property when the timeline is first opened.");
+			.setDesc(secondaryPropertyDesc);
+
 		mount(TimelineNoteSorterPropertySelect, {
 			target: secondaryPropertySetting.controlEl,
 			props: {
@@ -172,9 +212,11 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 			events: {
 				selected: event => {
 					order.selectSecondaryProperty(event.detail);
+					checkPropertyTypes();
 				},
 			},
 		});
+		checkPropertyTypes();
 
 		new obsidian.Setting(containerEl)
 			.setName("Interpret Secondary Property As")
