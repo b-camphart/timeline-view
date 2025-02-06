@@ -148,11 +148,22 @@ export class TimelineItemView extends obsidian.ItemView {
 	}
 
 	private computeDisplayText() {
+		const property = this.state?.settings?.property?.property ?? "";
+		const secondaryProperty = this.state?.settings?.property?.secondaryProperty;
 		const query = this.state?.settings?.filter?.query ?? "";
-		if (query !== "") {
-			return `Timeline view - ${query}`;
+
+		const prefix = `Timeline view [${property}] `;
+		const queryDisplay = query !== "" ? ` (filter: ${query})` : "";
+
+		if (secondaryProperty != null && secondaryProperty.inUse) {
+			if (secondaryProperty.useAs === "length") {
+				return `${prefix}[length: ${secondaryProperty.name}]` + queryDisplay;
+			} else {
+				return `${prefix}→ [${secondaryProperty.name}]` + queryDisplay;
+			}
+		} else {
+			return prefix + queryDisplay;
 		}
-		return "Timeline view";
 	}
 	#displayText = this.computeDisplayText();
 	private get displayText() {
@@ -173,7 +184,7 @@ export class TimelineItemView extends obsidian.ItemView {
 		return this.displayText;
 	}
 
-	private component: NoteTimeline | null = null;
+	private component: ReturnType<typeof NoteTimeline> | null = null;
 	private initialization?: Promise<TimelineItemViewState>;
 	private completeInitialization(_state: TimelineItemViewState) {}
 
@@ -233,7 +244,11 @@ export class TimelineItemView extends obsidian.ItemView {
 				switchToEditMode.toggle(newMode === EditMode.View);
 			});
 
-			const timelineComponent = mount(NoteTimeline, {
+			type Events<T extends {}> = {
+				[K in keyof T]: (event: T[K]) => void;
+			};
+
+			this.component = mount(NoteTimeline, {
 				target: content,
 				props: {
 					noteRepository: this.notes,
@@ -257,6 +272,9 @@ export class TimelineItemView extends obsidian.ItemView {
 					openModal: open => {
 						openModal(this.app, open);
 					},
+					onResizeNotes: async mods => {
+						await Promise.all(mods.map(mod => this.notes.modifyNote(mod.note, mod)));
+					},
 				},
 				events: {
 					noteSelected: event => {
@@ -278,25 +296,7 @@ export class TimelineItemView extends obsidian.ItemView {
 							this.workspace.getLeaf(true).openFile(file);
 						}
 					},
-					modifyNote: async event => {
-						const note = event.detail.note;
-						if ("created" in event.detail.modification) {
-							await this.notes.modifyNote(note, {
-								created: event.detail.modification.created,
-							});
-						} else if ("modified" in event.detail.modification) {
-							await this.notes.modifyNote(note, {
-								modified: event.detail.modification.modified,
-							});
-						} else {
-							await this.notes.modifyNote(note, {
-								property: {
-									[event.detail.modification.property.name]: event.detail.modification.property.value,
-								},
-							});
-						}
-					},
-				},
+				} satisfies Events<NoteTimeline["$$events_def"]>,
 			});
 		});
 	}
@@ -337,6 +337,11 @@ const timelineItemViewStateSchema = json.expectObject({
 			propertiesUseWholeNumbers: json.expectRecord({
 				key: json.expectString(""),
 				value: json.expectBoolean(true),
+			}),
+			secondaryProperty: json.expectObject({
+				name: json.expectString("created"),
+				inUse: json.expectBoolean(false),
+				useAs: json.expectEnum({length: "length" as const, end: "end" as const}, "length"),
 			}),
 		}),
 		filter: json.expectObject({

@@ -1,5 +1,5 @@
-import { type Note } from "src/note";
+import {type Note} from "src/note";
 
 export interface NumericNoteValueSelector {
-	selectValueFromNote(note: Note): number;
+	selectValueFromNote(note: Note): number | null;
 }

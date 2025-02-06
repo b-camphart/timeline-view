@@ -1,4 +1,5 @@
-import type { TimelineItem } from "src/timeline/Timeline";
+import type {LayoutItem} from "src/timeline/layout/stage/layout";
+import type {TimelineItem} from "src/timeline/Timeline";
 
 export interface OffsetBox {
 	readonly offsetTop: number;
@@ -31,12 +32,7 @@ export function offsetCenterY(box: OffsetBox) {
 }
 
 export function boxContainsPoint(box: OffsetBox, x: number, y: number) {
-	return (
-		box.offsetLeft <= x &&
-		x < offsetRight(box) &&
-		box.offsetTop <= y &&
-		y < offsetBottom(box)
-	);
+	return box.offsetLeft <= x && x < offsetRight(box) && box.offsetTop <= y && y < offsetBottom(box);
 }
 
 export class TimelineLayoutItem {
@@ -44,6 +40,8 @@ export class TimelineLayoutItem {
 		public item: TimelineItem,
 		public centerX: number = 0,
 		public centerY: number = 0,
+		public width: number = 0,
+		public height: number = 0,
 		public radius: number = 0,
 	) {}
 
@@ -65,32 +63,26 @@ export class TimelineLayoutItem {
 }
 
 export class TimelineItemElementStyle {
-	public fill;
-	public stroke;
-	public strokeWidth;
+	constructor(public fill: string, public stroke: string, public strokeWidth: number) {}
 
-	constructor(css: CSSStyleDeclaration) {
-		this.fill = css.backgroundColor;
-		this.stroke = css.borderColor;
-		this.strokeWidth = parseFloat(css.borderWidth);
+	static fromCSS(css: CSSStyleDeclaration) {
+		return new TimelineItemElementStyle(css.backgroundColor, css.borderColor, parseFloat(css.borderWidth));
 	}
+
+	static readonly unstyled = new TimelineItemElementStyle("", "", 0);
 
 	equals(other: unknown) {
 		if (!(other instanceof TimelineItemElementStyle)) {
 			return false;
 		}
 
-		return (
-			other.fill === this.fill &&
-			other.stroke === this.stroke &&
-			other.strokeWidth === this.strokeWidth
-		);
+		return other.fill === this.fill && other.stroke === this.stroke && other.strokeWidth === this.strokeWidth;
 	}
 }
 
 export class TimelineItemElement {
 	constructor(
-		layoutItem: TimelineLayoutItem,
+		layoutItem: LayoutItem,
 		public offsetLeft: number = 0,
 		public offsetRight: number = 0,
 		public offsetTop: number = 0,
@@ -104,20 +96,13 @@ export class TimelineItemElement {
 	}
 
 	contains(x: number, y: number) {
-		return (
-			this.offsetLeft <= x &&
-			x < this.offsetRight &&
-			this.offsetTop <= y &&
-			y < this.offsetBottom
-		);
+		return this.offsetLeft <= x && x < this.offsetRight && this.offsetTop <= y && y < this.offsetBottom;
 	}
 
 	intersects(x: number, y: number, width: number, height: number) {
 		return (
-			((x >= this.offsetLeft && x < this.offsetRight) ||
-				(this.offsetLeft >= x && this.offsetLeft < x + width)) &&
-			((y >= this.offsetTop && y < this.offsetBottom) ||
-				(this.offsetTop >= y && this.offsetTop < y + height))
+			((x >= this.offsetLeft && x < this.offsetRight) || (this.offsetLeft >= x && this.offsetLeft < x + width)) &&
+			((y >= this.offsetTop && y < this.offsetBottom) || (this.offsetTop >= y && this.offsetTop < y + height))
 		);
 	}
 
@@ -127,12 +112,12 @@ export class TimelineItemElement {
 		this.#style = style;
 	}
 
-	#layoutItem: TimelineLayoutItem;
+	#layoutItem;
 	get layoutItem() {
 		return this.#layoutItem;
 	}
 
-	set layoutItem(item: TimelineLayoutItem) {
+	set layoutItem(item: LayoutItem) {
 		this.#layoutItem = item;
 		this.visible = undefined;
 	}

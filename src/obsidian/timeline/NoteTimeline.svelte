@@ -1,13 +1,9 @@
 <script lang="ts">
 	import * as obsidian from "obsidian";
 	import TimelineView from "../../timeline/Timeline.svelte";
-	import { TimelineNoteItem } from "../../timeline/TimelineNoteItem";
-	import type {
-		RulerValueDisplay,
-		TimelineItem,
-	} from "../../timeline/Timeline";
+	import type { RulerValueDisplay } from "../../timeline/Timeline";
 	import { type NamespacedWritableFactory } from "../../timeline/Persistence";
-	import { createEventDispatcher, onMount } from "svelte";
+	import { createEventDispatcher, onMount, tick } from "svelte";
 	import { get } from "svelte/store";
 	import TimelinePropertySection from "../../timeline/property/TimelinePropertySection.svelte";
 	import type { ObsidianNoteTimelineViewModel } from "./viewModel";
@@ -15,7 +11,6 @@
 	import type { NotePropertyRepository } from "src/note/property/repository";
 	import type { MutableNoteRepository } from "src/note/repository";
 	import type { Note } from "src/note";
-	import { exists } from "src/utils/null";
 	import { TimelinePropertySelector } from "src/timeline/property/TimelinePropertySelector";
 	import type { TimelineProperty } from "src/timeline/property/TimelineProperty";
 	import { TimelineItemQueryFilter } from "src/timeline/filter/TimelineItemQueryFilter";
@@ -24,6 +19,44 @@
 	import type { TimelineItemColorSupplier } from "src/timeline/item/color";
 	import { MutableSortedArray } from "src/utils/collections";
 
+	class ReactiveNoteItem {
+		created = $state(0);
+		modified = $state(0);
+		properties = $state<Record<string, unknown>>({});
+		group = $state<null | { color(): string }>(null);
+
+		get id() {
+			return this.#note.id();
+		}
+
+		#note;
+		get note() {
+			return this.#note;
+		}
+
+		#name = $state("");
+		name() {
+			return this.#name;
+		}
+
+		color() {
+			return this.group?.color();
+		}
+
+		constructor(note: Note) {
+			this.#note = note;
+			this.replaceNote(note);
+		}
+
+		replaceNote(note: Note) {
+			this.#note = note;
+			this.#name = note.name();
+			this.created = note.created();
+			this.modified = note.modified();
+			this.properties = note.properties();
+		}
+	}
+
 	interface Props {
 		noteRepository: MutableNoteRepository;
 		notePropertyRepository: NotePropertyRepository;
@@ -31,6 +64,14 @@
 		viewModel: NamespacedWritableFactory<ObsidianNoteTimelineViewModel>;
 		isNew?: boolean;
 		oncontextmenu?: (e: MouseEvent, notes: Note[]) => void;
+		onResizeNotes?(
+			mods: {
+				note: Note;
+				created?: number;
+				modified?: number;
+				properties?: Record<string, number>;
+			}[],
+		): Promise<void>;
 	}
 
 	let {
@@ -40,6 +81,7 @@
 		viewModel,
 		isNew = false,
 		oncontextmenu = () => {},
+		onResizeNotes = async () => {},
 	}: Props = $props();
 
 	const dispatch = createEventDispatcher<{
@@ -50,20 +92,13 @@
 			modified?: number;
 			properties?: Record<string, number>;
 		};
-		modifyNote: {
-			note: Note;
-			modification:
-				| { created: number }
-				| { modified: number }
-				| { property: { name: string; value: number } };
-		};
 	}>();
 
 	const settings = viewModel.namespace("settings");
 
-	let itemsById: Map<string, TimelineNoteItem> = new Map();
-	let items: MutableSortedArray<TimelineNoteItem> = $state(
-		new MutableSortedArray((item) => item.value()),
+	let itemsById: Map<string, ReactiveNoteItem> = new Map();
+	let items: MutableSortedArray<ReactiveNoteItem> = $state.raw(
+		new MutableSortedArray(valueOf),
 	);
 
 	let currentFilteringId = 0;
@@ -79,11 +114,11 @@
 			const newItems = [];
 			for (const item of Array.from(itemsById.values())) {
 				if (currentFilteringId !== filteringId) break;
-				if (await filter.accepts(item)) {
+				if (await filter.noteFilter().matches(item.note)) {
 					newItems.push(item);
 				}
 			}
-			items = new MutableSortedArray((item) => item.value(), ...newItems);
+			items = new MutableSortedArray(valueOf, ...newItems);
 		},
 	);
 
@@ -116,16 +151,36 @@
 	);
 	timelineGroups.onChanged = saveGroups;
 
-	function openFile(event: Event | undefined, item: TimelineItem) {
-		const note = itemsById.get(item.id())?.note;
-		if (note == null) {
-			return;
-		}
-
-		dispatch("noteSelected", { note, event });
+	function openFile(event: Event | undefined, item: ReactiveNoteItem) {
+		dispatch("noteSelected", { note: item.note, event });
 	}
 
+	// @ts-ignore
 	let propertySelector: TimelinePropertySelector = $state();
+	function propertyValueOf(item: ReactiveNoteItem) {
+		const property = propertySelector?.selectedProperty();
+		if (!property) return null;
+		if (property.isCreatedProperty()) return item.created;
+		if (property.isModifiedProperty()) return item.modified;
+		const value = item.properties[property.name()];
+		if (value == null) return null;
+		if (typeof value === "number") return value;
+		if (typeof value === "string") {
+			const datetime = window.moment(value);
+			if (datetime.isValid()) {
+				return datetime.valueOf();
+			}
+			const parsed = parseFloat(value);
+			if (!isNaN(parsed)) return parsed;
+			return null;
+		}
+		return null;
+	}
+	function valueOf(item: ReactiveNoteItem) {
+		const value = propertyValueOf(item);
+		// todo: some other default?
+		return value ?? 0;
+	}
 
 	async function createItem(item: { value: number }) {
 		const property = propertySelector.selectedProperty();
@@ -145,48 +200,87 @@
 		dispatch("createNote", creation);
 	}
 
-	function moveItem(item: TimelineItem, value: number) {
-		const noteItem = itemsById.get(item.id());
-		if (noteItem == null) {
-			return false;
+	async function resizeItems(
+		items: {
+			item: ReactiveNoteItem;
+			value: number;
+			length: number;
+			endValue: number;
+		}[],
+	) {
+		if (!propertySelector.secondaryPropertyInUse()) return;
+		const noteResizes = new Array<{
+			note: Note;
+			item: ReactiveNoteItem;
+			created?: number;
+			modified?: number;
+			properties: Record<string, number>;
+		}>();
+
+		function setValue(
+			modification: (typeof noteResizes)[number],
+			property: TimelineProperty,
+			value: number,
+		) {
+			value = property.sanitizeValue(value);
+			if (property.isCreatedProperty()) {
+				modification.created = value;
+			} else if (property.isModifiedProperty()) {
+				modification.modified = value;
+			} else {
+				modification.properties[property.name()] = value;
+			}
 		}
 
-		const property = propertySelector.selectedProperty();
-		value = property.sanitizeValue(value);
+		for (let i = 0; i < items.length; i++) {
+			const { value, length, endValue } = items[i];
+			const item = itemsById.get(items[i].item.id);
+			if (!item) continue;
+			const note = item.note;
 
-		if (property.isCreatedProperty()) {
-			return dispatch(
-				"modifyNote",
-				{
-					note: noteItem.note,
-					modification: { created: value },
-				},
-				{ cancelable: true },
-			);
-		} else if (property.isModifiedProperty()) {
-			return dispatch(
-				"modifyNote",
-				{
-					note: noteItem.note,
-					modification: { modified: value },
-				},
-				{ cancelable: true },
-			);
-		} else {
-			return dispatch(
-				"modifyNote",
-				{
-					note: noteItem.note,
-					modification: {
-						property: { name: property.name(), value: value },
-					},
-				},
-				{ cancelable: true },
+			const modification = {
+				note,
+				item,
+				created: undefined as number | undefined,
+				modified: undefined as number | undefined,
+				properties: {} as Record<string, number>,
+			};
+
+			setValue(modification, propertySelector.selectedProperty(), value);
+			if (propertySelector.secondaryPropertyInterpretation() === "end") {
+				setValue(
+					modification,
+					propertySelector.secondaryProperty(),
+					endValue,
+				);
+			} else {
+				setValue(
+					modification,
+					propertySelector.secondaryProperty(),
+					length,
+				);
+			}
+
+			noteResizes.push(modification);
+		}
+
+		await onResizeNotes(noteResizes);
+		for (let i = 0; i < noteResizes.length; i++) {
+			Object.assign(
+				noteResizes[i].item.properties,
+				noteResizes[i].properties,
 			);
 		}
 	}
 
-	let timelineView: TimelineView = $state();
+	const secondaryPropertyInterpretedAs = viewModel
+		.namespace("settings")
+		.namespace("property")
+		.namespace("secondaryProperty")
+		.make("useAs", "end");
+
+	let timelineView: ReturnType<typeof TimelineView> | undefined = $state();
+	// @ts-ignore
 	let display: RulerValueDisplay = $state();
 	onMount(async () => {
 		const orderSettings = viewModel
@@ -194,6 +288,12 @@
 			.namespace("property");
 
 		const selectedPropertyName = orderSettings.make("property", "created");
+		const secondaryProperty = orderSettings.namespace("secondaryProperty");
+		const secondaryPropertyName = secondaryProperty.make(
+			"name",
+			"modified",
+		);
+		const secondaryPropertyInUse = secondaryProperty.make("inUse", false);
 		const propertyPreferences = orderSettings.make(
 			"propertiesUseWholeNumbers",
 			{},
@@ -203,33 +303,44 @@
 			notePropertyRepository,
 			{
 				selectedPropertyName: get(selectedPropertyName),
+				secondaryProperty: {
+					name: get(secondaryPropertyName),
+					inUse: get(secondaryPropertyInUse),
+					useAs: get(secondaryPropertyInterpretedAs),
+				},
 				propertyPreferences: get(propertyPreferences),
 			},
 			(state) => {
 				selectedPropertyName.set(state.selectedPropertyName);
+				secondaryPropertyName.set(state.secondaryProperty.name);
+				secondaryPropertyInUse.set(state.secondaryProperty.inUse);
+				secondaryPropertyInterpretedAs.set(
+					state.secondaryProperty.useAs,
+				);
 				propertyPreferences.set(state.propertyPreferences);
 			},
 		);
 
 		display = propertySelector.selectedProperty().displayedAs();
 
-		for (const note of await noteRepository.listAll()) {
-			const item = new TimelineNoteItem(
-				note,
-				getValueSelector,
-				itemColorSupplier,
-			);
-			itemsById.set(item.id(), item);
+		for (const note of noteRepository.listAll()) {
+			const item = new ReactiveNoteItem(note);
+			itemsById.set(note.id(), item);
 			enqueueItemColorUpdate(item);
 		}
 
-		items = new MutableSortedArray(
-			(item) => item.value(),
-			...(await filter.filteredItems(itemsById.values())),
-		);
+		const filteredItems = [];
+		for (let item of itemsById.values()) {
+			if (await filter.noteFilter().matches(item.note)) {
+				filteredItems.push(item);
+			}
+		}
+		items = new MutableSortedArray(valueOf, ...filteredItems);
 
 		if (isNew) {
-			timelineView.zoomToFit(items);
+			tick().then(() => {
+				timelineView?.zoomToFit();
+			});
 		}
 	});
 
@@ -262,8 +373,8 @@
 
 	let itemRecolorQueueLength = $state(0);
 	const enqueueItemColorUpdate = (() => {
-		const queue: TimelineNoteItem[] = [];
-		const uniqueQueue = new Set<TimelineNoteItem>();
+		const queue: ReactiveNoteItem[] = [];
+		const uniqueQueue = new Set<ReactiveNoteItem>();
 		let timer: null | ReturnType<typeof setTimeout> = null;
 		let tasks: Promise<void>[] = [];
 
@@ -285,18 +396,18 @@
 				const groups = timelineGroups.groups();
 				tasks.push(
 					(async () => {
-						itemColorSupplier.cache.delete(item.id());
+						itemColorSupplier.cache.delete(item.note.id());
 						for (let i = 0; i < groups.length; i++) {
 							const group = groups[i];
 							if (await group.noteFilter().matches(item.note)) {
-								itemColorSupplier.cache.set(item.id(), {
+								itemColorSupplier.cache.set(item.note.id(), {
 									color: group.color(),
 									index: i,
 								});
 								break;
 							}
 						}
-						timelineView.invalidateColors();
+						timelineView?.invalidateColors();
 					})(),
 				);
 			}
@@ -307,7 +418,7 @@
 			}
 		}
 
-		return (item: TimelineNoteItem) => {
+		return (item: ReactiveNoteItem) => {
 			if (uniqueQueue.has(item)) return;
 			uniqueQueue.add(item);
 			queue.push(item);
@@ -320,7 +431,7 @@
 	})();
 
 	function enqueueItemRecolorMatching(
-		predicate: (item: TimelineNoteItem) => boolean,
+		predicate: (item: ReactiveNoteItem) => boolean,
 	) {
 		for (const item of itemsById.values()) {
 			if (predicate(item)) {
@@ -329,19 +440,90 @@
 		}
 	}
 
-	function getValueSelector(this: void) {
-		return propertySelector.selectedProperty();
+	function lengthOf(note: Note) {
+		if (!propertySelector.secondaryPropertyInUse()) {
+			return 0;
+		}
+		const secondaryProperty = propertySelector.secondaryProperty();
+		if ($secondaryPropertyInterpretedAs === "length") {
+			const length = secondaryProperty.selectValueFromNote(note);
+			if (length === null) return 0;
+			return length;
+		}
+		const start =
+			propertySelector.selectedProperty().selectValueFromNote(note) ?? 0;
+		const end = secondaryProperty.selectValueFromNote(note) ?? start;
+		const length = end - start;
+		return length;
 	}
+
+	function summarizeNote(note: Note) {
+		const primaryProperty = propertySelector.selectedProperty();
+		const primaryValue = primaryProperty.selectValueFromNote(note);
+		const primaryValueStr =
+			primaryValue === null ? "" : display.displayValue(primaryValue);
+		if (!propertySelector.secondaryPropertyInUse()) {
+			return `${note.name()}\n[${primaryProperty.name()}: ${primaryValueStr}]`;
+		}
+
+		const secondaryProperty = propertySelector.secondaryProperty();
+		const secondaryValue = secondaryProperty.selectValueFromNote(note);
+
+		if (propertySelector.secondaryPropertyInterpretation() === "end") {
+			const secondaryValueStr =
+				secondaryValue === null
+					? ""
+					: display.displayValue(secondaryValue);
+			const length =
+				(secondaryValue ?? primaryValue ?? 0) - (primaryValue ?? 0);
+			return `${note.name()}\n[${primaryProperty.name()}: ${primaryValueStr}] → [${secondaryProperty.name()}: ${secondaryValueStr}]\nlength: ${display.displayLength(length)}`;
+		}
+
+		const end = (primaryValue ?? 0) + (secondaryValue ?? primaryValue ?? 0);
+		const secondaryValueStr =
+			secondaryValue === null
+				? ""
+				: display.displayLength(secondaryValue);
+
+		return `${note.name()}\n[${primaryProperty.name()}: ${primaryValueStr}] → ${display.displayValue(end)}\n[${secondaryProperty.name()}: ${secondaryValueStr}]`;
+	}
+
+	function summarizeItem(
+		name: string,
+		value: number,
+		length: number,
+		endValue: number,
+	) {
+		const primaryProperty = propertySelector.selectedProperty();
+		value = primaryProperty.sanitizeValue(value);
+		const primaryValueStr = display.displayValue(value);
+		if (!propertySelector.secondaryPropertyInUse()) {
+			return `${name}\n[${primaryProperty.name()}: ${primaryValueStr}]`;
+		}
+
+		const secondaryProperty = propertySelector.secondaryProperty();
+		if (propertySelector.secondaryPropertyInterpretation() === "length") {
+			length = secondaryProperty.sanitizeValue(length);
+			endValue = value + length;
+		} else {
+			endValue = secondaryProperty.sanitizeValue(endValue);
+			length = endValue - value;
+		}
+		const lengthStr = display.displayLength(length);
+		const endValueStr = display.displayValue(endValue);
+
+		if (propertySelector.secondaryPropertyInterpretation() === "end") {
+			return `${name}\n[${primaryProperty.name()}: ${primaryValueStr}] → [${secondaryProperty.name()}: ${endValueStr}]\nlength: ${lengthStr}`;
+		}
+		return `${name}\n[${primaryProperty.name()}: ${primaryValueStr}] → ${endValueStr}\n[${secondaryProperty.name()}: ${lengthStr}]`;
+	}
+
 	export async function addFile(file: Note) {
 		if (timelineView == null) return;
 		if (itemsById.has(file.id())) return;
-		const item = new TimelineNoteItem(
-			file,
-			getValueSelector,
-			itemColorSupplier,
-		);
+		const item = new ReactiveNoteItem(file);
 		itemsById.set(file.id(), item);
-		if (await filter.accepts(item)) {
+		if (await filter.noteFilter().matches(item.note)) {
 			enqueueItemUpdate(() => {
 				items.add(item);
 			});
@@ -362,12 +544,12 @@
 		const item = itemsById.get(file.id());
 		if (item == null) return;
 
-		const keep = await filter.accepts(item);
+		const keep = await filter.noteFilter().matches(file);
 
 		enqueueItemColorUpdate(item);
 		enqueueItemUpdate(() => {
 			items.remove(item);
-			item._invalidateValueCache();
+			item.replaceNote(file);
 			if (keep) {
 				items.add(item);
 			}
@@ -381,11 +563,12 @@
 		itemsById.delete(oldPath);
 		itemsById.set(file.id(), item);
 
-		const keep = await filter.accepts(item);
+		const keep = await filter.noteFilter().matches(file);
 
 		enqueueItemColorUpdate(item);
 		enqueueItemUpdate(() => {
 			items.remove(item);
+			item.replaceNote(file);
 			if (keep) items.add(item);
 		});
 	}
@@ -393,30 +576,76 @@
 	export function focusOnNote(note: Note) {
 		const item = itemsById.get(note.id());
 		if (item == null) return;
-		timelineView?.focusOnItem(item);
+		timelineView?.focusOnId(note.id());
 	}
 
 	export function zoomToFit() {
-		timelineView?.zoomToFit(items);
+		timelineView?.zoomToFit();
 	}
 
 	function onPropertySelected(property: TimelineProperty) {
 		propertySelector = propertySelector;
-		for (const item of itemsById.values()) {
-			item._invalidateValueCache();
-		}
-		items = new MutableSortedArray((item) => item.value(), ...items);
+		items = new MutableSortedArray(valueOf, ...items);
 		display = property.displayedAs();
-		timelineView.zoomToFit(items);
+		timelineView?.zoomToFit();
 	}
 
-	function onPreviewNewItemValue(item: TimelineItem, value: number): number {
+	function onSecondaryPropertySelected(property: TimelineProperty) {
+		timelineView!.refresh();
+	}
+
+	function onPreviewNewItemValue(
+		item: ReactiveNoteItem,
+		value: number,
+	): number {
 		return propertySelector.selectedProperty().sanitizeValue(value);
 	}
+
+	const selectItemValue = $derived.by(() => {
+		const property = propertySelector?.selectedProperty();
+		if (property == null) {
+			return () => null;
+		}
+		if (property.isCreatedProperty()) {
+			return (item: ReactiveNoteItem) => item.note.created();
+		}
+		if (property.isModifiedProperty()) {
+			return (item: ReactiveNoteItem) => item.note.modified();
+		}
+		return (item: ReactiveNoteItem) => {
+			const value = item.properties[property.name()];
+			if (value == null) return null;
+			if (typeof value === "number") return value;
+			if (typeof value === "string") {
+				const datetime = window.moment(value);
+				if (datetime.isValid()) {
+					return datetime.valueOf();
+				}
+				const parsed = parseFloat(value);
+				if (!isNaN(parsed)) return parsed;
+				return null;
+			}
+			return null;
+		};
+	});
+
+	const selectValue = $derived.by(() => {
+		const valueOf = selectItemValue;
+		return (item: ReactiveNoteItem) => valueOf(item) ?? 0;
+	});
 </script>
 
 <TimelineView
-	{items}
+	items={Array.from(items)}
+	{selectValue}
+	selectLength={!propertySelector?.secondaryPropertyInUse()
+		? () => 0
+		: (item) => lengthOf(item.note)}
+	previewItem={(name, value, length, endValue) => {
+		return summarizeItem(name, value, length, endValue);
+	}}
+	summarizeItem={(item) => summarizeNote(item.note)}
+	itemsResizable={propertySelector?.secondaryPropertyInUse() ?? false}
 	namespacedWritable={viewModel}
 	{display}
 	groups={timelineGroups}
@@ -435,12 +664,12 @@
 				}
 			}
 			if (effectCount > 0) {
-				timelineView.invalidateColors();
+				timelineView?.invalidateColors();
 			}
 		},
 		onGroupQueried(index, _group) {
 			enqueueItemRecolorMatching((item) => {
-				const def = itemColorSupplier.cache.get(item.id());
+				const def = itemColorSupplier.cache.get(item.note.id());
 				// a new query could impact items that have no group, but not
 				// items that have a group of a higher priority
 				return def == null || def.index >= index;
@@ -449,7 +678,7 @@
 		onGroupsReordered(from, to, _group, _groups) {
 			const minAffectedIndex = Math.min(from, to);
 			enqueueItemRecolorMatching((item) => {
-				const def = itemColorSupplier.cache.get(item.id());
+				const def = itemColorSupplier.cache.get(item.note.id());
 				// re-order can't impact items that have no group
 				return def != null && def.index >= minAffectedIndex;
 			});
@@ -467,7 +696,7 @@
 		},
 		onGroupRemoved(index, _group, _groups) {
 			enqueueItemRecolorMatching((item) => {
-				const def = itemColorSupplier.cache.get(item.id());
+				const def = itemColorSupplier.cache.get(item.note.id());
 				// removing a group can't impact items that have no group
 				return def != null && def.index >= index;
 			});
@@ -480,26 +709,20 @@
 		},
 	}}
 	bind:this={timelineView}
-	on:select={(e) => openFile(e.detail.causedBy, e.detail.item)}
-	on:focus={(e) =>
-		dispatch("noteFocused", itemsById.get(e.detail.id())?.note)}
-	on:create={(e) => createItem(e.detail)}
-	onMoveItem={moveItem}
+	onSelected={(item, cause) => openFile(cause, item)}
+	onFocused={(item) => dispatch("noteFocused", item.note)}
+	onCreate={(value) => createItem({ value })}
+	onItemsResized={resizeItems}
 	{onPreviewNewItemValue}
 	oncontextmenu={(e, triggerItems) => {
-		const items = triggerItems
-			.map((item) => itemsById.get(item.id()))
-			.filter(exists);
-		if (items.length === 0) return;
 		oncontextmenu(
 			e,
-			items.map((it) => it.note),
+			triggerItems.map((it) => it.note),
 		);
 	}}
 	openDialog={openModal}
 >
-	<!-- @migration-task: migrate this slot by hand, `additional-settings` is an invalid identifier -->
-	<svelte:fragment slot="additional-settings">
+	{#snippet additionalSettings()}
 		{#if propertySelector}
 			<TimelinePropertySection
 				collapsed={settings
@@ -508,13 +731,26 @@
 				selector={propertySelector}
 				on:propertySelected={(event) =>
 					onPropertySelected(event.detail)}
+				on:secondaryPropertySelected={({ detail }) =>
+					onSecondaryPropertySelected(detail)}
+				on:secondaryPropertyToggled={({ detail: inUse }) => {
+					for (const item of itemsById.values()) {
+						item;
+					}
+					timelineView!.refresh();
+				}}
+				on:secondaryPropertyReinterpreted={({
+					detail: interpretation,
+				}) => {
+					$secondaryPropertyInterpretedAs = interpretation;
+				}}
 			/>
 		{/if}
 		<TimelineFilterSection
 			collapsed={settings.namespace("filter").make("collapsed", true)}
 			{filter}
 		/>
-	</svelte:fragment>
+	{/snippet}
 </TimelineView>
 
 <style>

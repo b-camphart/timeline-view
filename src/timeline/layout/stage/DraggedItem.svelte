@@ -1,36 +1,30 @@
 <script lang="ts">
-	import type { ValueDisplay } from "src/timeline/Timeline";
+	import { constrainedWithinBody } from "src/timeline/layout/stage/Hover.svelte";
 	import { hoverTooltip } from "src/view/Tooltip";
 
 	interface Props {
-		display: ValueDisplay;
 		position: {
-		offsetTop: number;
-		offsetLeft: number;
-	};
-		name: string;
-		value: number;
+			offsetTop: number;
+			offsetLeft: number;
+			offsetWidth: number;
+		};
+		summary: string;
 	}
 
-	let {
-		display,
-		position,
-		name,
-		value
-	}: Props = $props();
-
-	let label = $derived(`${name}: ${display.displayValue(value)}`);
+	let { position, summary }: Props = $props();
 </script>
 
 <div
 	use:hoverTooltip={{
 		visible: true,
-		label,
+		label: summary,
 		className: "timeline-item-tooltip",
+		elementPosition: constrainedWithinBody.bind(null, hoverTooltip.center),
 	}}
-	aria-label={label}
+	aria-label={summary}
 	style:top="{position.offsetTop}px"
 	style:left="{position.offsetLeft}px"
+	style:width="{position.offsetWidth}px"
 ></div>
 
 <style>

@@ -5,12 +5,12 @@ import type * as color from "src/timeline/item/color";
 export class TimelineNoteItem {
 	constructor(
 		public note: note_1.Note,
-		private getValueSelector: (
-			this: void,
-		) => valueSelector.NumericNoteValueSelector,
+		private getValueSelector: (this: void) => valueSelector.NumericNoteValueSelector,
+		lengthSelector: (note: note_1.Note) => number,
 		private colorSupplier: color.TimelineItemColorSupplier,
 	) {
 		this.value = this.#calculateValue;
+		this.#lengthSelector = lengthSelector;
 	}
 
 	toString() {
@@ -24,13 +24,30 @@ export class TimelineNoteItem {
 	#value: number | undefined;
 	value: () => number;
 
+	#cachedLength: number | undefined;
+	length() {
+		if (this.#cachedLength === undefined) {
+			this.#cachedLength = this.#lengthSelector(this.note);
+		}
+		return this.#cachedLength;
+	}
+
+	#lengthSelector: (note: note_1.Note) => number;
+	get lengthSelector() {
+		return this.#lengthSelector;
+	}
+	set lengthSelector(selector: (note: note_1.Note) => number) {
+		this.#lengthSelector = selector;
+		this.#cachedLength = undefined;
+	}
+
 	#getCachedValue(): number {
 		return this.#value!;
 	}
 
 	#calculateValue(): number {
 		const getValueSelector = this.getValueSelector;
-		const value = getValueSelector().selectValueFromNote(this.note);
+		const value = getValueSelector().selectValueFromNote(this.note) ?? 0;
 		this.#value = value;
 		this.value = this.#getCachedValue;
 		return value;

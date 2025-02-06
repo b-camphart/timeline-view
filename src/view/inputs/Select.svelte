@@ -45,7 +45,9 @@ Offsers a select element with a completely customizable dropdown
 	interface Props {
 		selectedIndex?: number;
 		itemCount: number;
-		item?: import("svelte").Snippet<[any]>;
+		item?: import("svelte").Snippet<
+			[{ index: number; select(index: number): void }]
+		>;
 		[key: string]: any;
 	}
 
@@ -239,7 +241,10 @@ Offsers a select element with a completely customizable dropdown
 >
 	{#each range(itemCount) as itemIndex}
 		<option value={itemIndex} selected={selectedIndex === itemIndex}>
-			{@render item?.({ index: itemIndex })}
+			{@render item?.({
+				index: itemIndex,
+				select: change,
+			})}
 		</option>
 	{/each}
 </select>
@@ -270,7 +275,10 @@ Offsers a select element with a completely customizable dropdown
 	>
 		<ul role="listbox">
 			{#each range(itemCount) as itemIndex}
-				{@render item?.({ index: itemIndex })}
+				{@render item?.({
+					index: itemIndex,
+					select: change.bind(null, itemIndex),
+				})}
 			{/each}
 		</ul>
 	</dialog>

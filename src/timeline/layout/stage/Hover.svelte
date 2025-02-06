@@ -1,26 +1,53 @@
+<script module lang="ts">
+	export function constrainedWithinBody(
+		position: (rect: DOMRect) => { x: number; y: number },
+		bounds: DOMRect,
+	) {
+		const bodyBounds = document.body.getBoundingClientRect();
+
+		let left = Math.max(0, Math.min(bodyBounds.width, bounds.x));
+		let top = Math.max(0, Math.min(bodyBounds.height, bounds.y));
+		let right = Math.max(0, Math.min(bodyBounds.width, bounds.right));
+		let bottom = Math.max(0, Math.min(bodyBounds.height, bounds.bottom));
+
+		return position(new DOMRect(left, top, right - left, bottom - top));
+	}
+
+	export class ValueFormatter {
+		#formatValue;
+		formatValue(value: number) {
+			return this.#formatValue(value);
+		}
+
+		#formatLength;
+		formatLength(length: number) {
+			return this.#formatLength(length);
+		}
+
+		constructor(
+			formatValue: (value: number) => string,
+			formatLength: (value: number) => string,
+		) {
+			this.#formatValue = formatValue;
+			this.#formatLength = formatLength;
+		}
+	}
+</script>
+
 <script lang="ts">
-	import type { ValueDisplay } from "src/timeline/Timeline";
 	import { hoverTooltip } from "src/view/Tooltip";
 	import { fade } from "svelte/transition";
 
 	interface Props {
-		display: ValueDisplay;
 		position: {
-		offsetTop: number;
-		offsetLeft: number;
-	};
-		name: string;
-		value: number;
+			offsetTop: number;
+			offsetLeft: number;
+			offsetWidth: number;
+		};
+		summary: string;
 	}
 
-	let {
-		display,
-		position,
-		name,
-		value
-	}: Props = $props();
-
-	let label = $derived(`${name}: ${display.displayValue(value)}`);
+	let { position, summary }: Props = $props();
 
 	let hovered = $state(false);
 </script>
@@ -28,16 +55,18 @@
 <div
 	use:hoverTooltip={{
 		visible: hovered,
-		label,
+		label: summary,
 		className: "timeline-item-tooltip",
+		elementPosition: constrainedWithinBody.bind(null, hoverTooltip.center),
 	}}
 	transition:fade={{ duration: 500 }}
 	onintroend={() => (hovered = true)}
 	onoutrostart={() => (hovered = false)}
 	class="timeline-item hover"
-	aria-label={label}
+	aria-label={summary}
 	style:top="{position.offsetTop}px"
 	style:left="{position.offsetLeft}px"
+	style:width="{position.offsetWidth}px"
 ></div>
 
 <style>
@@ -69,9 +98,8 @@
 	}
 
 	div {
-		width: var(--timeline-item-diameter);
 		height: var(--timeline-item-diameter);
-		border-radius: 100%;
+		border-radius: var(--timeline-item-diameter);
 
 		position: absolute;
 		margin: 0;
