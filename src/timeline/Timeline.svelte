@@ -169,7 +169,6 @@
 				let length = it.length;
 				let endValue = it.endValue;
 
-				const currentValue = selectValue(it.item.source);
 				const currentLength = selectLength(it.item.source);
 
 				if (currentLength < 0) {
@@ -302,7 +301,14 @@
 	/>
 	<CanvasStage
 		bind:this={canvasStage}
-		{previewItem}
+		previewItem={(item, name, value, length, endValue) => {
+			const currentLength = selectLength(item.source);
+
+			if (currentLength < 0) {
+				return previewItem(name, endValue, -length, value);
+			}
+			return previewItem(name, value, length, endValue);
+		}}
 		summarizeItem={(it) => summarizeItem(it.source)}
 		sortedItems={sorted.items}
 		scale={$scale}

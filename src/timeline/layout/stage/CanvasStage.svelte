@@ -55,6 +55,7 @@
 		itemsResizable: boolean;
 		summarizeItem: (item: SourceItem) => string;
 		previewItem: (
+			item: SourceItem,
 			name: string,
 			value: number,
 			length: number,
@@ -1217,6 +1218,7 @@
 			<DraggedItem
 				position={itemPreview}
 				summary={previewItem(
+					itemPreview.base.item,
 					itemPreview.base.name(),
 					itemPreview.value,
 					itemPreview.length,
