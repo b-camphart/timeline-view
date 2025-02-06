@@ -494,12 +494,20 @@
 		endValue: number,
 	) {
 		const primaryProperty = propertySelector.selectedProperty();
+		value = primaryProperty.sanitizeValue(value);
 		const primaryValueStr = display.displayValue(value);
 		if (!propertySelector.secondaryPropertyInUse()) {
 			return `${name}\n[${primaryProperty.name()}: ${primaryValueStr}]`;
 		}
 
 		const secondaryProperty = propertySelector.secondaryProperty();
+		if (propertySelector.secondaryPropertyInterpretation() === "length") {
+			length = secondaryProperty.sanitizeValue(length);
+			endValue = value + length;
+		} else {
+			endValue = secondaryProperty.sanitizeValue(endValue);
+			length = endValue - value;
+		}
 		const lengthStr = display.displayLength(length);
 		const endValueStr = display.displayValue(endValue);
 
