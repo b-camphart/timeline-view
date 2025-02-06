@@ -92,14 +92,6 @@
 			modified?: number;
 			properties?: Record<string, number>;
 		};
-		modifyNote: {
-			note: Note;
-			modification: {
-				created?: number;
-				modified?: number;
-				properties: Record<string, number>;
-			};
-		};
 	}>();
 
 	const settings = viewModel.namespace("settings");
@@ -208,55 +200,6 @@
 		dispatch("createNote", creation);
 	}
 
-	function moveItem(item: ReactiveNoteItem, value: number, endValue: number) {
-		const modification = {
-			created: undefined as number | undefined,
-			modified: undefined as number | undefined,
-			properties: {} as Record<string, number>,
-		};
-
-		const property = propertySelector.selectedProperty();
-		// value = property.sanitizeValue(value);
-
-		if (property.isCreatedProperty()) {
-			modification["created"] = value;
-		} else if (property.isModifiedProperty()) {
-			modification["modified"] = value;
-		} else {
-			modification.properties[property.name()] = value;
-		}
-
-		if (
-			propertySelector.secondaryPropertyInUse() &&
-			// if we're using it as a length, moving the item has no effect
-			propertySelector.secondaryPropertyInterpretation() === "end"
-		) {
-			const length = lengthOf(item.note);
-			if (endValue - value !== length) {
-				throw new Error(
-					`end value should be ${value + length}, but received ${endValue}`,
-				);
-			}
-			const secondaryProperty = propertySelector.secondaryProperty();
-			endValue = secondaryProperty.sanitizeValue(endValue);
-			if (secondaryProperty.isCreatedProperty()) {
-				modification["created"] = endValue;
-			} else if (secondaryProperty.isModifiedProperty()) {
-				modification["modified"] = endValue;
-			} else {
-				modification.properties[secondaryProperty.name()] = endValue;
-			}
-		}
-
-		return dispatch(
-			"modifyNote",
-			{
-				note: item.note,
-				modification,
-			},
-			{ cancelable: true },
-		);
-	}
 	async function resizeItems(
 		items: {
 			item: ReactiveNoteItem;
@@ -761,7 +704,6 @@
 	onSelected={(item, cause) => openFile(cause, item)}
 	onFocused={(item) => dispatch("noteFocused", item.note)}
 	onCreate={(value) => createItem({ value })}
-	onMoveItem={moveItem}
 	onItemsResized={resizeItems}
 	{onPreviewNewItemValue}
 	oncontextmenu={(e, triggerItems) => {

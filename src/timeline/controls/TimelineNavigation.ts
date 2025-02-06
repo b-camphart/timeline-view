@@ -1,7 +1,7 @@
 import {type Readable, type Writable} from "svelte/store";
 import {ValuePerPixelScale, type Scale} from "../scale";
 import {zoomToFit} from "src/timeline/controls/navigation/zoomToFit";
-import type {TimelineItem} from "src/timeline/item/TimelineItem";
+import type {TimelineItem, TimelineItemSource} from "src/timeline/item/TimelineItem.svelte";
 
 export type ZoomConstraints = {
 	keepValue: number;
@@ -9,7 +9,7 @@ export type ZoomConstraints = {
 	within: number;
 };
 
-export interface TimelineNavigation<T> {
+export interface TimelineNavigation<T extends TimelineItemSource> {
 	zoomIn(constraints?: ZoomConstraints): void;
 	zoomOut(constraints?: ZoomConstraints): void;
 	zoomToFit(items?: Iterable<TimelineItem<T>>, width?: number): void;
@@ -17,7 +17,7 @@ export interface TimelineNavigation<T> {
 	scrollToValue(value: number): void;
 }
 
-class TimelineNavigationSvelteImpl<T> implements TimelineNavigation<T> {
+class TimelineNavigationSvelteImpl<T extends TimelineItemSource> implements TimelineNavigation<T> {
 	private scale: Scale;
 
 	constructor(
@@ -88,8 +88,9 @@ class TimelineNavigationSvelteImpl<T> implements TimelineNavigation<T> {
 	private minimumValue(items = this.items.get()) {
 		let minimumValue: number | undefined;
 		for (const item of items) {
-			if (minimumValue === undefined || item.value < minimumValue) {
-				minimumValue = item.value;
+			const itemValue = item.value();
+			if (minimumValue === undefined || itemValue < minimumValue) {
+				minimumValue = itemValue;
 			}
 		}
 		if (minimumValue === undefined) {
@@ -101,8 +102,9 @@ class TimelineNavigationSvelteImpl<T> implements TimelineNavigation<T> {
 	private maximumValue(items = this.items.get()) {
 		let maximumValue: number | undefined;
 		for (const item of items) {
-			if (maximumValue === undefined || item.value > maximumValue) {
-				maximumValue = item.value;
+			const itemValue = item.value();
+			if (maximumValue === undefined || itemValue > maximumValue) {
+				maximumValue = itemValue;
 			}
 		}
 		if (maximumValue === undefined) {
@@ -127,7 +129,7 @@ export interface Vetoable<T> extends Readable<T> {
 	set(this: void, value: T): T;
 }
 
-export function timelineNavigation<T>(
+export function timelineNavigation<T extends TimelineItemSource>(
 	scale: Vetoable<Scale>,
 	items: {get(): Iterable<TimelineItem<T>>},
 	focalValue: Writable<number>["update"],

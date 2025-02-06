@@ -1,4 +1,4 @@
-<script lang="ts" generics="T">
+<script lang="ts" generics="T extends TimelineItemSource">
 	import { type TimelineNavigation } from "./controls/TimelineNavigation";
 	import { writable as makeWritable, writable } from "svelte/store";
 	import { timelineNavigation } from "./controls/TimelineNavigation";
@@ -12,7 +12,13 @@
 	import type { RulerValueDisplay } from "src/timeline/Timeline";
 	import type { TimelineGroups } from "src/timeline/group/groups";
 	import TimelineGroupsList from "src/timeline/group/TimelineGroupsList.svelte";
-	import { type ComponentProps, mount, type Snippet, unmount } from "svelte";
+	import {
+		type ComponentProps,
+		mount,
+		type Snippet,
+		unmount,
+		untrack,
+	} from "svelte";
 	import TimelineGroupsSettingsSection from "src/timeline/group/TimelineGroupsSettingsSection.svelte";
 	import { ObservableCollapsable } from "src/view/collapsable";
 	import LucideIcon from "src/obsidian/view/LucideIcon.svelte";
@@ -20,10 +26,11 @@
 	import TimelineInteractionsHelp from "./TimelineInteractionsHelp.svelte";
 	import {
 		timelineItem,
+		type TimelineItem,
 		type TimelineItemSource,
-	} from "src/timeline/item/TimelineItem";
+	} from "src/timeline/item/TimelineItem.svelte";
 
-	type Item = TimelineItemSource<T>;
+	type Item = T;
 
 	interface Props {
 		namespacedWritable: NamespacedWritableFactory<TimelineViewModel>;
@@ -54,7 +61,6 @@
 		): void;
 
 		onPreviewNewItemValue(item: Item, value: number): number;
-		onMoveItem(item: Item, value: number, endValue: number): boolean;
 		itemsResizable: boolean;
 		onItemsResized(
 			resized: {
@@ -86,7 +92,6 @@
 		openDialog,
 
 		onPreviewNewItemValue,
-		onMoveItem,
 		itemsResizable,
 		onItemsResized,
 		oncontextmenu,
@@ -127,15 +132,38 @@
 	}
 
 	const timelineItems = $derived(inputItems.map(timelineItem));
-
-	const sorted = $derived.by(() => {
+	const valued = $derived.by(() => {
 		const items = timelineItems;
 		const valueOf = selectValue;
 
-		items.forEach((it) => (it.value = valueOf(it.source)));
+		items.forEach((it) => {
+			const value = valueOf(it.source);
+			untrack(() => it.setValue(value));
+		});
 
 		return {
-			items: items.sort((a, b) => a.value - b.value),
+			items: items,
+			_: Math.random(),
+		};
+	});
+	async function resizeItems(
+		detail: {
+			item: TimelineItem<T>;
+			value: number;
+			length: number;
+			endValue: number;
+		}[],
+	) {
+		await onItemsResized(
+			detail.map((it) => ({ ...it, item: it.item.source })),
+		);
+		detail.forEach((it) => it.item.setValue(it.value));
+		detail.forEach((it) => it.item.setLength(it.length));
+	}
+
+	const sorted = $derived.by(() => {
+		return {
+			items: valued.items.sort((a, b) => a.value() - b.value()),
 			_: Math.random(),
 		};
 	});
@@ -143,7 +171,10 @@
 		const sortedItems = sorted.items;
 		const lengthOf = selectLength;
 
-		sortedItems.forEach((it) => (it.length = lengthOf(it.source)));
+		sortedItems.forEach((it) => {
+			const length = lengthOf(it.source);
+			untrack(() => it.setLength(length));
+		});
 
 		return {
 			items: sortedItems,
@@ -193,7 +224,7 @@
 		canvasStage.focusOnId(id);
 	}
 
-	let canvasStage: CanvasStage<T>;
+	let canvasStage: CanvasStage<T, TimelineItem<T>>;
 	export function invalidateColors() {
 		// canvasStage.invalidateColors();
 	}
@@ -206,16 +237,6 @@
 			}
 		}
 	});
-
-	function moveItems(
-		event: { item: Item; value: number; endValue: number }[],
-	) {
-		event.forEach(({ item, value, endValue }) => {
-			if (!onMoveItem(item, value, endValue)) {
-				return;
-			}
-		});
-	}
 
 	let rulerHeight = $state(0);
 	const mode = namespacedWritable?.make("mode", "edit");
@@ -284,13 +305,7 @@
 			onSelected(detail.item.source, detail.causedBy)}
 		on:focus={({ detail }) => onFocused(detail.source)}
 		on:create={({ detail }) => onCreate(detail.value)}
-		on:moveItems={({ detail }) =>
-			moveItems(detail.map((it) => ({ ...it, item: it.item.source })))}
-		onItemsChanged={async (detail) => {
-			await onItemsResized(
-				detail.map((it) => ({ ...it, item: it.item.source })),
-			);
-		}}
+		onItemsChanged={resizeItems}
 		onPreviewNewItemValue={(item, value) =>
 			onPreviewNewItemValue(item.source, value)}
 		oncontextmenu={!oncontextmenu

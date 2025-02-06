@@ -1,17 +1,20 @@
 import type {BackgroundColor, CanvasElement} from "src/timeline/layout/stage/CanvasStage";
-export class DragPreviewElement<T> implements CanvasElement {
+export class DragPreviewElement<
+	T extends {
+		readonly offsetWidth: number;
+		readonly offsetRight: number;
+		readonly offsetLeft: number;
+		readonly offsetHeight: number;
+		readonly offsetTop: number;
+		readonly offsetBottom: number;
+	},
+> implements CanvasElement
+{
 	get visible() {
 		return true;
 	}
 	constructor(
-		readonly base: T & {
-			readonly offsetWidth: number;
-			readonly offsetRight: number;
-			readonly offsetLeft: number;
-			readonly offsetHeight: number;
-			readonly offsetTop: number;
-			readonly offsetBottom: number;
-		},
+		readonly base: T,
 		value: number,
 		length: number,
 		endValue: number,

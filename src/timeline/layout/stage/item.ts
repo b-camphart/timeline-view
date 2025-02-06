@@ -1,31 +1,20 @@
-import type {TimelineItem} from "src/timeline/item/TimelineItem";
+import type {TimelineItem, TimelineItemSource} from "src/timeline/item/TimelineItem.svelte";
 import type {Scale} from "src/timeline/scale";
-import {untrack} from "svelte";
 
-export type PlotAreaSourceItem<T> = Readonly<TimelineItem<T>>;
+export type PlotAreaSourceItem<T extends TimelineItemSource> = Omit<TimelineItem<T>, "setValue" | "setLength">;
 
-export class PlotAreaItem<T> {
-	static #byItem = new WeakMap<PlotAreaSourceItem<any>, PlotAreaItem<any>>();
-	static from<T>(item: PlotAreaSourceItem<T>): PlotAreaItem<T> {
+export class PlotAreaItem<T extends TimelineItemSource, S extends PlotAreaSourceItem<T>> {
+	static #byItem = new WeakMap<PlotAreaSourceItem<any>, PlotAreaItem<any, any>>();
+	static from<T extends TimelineItemSource, S extends PlotAreaSourceItem<T>>(item: S): PlotAreaItem<T, S> {
 		const existingItem = PlotAreaItem.#byItem.get(item);
 		if (existingItem !== undefined) {
-			untrack(() => (existingItem.#item = item));
 			return existingItem;
 		}
-		const newItem = new PlotAreaItem(item);
+		const newItem = new PlotAreaItem<T, S>(item);
 		PlotAreaItem.#byItem.set(item, newItem);
 		return newItem;
 	}
-	private constructor(item: PlotAreaSourceItem<T>) {
-		this.#item = item;
-	}
-	#item: PlotAreaSourceItem<T> = $state(undefined as any as PlotAreaSourceItem<T>);
-	get item() {
-		return this.#item;
-	}
-	temporaryReplacement(item: PlotAreaSourceItem<T>) {
-		this.#item = item;
-	}
+	private constructor(readonly item: S) {}
 	get id() {
 		return this.item.id;
 	}
@@ -38,19 +27,19 @@ export class PlotAreaItem<T> {
 	get source() {
 		return this.item.source;
 	}
-	get value() {
-		return this.item.value;
+	value() {
+		return this.item.value();
 	}
-	get length() {
-		return this.item.length;
+	length() {
+		return this.item.length();
 	}
 
 	valuePx = 0;
 	lengthPx = 0;
 	scale(scale: Scale) {
 		const item = this.item;
-		this.valuePx = scale.toPixels(item.value);
-		this.lengthPx = scale.toPixels(item.length);
+		this.valuePx = scale.toPixels(item.value());
+		this.lengthPx = scale.toPixels(item.length());
 	}
 
 	layoutTop = 0;

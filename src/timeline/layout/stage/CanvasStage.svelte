@@ -1,4 +1,7 @@
-<script lang="ts" generics="T">
+<script
+	lang="ts"
+	generics="T extends TimelineItemSource, SourceItem extends PlotAreaSourceItem<T>"
+>
 	import { run } from "svelte/legacy";
 
 	import { createEventDispatcher, onMount, untrack } from "svelte";
@@ -20,11 +23,10 @@
 	import {
 		PlotAreaItem,
 		type PlotAreaSourceItem,
-	} from "src/timeline/layout/stage/item.svelte";
-	import type { TimelineItemSource } from "src/timeline/item/TimelineItem";
+	} from "src/timeline/layout/stage/item";
+	import type { TimelineItemSource } from "src/timeline/item/TimelineItem.svelte";
 
-	type SourceItem = PlotAreaSourceItem<T>;
-	type Item = PlotAreaItem<T>;
+	type Item = PlotAreaItem<T, SourceItem>;
 
 	type ZoomEvent = {
 		keepValue: number;
@@ -39,8 +41,6 @@
 		select: { item: SourceItem; causedBy: Event };
 		focus: SourceItem;
 		create: { value: number };
-		/** Cancelable.  Called just before 'on:itemMoved' */
-		moveItems: { item: SourceItem; value: number; endValue: number }[];
 	}>();
 
 	interface Props {
@@ -195,7 +195,7 @@
 
 	const items = $derived.by(() => {
 		const plotAreaItems = timelineItems.map(PlotAreaItem.from);
-		return plotAreaItems;
+		return plotAreaItems as Item[];
 	});
 	const scaled = $derived.by(() => {
 		const currentScale = scale;
@@ -427,7 +427,7 @@
 			items: Item[],
 			private readonly onFinished: (
 				modifications: {
-					item: Item;
+					item: SourceItem;
 					value: number;
 					length: number;
 					endValue: number;
@@ -438,9 +438,9 @@
 				selectedItem.hide();
 				return new DragPreviewElement(
 					selectedItem,
-					selectedItem.item.value,
-					selectedItem.item.length,
-					selectedItem.item.value + selectedItem.item.length,
+					selectedItem.item.value(),
+					selectedItem.item.length(),
+					selectedItem.item.value() + selectedItem.item.length(),
 					selectedItem.offsetLeft + selectedItem.layoutRadius,
 					selectedItem.backgroundColor,
 					selectedItem.borderColor,
@@ -462,49 +462,26 @@
 			return this.elements;
 		}
 
-		static TemporaryTimelineItem = class TemporaryTimelineItem {
-			#originalSource: TimelineItemSource<T>;
-			constructor(dragElement: DragPreviewElement<Item>) {
-				this.#originalSource = dragElement.base.source;
-				this.value = dragElement.value;
-				this.length = dragElement.length;
-			}
-			get id() {
-				return this.#originalSource.id;
-			}
-			get source() {
-				return this.#originalSource;
-			}
-			readonly value: number;
-			readonly length: number;
-			name() {
-				return this.#originalSource.name();
-			}
-			color() {
-				return this.#originalSource.color();
-			}
-		};
-
 		async finish() {
 			try {
 				await this.onFinished(this.movedItems());
 			} finally {
 				this.elements.forEach((it) => it.base.show());
 			}
-			this.elements.forEach((it) => {
-				it.base.temporaryReplacement(
-					new DragPreview.TemporaryTimelineItem(it),
-				);
-			});
 		}
 
-		movedItems() {
+		movedItems(): {
+			item: SourceItem;
+			value: number;
+			length: number;
+			endValue: number;
+		}[] {
 			return this.elements.map((it) => {
 				return {
-					item: it.base,
 					value: it.value,
 					length: it.length,
 					endValue: it.endValue,
+					item: it.base.item,
 				};
 			});
 		}
@@ -643,19 +620,17 @@
 			const deltaValue = mouseValue - startMouseValue;
 
 			if (dragPreview === null) {
-				dragPreview = new DragPreview(selectedItems, async (mods) => {
-					dispatch("moveItems", mods);
-				});
+				dragPreview = new DragPreview(selectedItems, onItemsChanged);
 			}
 			dragPreview.forEach((previousPreview) => {
 				const item = previousPreview.base;
 				const newItemValue = onPreviewNewItemValue(
 					item.item,
-					item.value + deltaValue,
+					item.value() + deltaValue,
 				);
 				const newEndValue = onPreviewNewItemValue(
 					item.item,
-					newItemValue + item.item.length,
+					newItemValue + item.item.length(),
 				);
 				const offsetCenterX =
 					scale.toPixels(newItemValue - focalValue) +
@@ -731,7 +706,8 @@
 				dragPreview.forEach((previewItem) => {
 					const selectedItem = previewItem.base;
 
-					previewItem.length = selectedItem.item.length + deltaValue;
+					previewItem.length =
+						selectedItem.item.length() + deltaValue;
 					previewItem.endValue =
 						previewItem.value + previewItem.length;
 					previewItem.offsetWidth =
@@ -744,7 +720,7 @@
 				dragPreview.forEach((previewItem) => {
 					const selectedItem = previewItem.base;
 
-					previewItem.value = selectedItem.item.value + deltaValue;
+					previewItem.value = selectedItem.item.value() + deltaValue;
 					previewItem.length =
 						previewItem.endValue - previewItem.value;
 
@@ -1025,9 +1001,9 @@
 		verticalScrollToFocusItem(element);
 
 		if (focus.element.offsetLeft < 0) {
-			dispatch("scrollToValue", focus.element.item.value);
+			dispatch("scrollToValue", focus.element.item.value());
 		} else if (focus.element.offsetRight > viewport.width) {
-			dispatch("scrollToValue", focus.element.item.value);
+			dispatch("scrollToValue", focus.element.item.value());
 		}
 	}
 	function focusNextItem(back: boolean = false) {

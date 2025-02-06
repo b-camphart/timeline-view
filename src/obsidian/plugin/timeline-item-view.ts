@@ -296,11 +296,6 @@ export class TimelineItemView extends obsidian.ItemView {
 							this.workspace.getLeaf(true).openFile(file);
 						}
 					},
-					modifyNote: async event => {
-						const note = event.detail.note;
-						const modification = event.detail.modification;
-						await this.notes.modifyNote(note, modification);
-					},
 				} satisfies Events<NoteTimeline["$$events_def"]>,
 			});
 		});
