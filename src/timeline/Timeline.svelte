@@ -135,10 +135,19 @@
 	const valued = $derived.by(() => {
 		const items = timelineItems;
 		const valueOf = selectValue;
+		const lengthOf = selectLength;
 
 		items.forEach((it) => {
-			const value = valueOf(it.source);
-			untrack(() => it.setValue(value));
+			let value = valueOf(it.source);
+			let length = lengthOf(it.source);
+			if (length < 0) {
+				value = value + length;
+				length = -length;
+			}
+			untrack(() => {
+				it.setValue(value);
+				it.setLength(length);
+			});
 		});
 
 		return {
@@ -155,7 +164,27 @@
 		}[],
 	) {
 		await onItemsResized(
-			detail.map((it) => ({ ...it, item: it.item.source })),
+			detail.map((it) => {
+				let value = it.value;
+				let length = it.length;
+				let endValue = it.endValue;
+
+				const currentValue = selectValue(it.item.source);
+				const currentLength = selectLength(it.item.source);
+
+				if (currentLength < 0) {
+					length = -length;
+					value = endValue;
+					endValue = it.value;
+				}
+
+				return {
+					item: it.item.source,
+					value,
+					length,
+					endValue,
+				};
+			}),
 		);
 		detail.forEach((it) => it.item.setValue(it.value));
 		detail.forEach((it) => it.item.setLength(it.length));
@@ -164,20 +193,6 @@
 	const sorted = $derived.by(() => {
 		return {
 			items: valued.items.sort((a, b) => a.value() - b.value()),
-			_: Math.random(),
-		};
-	});
-	const measured = $derived.by(() => {
-		const sortedItems = sorted.items;
-		const lengthOf = selectLength;
-
-		sortedItems.forEach((it) => {
-			const length = lengthOf(it.source);
-			untrack(() => it.setLength(length));
-		});
-
-		return {
-			items: sortedItems,
 			_: Math.random(),
 		};
 	});
@@ -191,7 +206,7 @@
 		scale,
 		{
 			get() {
-				return measured.items;
+				return sorted.items;
 			},
 		},
 		(updater) => {
@@ -289,7 +304,7 @@
 		bind:this={canvasStage}
 		{previewItem}
 		summarizeItem={(it) => summarizeItem(it.source)}
-		sortedItems={measured.items}
+		sortedItems={sorted.items}
 		scale={$scale}
 		focalValue={$focalValue}
 		bind:width={$stageWidth}
