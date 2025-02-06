@@ -1,8 +1,17 @@
-import type {BackgroundColor} from "src/timeline/layout/stage/CanvasStage";
-import type {PlotAreaItem} from "src/timeline/layout/stage/item";
-export class DragPreviewElement {
+import type {BackgroundColor, CanvasElement} from "src/timeline/layout/stage/CanvasStage";
+export class DragPreviewElement<T> implements CanvasElement {
+	get visible() {
+		return true;
+	}
 	constructor(
-		readonly element: PlotAreaItem,
+		readonly base: T & {
+			readonly offsetWidth: number;
+			readonly offsetRight: number;
+			readonly offsetLeft: number;
+			readonly offsetHeight: number;
+			readonly offsetTop: number;
+			readonly offsetBottom: number;
+		},
 		value: number,
 		length: number,
 		endValue: number,
@@ -16,9 +25,9 @@ export class DragPreviewElement {
 		this.endValue = endValue;
 		this.offsetCenterX = offsetCenterX;
 
-		this.offsetWidth = element.offsetWidth;
-		this.offsetRight = element.offsetRight;
-		this.offsetLeft = element.offsetLeft;
+		this.offsetWidth = base.offsetWidth;
+		this.offsetRight = base.offsetRight;
+		this.offsetLeft = base.offsetLeft;
 	}
 
 	value = $state(0);
@@ -29,22 +38,14 @@ export class DragPreviewElement {
 	offsetRight = $state(0);
 	offsetLeft = $state(0);
 
-	get item() {
-		return this.element.item;
-	}
-
-	get offsetCenterY() {
-		return this.offsetTop + this.element.offsetHeight / 2;
-	}
-
 	get offsetTop() {
-		return this.element.offsetTop;
+		return this.base.offsetTop;
 	}
 
 	get offsetBottom() {
-		return this.offsetTop + this.element.offsetHeight;
+		return this.offsetTop + this.base.offsetHeight;
 	}
 	get offsetHeight() {
-		return this.element.offsetHeight;
+		return this.base.offsetHeight;
 	}
 }

@@ -1,8 +1,7 @@
 import {ValuePerPixelScale} from "src/timeline/scale";
-import type {TimelineItem} from "src/timeline/Timeline";
 
 export function zoomToFit(
-	items: Iterable<TimelineItem>,
+	items: Iterable<{readonly value: number; readonly length: number}>,
 	width: number,
 ): [scale: ValuePerPixelScale, centerValue: number] {
 	const minimum = minValue(items);
@@ -17,11 +16,11 @@ export function zoomToFit(
 	return [new ValuePerPixelScale(span / width), minimum + span / 2];
 }
 
-function minValue(items: Iterable<TimelineItem>) {
+function minValue(items: Iterable<{readonly value: number}>) {
 	let minimumValue = Number.POSITIVE_INFINITY;
 	for (const item of items) {
-		if (item.value() < minimumValue) {
-			minimumValue = item.value();
+		if (item.value < minimumValue) {
+			minimumValue = item.value;
 		}
 	}
 	if (minimumValue === Number.POSITIVE_INFINITY) {
@@ -30,10 +29,10 @@ function minValue(items: Iterable<TimelineItem>) {
 	return minimumValue;
 }
 
-function maxValue(items: Iterable<TimelineItem>) {
+function maxValue(items: Iterable<{readonly value: number; readonly length: number}>) {
 	let maximumValue = Number.NEGATIVE_INFINITY;
 	for (const item of items) {
-		let endValue = item.value() + item.length();
+		let endValue = item.value + item.length;
 		if (endValue > maximumValue) {
 			maximumValue = endValue;
 		}

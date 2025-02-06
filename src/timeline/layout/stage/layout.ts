@@ -19,6 +19,54 @@ export class LayoutItem {
 	}
 }
 
+export function layoutItems(
+	radius: number,
+	margin: {
+		readonly top: number;
+		readonly bottom: number;
+		readonly left: number;
+		readonly right: number;
+	},
+	scaledItems: readonly {
+		readonly valuePx: number;
+		lengthPx: number;
+		layout(
+			top: number,
+			left: number,
+			bottom: number,
+			right: number,
+			radius: number,
+			width: number,
+			height: number,
+		): void;
+	}[],
+) {
+	const vMargin = Math.max(margin.top, margin.bottom);
+	const hMargin = Math.max(margin.left, margin.right);
+	const diameter = radius * 2;
+
+	const rowHeight = diameter + vMargin;
+	let rows: number[] = [];
+	for (let i = 0; i < scaledItems.length; i++) {
+		const scaled = scaledItems[i];
+
+		const left = scaled.valuePx - radius;
+		const right = left + scaled.lengthPx + diameter;
+
+		const relativeLeftMargin = left - hMargin;
+		let r = 0;
+		while (r < rows.length && rows[r] >= relativeLeftMargin) {
+			r++;
+		}
+
+		const top = r * rowHeight;
+		const bottom = top + diameter;
+		rows[r] = right;
+
+		scaled.layout(top, left, bottom, right, radius, right - left, bottom - top);
+	}
+}
+
 export function layoutPoints<T extends LayoutItem>(
 	viewport: {
 		padding: {

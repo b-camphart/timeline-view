@@ -63,15 +63,13 @@ export class TimelineLayoutItem {
 }
 
 export class TimelineItemElementStyle {
-	public fill;
-	public stroke;
-	public strokeWidth;
+	constructor(public fill: string, public stroke: string, public strokeWidth: number) {}
 
-	constructor(css: CSSStyleDeclaration) {
-		this.fill = css.backgroundColor;
-		this.stroke = css.borderColor;
-		this.strokeWidth = parseFloat(css.borderWidth);
+	static fromCSS(css: CSSStyleDeclaration) {
+		return new TimelineItemElementStyle(css.backgroundColor, css.borderColor, parseFloat(css.borderWidth));
 	}
+
+	static readonly unstyled = new TimelineItemElementStyle("", "", 0);
 
 	equals(other: unknown) {
 		if (!(other instanceof TimelineItemElementStyle)) {

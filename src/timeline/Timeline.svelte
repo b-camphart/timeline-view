@@ -1,6 +1,5 @@
-<script lang="ts">
+<script lang="ts" generics="T">
 	import { type TimelineNavigation } from "./controls/TimelineNavigation";
-	import { type TimelineItem } from "./Timeline";
 	import { writable as makeWritable, writable } from "svelte/store";
 	import { timelineNavigation } from "./controls/TimelineNavigation";
 	import TimelineRuler from "./layout/ruler/TimelineRuler.svelte";
@@ -13,23 +12,31 @@
 	import type { RulerValueDisplay } from "src/timeline/Timeline";
 	import type { TimelineGroups } from "src/timeline/group/groups";
 	import TimelineGroupsList from "src/timeline/group/TimelineGroupsList.svelte";
-	import { type ComponentProps, mount, unmount } from "svelte";
-	import { SortedArray } from "src/utils/collections";
+	import { type ComponentProps, mount, type Snippet, unmount } from "svelte";
 	import TimelineGroupsSettingsSection from "src/timeline/group/TimelineGroupsSettingsSection.svelte";
 	import { ObservableCollapsable } from "src/view/collapsable";
 	import LucideIcon from "src/obsidian/view/LucideIcon.svelte";
 	import ActionButton from "src/view/inputs/ActionButton.svelte";
 	import TimelineInteractionsHelp from "./TimelineInteractionsHelp.svelte";
+	import {
+		timelineItem,
+		type TimelineItemSource,
+	} from "src/timeline/item/TimelineItem";
 
-	interface $$Props {
+	type Item = TimelineItemSource<T>;
+
+	interface Props {
 		namespacedWritable: NamespacedWritableFactory<TimelineViewModel>;
 		groups: TimelineGroups;
 		groupEvents: Omit<ComponentProps<typeof TimelineGroupsList>, "groups">;
 		display: RulerValueDisplay;
 		controlBindings: {};
 
-		items: SortedArray<TimelineItem>;
-		summarizeItem: (item: TimelineItem) => string;
+		items: ReadonlyArray<Item>;
+		selectValue(item: Item): number;
+		selectLength(item: Item): number;
+
+		summarizeItem: (item: Item) => string;
 		previewItem: (
 			name: string,
 			value: number,
@@ -46,47 +53,55 @@
 			}) => () => void,
 		): void;
 
-		onPreviewNewItemValue(item: TimelineItem, value: number): number;
-		onMoveItem(
-			item: TimelineItem,
-			value: number,
-			endValue: number,
-		): boolean;
+		onPreviewNewItemValue(item: Item, value: number): number;
+		onMoveItem(item: Item, value: number, endValue: number): boolean;
 		itemsResizable: boolean;
 		onItemsResized(
 			resized: {
-				item: TimelineItem;
+				item: Item;
 				value: number;
 				length: number;
 				endValue: number;
 			}[],
 		): Promise<void>;
-		oncontextmenu?(e: MouseEvent, items: TimelineItem[]): void;
+		onSelected(item: Item, causedBy: Event): void;
+		onFocused(item: Item): void;
+		onCreate(value: number): void;
+		oncontextmenu?(e: MouseEvent, items: Item[]): void;
+		additionalSettings: Snippet<[]>;
 	}
 
-	export let namespacedWritable: $$Props["namespacedWritable"];
-	export let groups: $$Props["groups"];
-	export let groupEvents: $$Props["groupEvents"];
-	export let display: $$Props["display"];
-	export let controlBindings: $$Props["controlBindings"];
+	const {
+		namespacedWritable,
+		groups,
+		groupEvents,
+		display,
+
+		items: inputItems,
+		selectValue,
+		selectLength,
+		previewItem,
+		summarizeItem,
+		pendingGroupUpdates,
+		openDialog,
+
+		onPreviewNewItemValue,
+		onMoveItem,
+		itemsResizable,
+		onItemsResized,
+		oncontextmenu,
+		onSelected,
+		onFocused,
+		onCreate,
+
+		additionalSettings,
+	}: Props = $props();
 
 	const focalValue = namespacedWritable.make("focalValue", 0);
 	const persistedValuePerPixel = namespacedWritable.make("scale", 1);
 
-	export let items: $$Props["items"];
-	export let previewItem: $$Props["previewItem"];
-	export let summarizeItem: $$Props["summarizeItem"];
-	export let pendingGroupUpdates: $$Props["pendingGroupUpdates"];
-	export let openDialog: $$Props["openDialog"];
-
-	export let onPreviewNewItemValue: $$Props["onPreviewNewItemValue"];
-	export let onMoveItem: $$Props["onMoveItem"];
-	export let itemsResizable: $$Props["itemsResizable"];
-	export let onItemsResized: $$Props["onItemsResized"];
-	export let oncontextmenu: $$Props["oncontextmenu"] = () => {};
-
 	const stageWidth = writable(0);
-	let stageClientWidth = 0;
+	let stageClientWidth = $state(0);
 
 	function scaleStore(initialScale: Scale = new ValuePerPixelScale(1)) {
 		function atLeastMinimum(value: Scale) {
@@ -111,14 +126,41 @@
 		};
 	}
 
-	const scale = scaleStore(new ValuePerPixelScale($persistedValuePerPixel));
-	$: $scale = new ValuePerPixelScale($persistedValuePerPixel);
+	const timelineItems = $derived(inputItems.map(timelineItem));
 
-	const navigation: TimelineNavigation = timelineNavigation(
+	const sorted = $derived.by(() => {
+		const items = timelineItems;
+		const valueOf = selectValue;
+
+		items.forEach((it) => (it.value = valueOf(it.source)));
+
+		return {
+			items: items.sort((a, b) => a.value - b.value),
+			_: Math.random(),
+		};
+	});
+	const measured = $derived.by(() => {
+		const sortedItems = sorted.items;
+		const lengthOf = selectLength;
+
+		sortedItems.forEach((it) => (it.length = lengthOf(it.source)));
+
+		return {
+			items: sortedItems,
+			_: Math.random(),
+		};
+	});
+
+	const scale = scaleStore(new ValuePerPixelScale($persistedValuePerPixel));
+	$effect(() => {
+		$scale = new ValuePerPixelScale($persistedValuePerPixel);
+	});
+
+	const navigation: TimelineNavigation<T> = timelineNavigation(
 		scale,
 		{
 			get() {
-				return items;
+				return measured.items;
 			},
 		},
 		(updater) => {
@@ -130,13 +172,13 @@
 		() => $stageWidth,
 	);
 
-	export function zoomToFit(items?: SortedArray<TimelineItem>) {
+	export function zoomToFit() {
 		if (initialized) {
-			navigation.zoomToFit(items, $stageWidth);
+			navigation.zoomToFit(timelineItems, $stageWidth);
 		} else {
 			const unsubscribe = stageWidth.subscribe((newStageWidth) => {
 				if (newStageWidth > 0) {
-					navigation.zoomToFit(items, newStageWidth);
+					navigation.zoomToFit(timelineItems, newStageWidth);
 					unsubscribe();
 				}
 			});
@@ -144,41 +186,39 @@
 	}
 
 	export function refresh() {
-		items = items;
+		// items = items;
 	}
 
-	export function focusOnItem(item: TimelineItem) {
-		canvasStage.focusOnItem(item);
+	export function focusOnId(id: string) {
+		canvasStage.focusOnId(id);
 	}
 
-	let canvasStage: CanvasStage;
+	let canvasStage: CanvasStage<T>;
 	export function invalidateColors() {
-		canvasStage.invalidateColors();
+		// canvasStage.invalidateColors();
 	}
 
 	let initialized = false;
-	$: if (!initialized) {
-		if ($stageWidth > 0) {
-			initialized = true;
+	$effect(() => {
+		if (!initialized) {
+			if ($stageWidth > 0) {
+				initialized = true;
+			}
 		}
-	}
+	});
 
 	function moveItems(
-		event: CustomEvent<
-			{ item: TimelineItem; value: number; endValue: number }[]
-		>,
+		event: { item: Item; value: number; endValue: number }[],
 	) {
-		event.detail.forEach(({ item, value, endValue }) => {
+		event.forEach(({ item, value, endValue }) => {
 			if (!onMoveItem(item, value, endValue)) {
 				return;
 			}
-			item.value = () => value;
 		});
-		items = new SortedArray((item) => item.value(), ...items);
 	}
 
-	let rulerHeight = 0;
-	$: mode = namespacedWritable?.make("mode", "edit");
+	let rulerHeight = $state(0);
+	const mode = namespacedWritable?.make("mode", "edit");
 
 	const settingsOpen = namespacedWritable
 		.namespace("settings")
@@ -227,8 +267,8 @@
 	<CanvasStage
 		bind:this={canvasStage}
 		{previewItem}
-		{summarizeItem}
-		sortedItems={items}
+		summarizeItem={(it) => summarizeItem(it.source)}
+		sortedItems={measured.items}
 		scale={$scale}
 		focalValue={$focalValue}
 		bind:width={$stageWidth}
@@ -240,21 +280,32 @@
 			navigation.scrollToValue($focalValue + detail)}
 		on:zoomIn={({ detail }) => navigation.zoomIn(detail)}
 		on:zoomOut={({ detail }) => navigation.zoomOut(detail)}
-		on:select
-		on:focus
-		on:create
-		on:moveItems={moveItems}
+		on:select={({ detail }) =>
+			onSelected(detail.item.source, detail.causedBy)}
+		on:focus={({ detail }) => onFocused(detail.source)}
+		on:create={({ detail }) => onCreate(detail.value)}
+		on:moveItems={({ detail }) =>
+			moveItems(detail.map((it) => ({ ...it, item: it.item.source })))}
 		onItemsChanged={async (detail) => {
-			await onItemsResized(detail);
-			items = new SortedArray((item) => item.value(), ...items);
+			await onItemsResized(
+				detail.map((it) => ({ ...it, item: it.item.source })),
+			);
 		}}
-		{onPreviewNewItemValue}
-		{oncontextmenu}
+		onPreviewNewItemValue={(item, value) =>
+			onPreviewNewItemValue(item.source, value)}
+		oncontextmenu={!oncontextmenu
+			? undefined
+			: (e, items) => {
+					oncontextmenu(
+						e,
+						items.map((it) => it.source),
+					);
+				}}
 	/>
 	<menu class="timeline-controls">
 		<TimelineNavigationControls {navigation} />
 		<TimelineSettings collapsable={settingsCollapable}>
-			<slot name="additional-settings" />
+			{@render additionalSettings()}
 			<TimelineGroupsSettingsSection
 				collapsable={groupsSectionCollapable}
 				{groups}

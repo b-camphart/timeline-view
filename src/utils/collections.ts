@@ -98,15 +98,9 @@ export class MutableSortedArray<T> extends SortedArray<T> {
 						return checkStart;
 					}
 					checkStart = checkStart - 1;
-				} while (
-					checkStart >= 0 &&
-					this.#selector(this._items[checkStart]) === itemValue
-				);
+				} while (checkStart >= 0 && this.#selector(this._items[checkStart]) === itemValue);
 				let checkEnd = mid + 1;
-				while (
-					checkEnd < this._items.length &&
-					this.#selector(this._items[checkEnd]) === itemValue
-				) {
+				while (checkEnd < this._items.length && this.#selector(this._items[checkEnd]) === itemValue) {
 					if (this._items[checkEnd] === item) {
 						return checkEnd;
 					}
@@ -126,5 +120,11 @@ export class MutableSortedArray<T> extends SortedArray<T> {
 		if (removeIndex >= 0) {
 			this._items.splice(removeIndex, 1);
 		}
+	}
+}
+
+export function* mapIterable<T, R>(i: Iterable<T>, transform: (t: T) => R): Iterable<R> {
+	for (let t of i) {
+		yield transform(t);
 	}
 }

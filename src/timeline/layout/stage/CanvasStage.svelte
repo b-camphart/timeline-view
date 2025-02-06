@@ -1,10 +1,8 @@
-<script lang="ts">
+<script lang="ts" generics="T">
 	import { run } from "svelte/legacy";
 
-	import { createEventDispatcher, onMount } from "svelte";
-	import { layoutPoints } from "./CanvasStage";
+	import { createEventDispatcher, onMount, untrack } from "svelte";
 	import { renderLayout } from "./draw";
-	import type { TimelineItem } from "../../Timeline";
 	import { TimelineItemElementStyle } from "src/timeline/layout/stage/TimelineItemElement";
 	import { type Scale } from "src/timeline/scale";
 	import Scrollbar from "src/view/controls/Scrollbar.svelte";
@@ -15,14 +13,18 @@
 	import SelectionArea from "./CanvasSelectionArea.svelte";
 	import SelectedBounds from "./SelectedBounds.svelte";
 	import DraggedItem from "./DraggedItem.svelte";
-	import type { SortedArray } from "src/utils/collections";
 	import Background from "src/timeline/layout/stage/Background.svelte";
 	import { DragPreviewElement } from "src/timeline/layout/stage/drag.svelte";
 	import { on } from "svelte/events";
+	import { layoutItems } from "src/timeline/layout/stage/layout";
 	import {
-		type PlotAreaItem,
-		plotAreaItem,
-	} from "src/timeline/layout/stage/item";
+		PlotAreaItem,
+		type PlotAreaSourceItem,
+	} from "src/timeline/layout/stage/item.svelte";
+	import type { TimelineItemSource } from "src/timeline/item/TimelineItem";
+
+	type SourceItem = PlotAreaSourceItem<T>;
+	type Item = PlotAreaItem<T>;
 
 	type ZoomEvent = {
 		keepValue: number;
@@ -34,34 +36,35 @@
 		scrollToValue: number;
 		zoomIn: ZoomEvent;
 		zoomOut: ZoomEvent;
-		select: { item: TimelineItem; causedBy: Event };
-		focus: TimelineItem;
+		select: { item: SourceItem; causedBy: Event };
+		focus: SourceItem;
 		create: { value: number };
 		/** Cancelable.  Called just before 'on:itemMoved' */
-		moveItems: { item: TimelineItem; value: number; endValue: number }[];
+		moveItems: { item: SourceItem; value: number; endValue: number }[];
 	}>();
 
 	interface Props {
-		sortedItems: SortedArray<TimelineItem>;
+		sortedItems: readonly SourceItem[];
 		scale: Scale;
 		focalValue: number;
 		width?: number;
 		clientWidth?: number;
 		clientHeight?: number;
+		// todo: replace flags with object of methods. ie: null | { onMove?(): void; onResize?(): void }
 		editable: boolean;
 		itemsResizable: boolean;
-		summarizeItem: (item: TimelineItem) => string;
+		summarizeItem: (item: SourceItem) => string;
 		previewItem: (
 			name: string,
 			value: number,
 			length: number,
 			endValue: number,
 		) => string;
-		onPreviewNewItemValue?: (item: TimelineItem, value: number) => number;
-		oncontextmenu?: (e: MouseEvent, items: TimelineItem[]) => void;
+		onPreviewNewItemValue?: (item: SourceItem, value: number) => number;
+		oncontextmenu?: (e: MouseEvent, items: SourceItem[]) => void;
 		onItemsChanged?(
 			items: {
-				item: TimelineItem;
+				item: SourceItem;
 				value: number;
 				length: number;
 				endValue: number;
@@ -70,7 +73,7 @@
 	}
 
 	let {
-		sortedItems,
+		sortedItems: timelineItems,
 		scale,
 		focalValue,
 		width = $bindable(0),
@@ -114,8 +117,6 @@
 		},
 	});
 
-	let itemVSpacing = 0;
-	let itemRowCenterOffset = 0;
 	const item = $state({
 		width: 0,
 		height: 0,
@@ -124,10 +125,6 @@
 			vertical: 0,
 		},
 	});
-
-	let layoutNeeded = true;
-	let scrollNeeded = true;
-	let redrawNeeded = true;
 
 	const resizeObserver = new ResizeObserver((a) => {
 		if (
@@ -164,7 +161,6 @@
 					(pointElements.base!.offsetTop + item.height),
 			),
 		);
-		itemVSpacing = item.height + item.margin.vertical;
 
 		(viewport.padding.top = Math.max(
 			0,
@@ -184,8 +180,6 @@
 				innerHeight),
 			(viewport.width = stageCSSTarget.clientWidth);
 		viewport.height = stageCSSTarget.clientHeight;
-		itemRowCenterOffset =
-			viewport.padding.top + item.height / 2 + item.margin.vertical / 2;
 
 		const reportedWidth =
 			viewport.width -
@@ -197,8 +191,202 @@
 		if (width != reportedWidth) {
 			width = reportedWidth;
 		}
+	});
 
-		layoutNeeded = true;
+	const items = $derived.by(() => {
+		const plotAreaItems = timelineItems.map(PlotAreaItem.from);
+		return plotAreaItems;
+	});
+	const scaled = $derived.by(() => {
+		const currentScale = scale;
+		items.forEach((it) => it.scale(currentScale));
+		return {
+			items,
+			_: Math.random(),
+		};
+	});
+	$effect(() => {
+		const currentFocus = focus;
+		if (currentFocus != null && currentFocus.index > items.length) {
+			focus = null;
+		}
+	});
+
+	const layout = $derived.by(() => {
+		const plotAreaItems = scaled.items;
+		layoutItems(
+			item.height / 2,
+			{
+				top: item.margin.vertical,
+				left: item.margin.horizontal,
+				bottom: item.margin.vertical,
+				right: item.margin.horizontal,
+			},
+			plotAreaItems,
+		);
+		return {
+			items: plotAreaItems,
+			_: Math.random(),
+		};
+	});
+	const scrollHeight = $derived.by(() => {
+		const padding = viewport.padding;
+		let max = padding.top;
+		const layoutPadding = padding.top + padding.bottom;
+		layout.items.forEach(
+			(it) => (max = Math.max(max, it.layoutBottom + layoutPadding)),
+		);
+		return max;
+	});
+	const maxScrollTop = $derived(Math.max(0, scrollHeight - viewport.height));
+	let scrollTop = $state(0);
+	function scrollVertically(value: number) {
+		scrollTop = Math.max(
+			0,
+			Math.min(
+				untrack(() => maxScrollTop),
+				value,
+			),
+		);
+	}
+	$effect(() => {
+		if (untrack(() => scrollTop) > maxScrollTop) {
+			scrollVertically(maxScrollTop);
+		}
+	});
+	const scrollLeft = $derived(
+		scale.toPixels(focalValue) - viewport.width / 2,
+	);
+	const scrolled = $derived.by(() => {
+		const layoutItems = layout.items;
+		const top = scrollTop - viewport.padding.top;
+		const left = scrollLeft;
+		layoutItems.forEach((it) => it.scroll(top, left));
+		return {
+			items: layoutItems,
+			_: Math.random(),
+		};
+	});
+	let baseItemStyle = $state(TimelineItemElementStyle.unstyled);
+	let selectedItemStyle = $state(TimelineItemElementStyle.unstyled);
+	onMount(() => {
+		let cancelled = false;
+		function queryItemStyle() {
+			if (cancelled) return;
+
+			const base = pointElements.base,
+				selected = pointElements.selected;
+			if (base === undefined || selected === undefined) {
+				requestAnimationFrame(queryItemStyle);
+				return;
+			}
+
+			const style = TimelineItemElementStyle.fromCSS(
+					getComputedStyle(base),
+				),
+				selectedStyle = TimelineItemElementStyle.fromCSS(
+					getComputedStyle(selected),
+				);
+			if (!style.equals(baseItemStyle)) {
+				baseItemStyle = style;
+			}
+			if (!selectedStyle.equals(selectedItemStyle)) {
+				selectedItemStyle = selectedStyle;
+			}
+
+			requestAnimationFrame(queryItemStyle);
+		}
+		queryItemStyle();
+
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	const styled = $derived.by(() => {
+		const currentItems = items;
+		const selectedItems = selection.selectedItems;
+		const currentItemStyle = baseItemStyle;
+
+		if (selectedItems.size > 0) {
+			const currentSelectedStyle = selectedItemStyle;
+			currentItems.forEach((it) => {
+				const prefColor = it.color();
+				if (selectedItems.has(it.id)) {
+					it.backgroundColor = prefColor ?? currentSelectedStyle.fill;
+					it.borderColor = currentSelectedStyle.stroke;
+					it.strokeWidth = currentSelectedStyle.strokeWidth;
+				} else {
+					it.backgroundColor = prefColor ?? currentItemStyle.fill;
+					it.borderColor = prefColor ?? currentItemStyle.stroke;
+					it.strokeWidth = currentItemStyle.strokeWidth;
+				}
+			});
+		} else {
+			currentItems.forEach((it) => {
+				const prefColor = it.color();
+				it.backgroundColor = prefColor ?? currentItemStyle.fill;
+				it.borderColor = prefColor ?? currentItemStyle.stroke;
+				it.strokeWidth = currentItemStyle.strokeWidth;
+			});
+		}
+		return { items: currentItems, _: Math.random() };
+	});
+
+	$effect(() => {
+		const currentCanvas = canvas;
+		if (currentCanvas === undefined) return;
+
+		const scrolledItems = scrolled.items;
+		// re-style should trigger a redraw
+		styled.items;
+		const previewItems = dragPreview?.arr() ?? null;
+
+		const handle = requestAnimationFrame(function draw() {
+			const renderContext = currentCanvas.getContext("2d");
+			if (renderContext == null) return;
+
+			const ratio = activeWindow.devicePixelRatio || 1;
+			if (
+				currentCanvas.width != viewport.width * ratio ||
+				currentCanvas.height != viewport.height * ratio
+			) {
+				currentCanvas.width = viewport.width * ratio;
+				currentCanvas.height = viewport.height * ratio;
+				currentCanvas.style.width = viewport.width + "px";
+				currentCanvas.style.height = viewport.height + "px";
+				renderContext.scale(ratio, ratio);
+			}
+
+			renderLayout(renderContext, viewport, scrolledItems, previewItems);
+		});
+		return () => {
+			cancelAnimationFrame(handle);
+		};
+	});
+
+	const elements = $derived(scrolled.items);
+	$effect(() => {
+		const currentHover = hover;
+		if (currentHover !== null) {
+			const scrolledItems = scrolled.items;
+			if (
+				currentHover.element.offsetContains(
+					currentHover.pos[0],
+					currentHover.pos[1],
+				)
+			) {
+				return;
+			}
+			const hoveredItem = scrolledItems.find((it) =>
+				it.offsetContains(currentHover.pos[0], currentHover.pos[1]),
+			);
+			if (hoveredItem === undefined) {
+				hover = null;
+			} else {
+				currentHover.element = hoveredItem;
+			}
+		}
 	});
 
 	function handleScroll(event: WheelEvent) {
@@ -225,116 +413,137 @@
 				});
 			}
 		} else {
-			const newScroll = Math.max(0, scrollTop + event.deltaY / 16);
-			if (scrollTop != newScroll) {
-				scrollTop = newScroll;
-				scrollNeeded = true;
-			}
+			scrollVertically(scrollTop + event.deltaY / 16);
 		}
 	}
 
 	let focusCausedByClick = $state(false);
-	let mouseDownOn: PlotAreaItem | null = null;
+	let mouseDownOn: Item | null = null;
 
 	class DragPreview {
-		private items: Set<TimelineItem> = new Set();
-		private elements: Array<DragPreviewElement>;
+		private elements: DragPreviewElement<Item>[] = $state([]);
 
-		constructor(initialSize: number = 0) {
-			this.elements = new Array(initialSize);
+		constructor(
+			items: Item[],
+			private readonly onFinished: (
+				modifications: {
+					item: Item;
+					value: number;
+					length: number;
+					endValue: number;
+				}[],
+			) => Promise<void>,
+		) {
+			this.elements = items.map((selectedItem) => {
+				selectedItem.hide();
+				return new DragPreviewElement(
+					selectedItem,
+					selectedItem.item.value,
+					selectedItem.item.length,
+					selectedItem.item.value + selectedItem.item.length,
+					selectedItem.offsetLeft + selectedItem.layoutRadius,
+					selectedItem.backgroundColor,
+					selectedItem.borderColor,
+					selectedItem.strokeWidth,
+				);
+			});
 		}
 
-		arr(): readonly DragPreviewElement[] {
+		forEach(cb: (element: DragPreviewElement<Item>) => void) {
+			this.elements.forEach(cb);
+			this.elements = this.elements.slice();
+		}
+
+		singleOrNull(): DragPreviewElement<Item> | null {
+			return this.elements.length === 1 ? this.elements[0] : null;
+		}
+
+		arr(): readonly DragPreviewElement<Item>[] {
 			return this.elements;
 		}
 
-		add(element: DragPreviewElement) {
-			this.elements.push(element);
-			this.items.add(element.item);
-		}
+		static TemporaryTimelineItem = class TemporaryTimelineItem {
+			#originalSource: TimelineItemSource<T>;
+			constructor(dragElement: DragPreviewElement<Item>) {
+				this.#originalSource = dragElement.base.source;
+				this.value = dragElement.value;
+				this.length = dragElement.length;
+			}
+			get id() {
+				return this.#originalSource.id;
+			}
+			get source() {
+				return this.#originalSource;
+			}
+			readonly value: number;
+			readonly length: number;
+			name() {
+				return this.#originalSource.name();
+			}
+			color() {
+				return this.#originalSource.color();
+			}
+		};
 
-		[Symbol.iterator]() {
-			return this.elements[Symbol.iterator]();
+		async finish() {
+			try {
+				await this.onFinished(this.movedItems());
+			} finally {
+				this.elements.forEach((it) => it.base.show());
+			}
+			this.elements.forEach((it) => {
+				it.base.temporaryReplacement(
+					new DragPreview.TemporaryTimelineItem(it),
+				);
+			});
 		}
 
 		movedItems() {
-			return this.elements.slice();
-		}
-
-		has(item: TimelineItem) {
-			return this.items.has(item);
-		}
-
-		getCount() {
-			return this.items.size;
-		}
-
-		at(index: number) {
-			return this.elements[index];
+			return this.elements.map((it) => {
+				return {
+					item: it.base,
+					value: it.value,
+					length: it.length,
+					endValue: it.endValue,
+				};
+			});
 		}
 	}
 
 	let dragPreview: DragPreview | null = $state(null);
-	function onDragPreviewChanged(_: DragPreview | null) {
-		scrollNeeded = true;
-	}
-	$effect(() => {
-		// when dragPreview changes, we need to force a redraw
-		onDragPreviewChanged(dragPreview);
-	});
 
 	function clearSelection() {
-		if (selection.selectedItems.size > 0) {
-			redrawNeeded = true;
-		}
 		selection.selectedItems = new Map();
-		selection.bounds = null;
 		selection = selection;
 	}
-	function selectElement(element: PlotAreaItem) {
-		if (selection.selectedItems.has(element.item.id())) return;
+	function selectElement(element: Item) {
+		if (selection.selectedItems.has(element.source.id)) return;
 		clearSelection();
-		selection.selectedItems = new Map([[element.item.id(), element]]);
-		redrawNeeded = true;
+		selection.selectedItems = new Map([[element.source.id, element]]);
 		selection = selection;
 	}
-	function selectElements(elements: PlotAreaItem[]) {
+	function selectElements(elements: Item[]) {
 		clearSelection();
 		selection.selectedItems = new Map(
-			elements.map((it) => [it.item.id(), it]),
+			elements.map((it) => [it.source.id, it]),
 		);
-		if (selection.selectedItems.size > 1) {
-			selection.bounds = selectionBounds(
-				selection.selectedItems.values(),
-			);
-		}
-		redrawNeeded = true;
+
 		selection = selection;
 	}
 	function shouldExtendSelection(event: MouseEvent) {
 		return (Platform.isMacOS && event.metaKey) || event.ctrlKey;
 	}
-	function includeElementInSelection(element: PlotAreaItem) {
-		selection.selectedItems.set(element.item.id(), element);
-		if (selection.selectedItems.size > 1) {
-			selection.bounds = selectionBounds(
-				selection.selectedItems.values(),
-			);
-		}
-		redrawNeeded = true;
+	function includeElementInSelection(element: Item) {
+		selection.selectedItems.set(element.source.id, element);
+
 		selection = selection;
 	}
-	function includeElementsInSelection(elements: PlotAreaItem[]) {
+	function includeElementsInSelection(elements: Item[]) {
 		for (const element of elements) {
-			selection.selectedItems.set(element.item.id(), element);
+			selection.selectedItems.set(element.source.id, element);
 		}
-		if (selection.selectedItems.size > 1) {
-			selection.bounds = selectionBounds(
-				selection.selectedItems.values(),
-			);
-		}
+
 		selection = selection;
-		redrawNeeded = true;
 	}
 	function createSelectionArea(
 		x: number,
@@ -349,7 +558,7 @@
 			offsetHeight: height,
 		};
 	}
-	function selectionBounds(elements: Iterable<PlotAreaItem>) {
+	function selectionBounds(elements: Iterable<Item>) {
 		let minX = Number.POSITIVE_INFINITY;
 		let minY = Number.POSITIVE_INFINITY;
 		let maxX = Number.NEGATIVE_INFINITY;
@@ -392,7 +601,7 @@
 			return;
 		}
 		mouseDownOn = hover.element;
-		if (!selection.selectedItems.has(mouseDownOn.item.id())) {
+		if (!selection.selectedItems.has(mouseDownOn.source.id)) {
 			if (shouldExtendSelection(event)) {
 				includeElementInSelection(mouseDownOn);
 			} else {
@@ -413,9 +622,6 @@
 			return;
 		}
 
-		const startItemBackground = selectedItems[0].backgroundColor;
-		const startItemBorder = selectedItems[0].borderColor;
-		const startItemBorderWidth = selectedItems[0].strokeWidth;
 		const startViewportBounds = stageCSSTarget!.getBoundingClientRect();
 
 		const startMouseValue =
@@ -436,48 +642,33 @@
 
 			const deltaValue = mouseValue - startMouseValue;
 
-			dragPreview = dragPreview ?? new DragPreview();
-			for (let i = 0; i < selectedItems.length; i++) {
-				const item = selectedItems[i];
+			if (dragPreview === null) {
+				dragPreview = new DragPreview(selectedItems, async (mods) => {
+					dispatch("moveItems", mods);
+				});
+			}
+			dragPreview.forEach((previousPreview) => {
+				const item = previousPreview.base;
 				const newItemValue = onPreviewNewItemValue(
-					selectedItems[i].item,
-					selectedItems[i].item.value() + deltaValue,
+					item.item,
+					item.value + deltaValue,
 				);
 				const newEndValue = onPreviewNewItemValue(
-					selectedItems[i].item,
-					newItemValue + selectedItems[i].item.length(),
+					item.item,
+					newItemValue + item.item.length,
 				);
 				const offsetCenterX =
 					scale.toPixels(newItemValue - focalValue) +
 					viewport.width / 2;
 
-				if (dragPreview.at(i) != null) {
-					const previousPreview = dragPreview.at(i);
-					previousPreview.value = newItemValue;
-					previousPreview.endValue = newEndValue;
-					previousPreview.length = newEndValue - newItemValue;
-					previousPreview.offsetCenterX = offsetCenterX;
-					previousPreview.offsetLeft =
-						offsetCenterX - item.offsetHeight / 2;
-					previousPreview.offsetRight =
-						offsetCenterX + item.offsetWidth;
-				} else {
-					dragPreview.add(
-						new DragPreviewElement(
-							item,
-							newItemValue,
-							newEndValue - newItemValue,
-							newEndValue,
-							offsetCenterX,
-							startItemBackground,
-							startItemBorder,
-							startItemBorderWidth,
-						),
-					);
-				}
-			}
-			dragPreview = dragPreview;
-			scrollNeeded = true;
+				previousPreview.value = newItemValue;
+				previousPreview.endValue = newEndValue;
+				previousPreview.length = newEndValue - newItemValue;
+				previousPreview.offsetCenterX = offsetCenterX;
+				previousPreview.offsetLeft =
+					offsetCenterX - item.offsetHeight / 2;
+				previousPreview.offsetRight = offsetCenterX + item.offsetWidth;
+			});
 
 			if (mouseX < startViewportBounds.left + viewport.padding.left) {
 				const delta =
@@ -493,13 +684,12 @@
 				dispatch("scrollX", scale.toValue(delta));
 			}
 		}
-		function releaseItemListener() {
-			if (dragPreview != null) {
-				dispatch("moveItems", dragPreview.movedItems(), {
-					cancelable: true,
-				});
+		async function releaseItemListener() {
+			try {
+				await dragPreview?.finish();
+			} finally {
+				dragPreview = null;
 			}
-			dragPreview = null;
 			window.removeEventListener("mousemove", dragItemListener);
 			window.removeEventListener("mouseup", releaseItemListener);
 		}
@@ -518,9 +708,6 @@
 		if (selectedItems.length === 0) {
 			return;
 		}
-		const startItemBackground = selectedItems[0].backgroundColor;
-		const startItemBorder = selectedItems[0].borderColor;
-		const startItemBorderWidth = selectedItems[0].strokeWidth;
 
 		const startMouseValue =
 			focalValue -
@@ -538,32 +725,13 @@
 			const deltaValue = mouseValue - startMouseValue;
 
 			if (dragPreview === null) {
-				dragPreview = new DragPreview();
-				for (let i = 0; i < selectedItems.length; i++) {
-					const selectedItem = selectedItems[i];
-					dragPreview.add(
-						new DragPreviewElement(
-							selectedItem,
-							selectedItem.item.value(),
-							selectedItem.item.length(),
-							selectedItem.item.value() +
-								selectedItem.item.length(),
-							selectedItem.offsetLeft + selectedItem.radius,
-							startItemBackground,
-							startItemBorder,
-							startItemBorderWidth,
-						),
-					);
-				}
+				dragPreview = new DragPreview(selectedItems, onItemsChanged);
 			}
 			if (pureResize) {
-				for (let i = 0; i < selectedItems.length; i++) {
-					const selectedItem = selectedItems[i];
-					const previewItem = dragPreview.at(i);
-					dragPreview.add(previewItem);
+				dragPreview.forEach((previewItem) => {
+					const selectedItem = previewItem.base;
 
-					previewItem.length =
-						selectedItem.item.length() + deltaValue;
+					previewItem.length = selectedItem.item.length + deltaValue;
 					previewItem.endValue =
 						previewItem.value + previewItem.length;
 					previewItem.offsetWidth =
@@ -571,14 +739,12 @@
 						selectedItem.offsetHeight;
 					previewItem.offsetRight =
 						previewItem.offsetLeft + previewItem.offsetWidth;
-				}
+				});
 			} else {
-				for (let i = 0; i < selectedItems.length; i++) {
-					const selectedItem = selectedItems[i];
-					const previewItem = dragPreview.at(i);
-					dragPreview.add(previewItem);
+				dragPreview.forEach((previewItem) => {
+					const selectedItem = previewItem.base;
 
-					previewItem.value = selectedItem.item.value() + deltaValue;
+					previewItem.value = selectedItem.item.value + deltaValue;
 					previewItem.length =
 						previewItem.endValue - previewItem.value;
 
@@ -587,11 +753,8 @@
 						selectedItem.offsetHeight;
 					previewItem.offsetLeft =
 						previewItem.offsetRight - previewItem.offsetWidth;
-				}
+				});
 			}
-
-			dragPreview = dragPreview;
-			scrollNeeded = true;
 		}
 
 		const removeMouseMoveListener = on(
@@ -602,15 +765,13 @@
 		on(
 			window,
 			"mouseup",
-			() => {
+			async () => {
 				removeMouseMoveListener();
-
-				if (dragPreview === null) return;
-
-				onItemsChanged(dragPreview.movedItems()).finally(() => {
+				try {
+					await dragPreview?.finish();
+				} finally {
 					dragPreview = null;
-					redrawNeeded = true;
-				});
+				}
 			},
 			{ once: true },
 		);
@@ -623,14 +784,44 @@
 			offsetWidth: number;
 			offsetHeight: number;
 		};
-		selectedItems: Map<string, PlotAreaItem>;
-		bounds: null | {
+		selectedItems: Map<string, Item>;
+		readonly bounds: null | {
 			offsetLeft: number;
 			offsetTop: number;
 			offsetWidth: number;
 			offsetHeight: number;
 		};
-	} = $state({ area: null, bounds: null, selectedItems: new Map() });
+	} = $state({
+		area: null,
+		selectedItems: new Map(),
+		get bounds() {
+			if (this.selectedItems.size <= 1) return null;
+			let offsetRight = -Infinity;
+			let offsetBottom = -Infinity;
+			const bounds = {
+				offsetLeft: Infinity,
+				offsetTop: Infinity,
+				offsetWidth: 0,
+				offsetHeight: 0,
+			};
+
+			// update when items are scrolled
+			scrolled.items;
+
+			for (const item of this.selectedItems.values()) {
+				bounds.offsetLeft = Math.min(
+					bounds.offsetLeft,
+					item.offsetLeft,
+				);
+				bounds.offsetTop = Math.min(bounds.offsetTop, item.offsetTop);
+				offsetRight = Math.max(offsetRight, item.offsetRight);
+				offsetBottom = Math.max(offsetBottom, item.offsetBottom);
+			}
+			bounds.offsetWidth = offsetRight - bounds.offsetLeft;
+			bounds.offsetHeight = offsetBottom - bounds.offsetTop;
+			return bounds;
+		},
+	});
 
 	function prepareMultiSelectDraw(event: MouseEvent) {
 		const startViewportBounds = stageCSSTarget!.getBoundingClientRect();
@@ -662,7 +853,7 @@
 
 			isDragging = true;
 
-			const selectedItems: PlotAreaItem[] = [];
+			const selectedItems: Item[] = [];
 			// find all items in the selection area
 			for (let i = 0; i < elements.length; i++) {
 				const element = elements[i];
@@ -671,7 +862,7 @@
 					// selection area
 					break;
 				}
-				if (element.intersectsScrolled(minX, minY, width, height)) {
+				if (element.offsetIntersects(minX, minY, width, height)) {
 					selectedItems.push(element);
 				}
 			}
@@ -707,12 +898,12 @@
 				const delta =
 					event.clientY -
 					(startViewportBounds.top + viewport.padding.top);
-				scrollTop += delta;
+				scrollVertically(scrollTop + delta);
 			} else if (event.clientY > startViewportBounds.bottom) {
 				const delta =
 					event.clientY -
 					(startViewportBounds.bottom - viewport.padding.bottom);
-				scrollTop += delta;
+				scrollVertically(scrollTop + delta);
 			}
 		}
 		function releaseSelectionArea() {
@@ -772,50 +963,71 @@
 		dispatch("create", { value });
 	}
 
-	let elements: PlotAreaItem[] = [];
-
-	let hover: {
-		element: PlotAreaItem;
+	class HoveredItem {
+		#element: Item = $state(undefined as any as Item);
+		get element() {
+			// update when items scroll
+			scrolled.items;
+			return this.#element;
+		}
+		set element(element: Item) {
+			this.#element = element;
+		}
 		side: "middle" | "left" | "right";
 		/**
 		 * keeps track of the moues position that caused the hover so it can
 		 * be checked again when the timeline is scaled/scrolled
 		 */
 		pos: [number, number];
-	} | null = $state(null);
-	let focus: {
-		element: PlotAreaItem;
-		index: number;
-	} | null = $state(null);
-	function verticalScrollToFocusItem(element: PlotAreaItem) {
-		if (element.offsetTop < 0) {
-			scrollTop = element.top;
-			scrollNeeded = true;
-		} else if (element.offsetBottom > viewport.height) {
-			scrollTop = element.bottom - viewport.height;
-			scrollNeeded = true;
+		constructor(
+			element: Item,
+			side: "middle" | "left" | "right",
+			pos: [number, number],
+		) {
+			this.element = element;
+			this.side = side;
+			this.pos = pos;
 		}
 	}
-	function focusOn(
-		element: PlotAreaItem,
-		index: number,
-		skipEvent: boolean = false,
-	) {
+
+	let hover = $state<HoveredItem | null>(null);
+
+	class Focus {
+		#element: Item = $state(undefined as any as Item);
+		get element() {
+			// update when items scroll
+			scrolled.items;
+			return this.#element;
+		}
+		set element(element: Item) {
+			this.#element = element;
+		}
+		index: number;
+		constructor(index: number, element: Item) {
+			this.element = element;
+			this.index = index;
+		}
+	}
+	let focus: Focus | null = $state(null);
+	function verticalScrollToFocusItem(element: Item) {
+		if (element.offsetTop < 0) {
+			scrollVertically(element.offsetTop);
+		} else if (element.offsetBottom > viewport.height) {
+			scrollVertically(element.offsetBottom - viewport.height);
+		}
+	}
+	function focusOn(element: Item, index: number, skipEvent: boolean = false) {
 		if (!skipEvent) {
 			dispatch("focus", element.item);
 		}
-		focus = {
-			element,
-			index,
-		};
-		redrawNeeded = true;
+		focus = new Focus(index, element);
 
 		verticalScrollToFocusItem(element);
 
 		if (focus.element.offsetLeft < 0) {
-			dispatch("scrollToValue", focus.element.item.value());
+			dispatch("scrollToValue", focus.element.item.value);
 		} else if (focus.element.offsetRight > viewport.width) {
-			dispatch("scrollToValue", focus.element.item.value());
+			dispatch("scrollToValue", focus.element.item.value);
 		}
 	}
 	function focusNextItem(back: boolean = false) {
@@ -829,8 +1041,8 @@
 			return false;
 		}
 	}
-	export function focusOnItem(item: TimelineItem) {
-		const index = elements.findIndex((element) => element.item === item);
+	export function focusOnId(id: string) {
+		const index = elements.findIndex((element) => element.item.id === id);
 		if (index >= 0) {
 			focusOn(elements[index], index, true);
 		}
@@ -849,7 +1061,7 @@
 		) {
 			for (let i = 0; i < elements.length; i++) {
 				const element = elements[i];
-				if (element.containsScrolled(event.offsetX, event.offsetY)) {
+				if (element.offsetContains(event.offsetX, event.offsetY)) {
 					let side: "middle" | "left" | "right" = "middle";
 					if (itemsResizable) {
 						side =
@@ -862,12 +1074,10 @@
 									? "right"
 									: "middle";
 					}
-
-					hover = {
-						element: element,
-						side,
-						pos: [event.offsetX, event.offsetY],
-					};
+					hover = new HoveredItem(element, side, [
+						event.offsetX,
+						event.offsetY,
+					]);
 					return;
 				}
 			}
@@ -875,57 +1085,12 @@
 		hover = null;
 	}
 
-	function onPointsOrScaleChanged(
-		points: SortedArray<TimelineItem>,
-		scale: Scale,
-	) {
-		if (focus) {
-			const index = points.items.findIndex(
-				(item) => item === focus!.element.item,
-			);
-			if (index >= 0) {
-				focus = {
-					index,
-					element: elements[index],
-				};
-			} else {
-				focus = null;
-			}
-		}
-		layoutNeeded = true;
-	}
-	run(() => {
-		onPointsOrScaleChanged(sortedItems, scale);
-	});
-
-	function onFocalValueChanged(_: number) {
-		scrollNeeded = true;
-	}
-	run(() => {
-		onFocalValueChanged(focalValue);
-	});
-
-	export function invalidateColors() {
-		redrawNeeded = true;
-	}
-
-	let scrollTop = $state(0);
-	function onScrollTopChanged(_: number) {
-		scrollNeeded = true;
-	}
-	run(() => {
-		onScrollTopChanged(scrollTop);
-	});
-
-	let scrollHeight = $state(0);
-	let visibleVAmount = $state(0);
-
 	let scrollbarMeasurerFullWidth: number = $state(0);
 	let scrollbarMeasurerInnerWidth: number = $state(0);
 	let scrollbarWidth = $derived(
 		scrollbarMeasurerFullWidth - scrollbarMeasurerInnerWidth,
 	);
-	run(() => {
+	$effect(() => {
 		clientWidth = viewport.width - scrollbarWidth;
 	});
 	let scrollbarMeasurerFullHeight: number = $state(0);
@@ -937,11 +1102,6 @@
 		clientHeight = viewport.height - scrollbarHeight;
 	});
 
-	let hScrollValue = $state(0);
-	let visibleHAmount = $state(viewport.width);
-	let minHScrollValue = $state(0);
-	let maxHScrollValue = $state(0);
-
 	function handleHScroll(event: ChangeEvent) {
 		dispatch(
 			"scrollToValue",
@@ -951,7 +1111,7 @@
 	}
 
 	function handleVScroll(event: ChangeEvent) {
-		scrollTop = event.detail.value;
+		scrollVertically(event.detail.value);
 	}
 
 	onMount(() => {
@@ -968,168 +1128,6 @@
 			resizeObserver.observe(element!),
 		);
 		resizeObserver.observe(stageCSSTarget);
-
-		function draw(pointStyle?: TimelineItemElementStyle) {
-			if (canvas == null) return;
-			const renderContext = canvas.getContext("2d");
-			if (renderContext == null) return;
-
-			if (layoutNeeded) {
-				layoutPoints(
-					viewport,
-					item,
-					scale,
-					sortedItems.items,
-					plotAreaItem,
-					elements,
-				);
-
-				if (elements.length > 0) {
-					scrollHeight = 0;
-					for (const bounds of elements) {
-						scrollHeight = Math.max(
-							scrollHeight,
-							bounds.bottom +
-								item.margin.vertical +
-								viewport.padding.bottom,
-						);
-					}
-				} else {
-					scrollHeight = 0;
-				}
-				if (focus != null) {
-					if (focus.index > elements.length) {
-						focus = null;
-					}
-				}
-			}
-
-			if (scrollNeeded || layoutNeeded) {
-				const scrollLeft =
-					scale.toPixels(focalValue) - viewport.width / 2;
-
-				scrollTop = Math.max(
-					0,
-					Math.min(scrollTop, scrollHeight - viewport.height),
-				);
-				visibleVAmount = viewport.height;
-
-				for (let i = 0; i < elements.length; i++) {
-					const item = elements[i];
-					item.scroll(scrollLeft, scrollTop);
-				}
-
-				selection.bounds = selectionBounds(
-					selection.selectedItems.values(),
-				);
-
-				visibleHAmount = scale.toValue(viewport.width);
-				hScrollValue = focalValue - scale.toValue(viewport.width / 2);
-
-				const leftMostValue =
-					(sortedItems.items[0]?.value() ?? 0) -
-					scale.toValue(viewport.padding.left + item.width / 2);
-
-				const rightMostValue =
-					(sortedItems.items[sortedItems.length - 1]?.value() ?? 0) -
-					scale.toValue(viewport.padding.left + item.width / 2);
-
-				minHScrollValue = Math.min(
-					focalValue - scale.toValue(viewport.width / 2),
-					leftMostValue,
-				);
-
-				maxHScrollValue = Math.max(
-					focalValue + scale.toValue(viewport.width / 2),
-					rightMostValue,
-				);
-
-				if (hover != null) {
-					detectHover({
-						offsetX: hover.pos[0],
-						offsetY: hover.pos[1],
-					});
-				}
-				if (focus) {
-					focus.element = elements[focus.index];
-					if (!focus.element) {
-						focus = null;
-					} else {
-						if (layoutNeeded) {
-							verticalScrollToFocusItem(focus.element);
-						}
-						focus = focus;
-					}
-				}
-				selection.bounds = selectionBounds(
-					selection.selectedItems.values(),
-				);
-				selection = selection;
-			}
-
-			const currentPointStyle = new TimelineItemElementStyle(
-				getComputedStyle(pointElements.base!),
-			);
-			if (
-				redrawNeeded ||
-				scrollNeeded ||
-				layoutNeeded ||
-				!currentPointStyle.equals(pointStyle)
-			) {
-				let dragPreviewed = dragPreview != null;
-				const hasSelectedItems = selection.selectedItems.size > 0;
-
-				elements.forEach((el) => el.applyStyle(currentPointStyle));
-
-				if (hasSelectedItems || dragPreviewed) {
-					const selectedStyle = new TimelineItemElementStyle(
-						getComputedStyle(pointElements.selected!),
-					);
-
-					for (let i = 0; i < elements.length; i++) {
-						const element = elements[i];
-						if (dragPreviewed && dragPreview!.has(element.item)) {
-							element.hide();
-							continue;
-						}
-						element.show();
-
-						if (
-							hasSelectedItems &&
-							selection.selectedItems.has(element.item.id())
-						) {
-							element.applyStyle(selectedStyle);
-						}
-					}
-				}
-
-				const ratio = activeWindow.devicePixelRatio || 1;
-				if (
-					canvas.width != viewport.width * ratio ||
-					canvas.height != viewport.height * ratio
-				) {
-					canvas.width = viewport.width * ratio;
-					canvas.height = viewport.height * ratio;
-					canvas.style.width = viewport.width + "px";
-					canvas.style.height = viewport.height + "px";
-					renderContext.scale(ratio, ratio);
-				}
-
-				renderLayout(
-					renderContext,
-					viewport,
-					elements,
-					dragPreview?.arr() ?? null,
-				);
-			}
-			layoutNeeded = false;
-			scrollNeeded = false;
-			redrawNeeded = false;
-
-			requestAnimationFrame(() => draw(currentPointStyle));
-		}
-
-		requestAnimationFrame(() => draw());
 	});
 </script>
 
@@ -1188,28 +1186,22 @@
 					dispatch("scrollX", scale.toValue(10));
 					break;
 				case "ArrowUp":
-					scrollTop = Math.max(0, scrollTop - 10);
+					scrollVertically(scrollTop - 10);
 					break;
 				case "ArrowDown":
-					scrollTop = Math.min(
-						scrollHeight - viewport.height,
-						scrollTop + 10,
-					);
+					scrollVertically(scrollTop + 10);
 					break;
 				case "PageUp":
-					scrollTop = Math.max(0, scrollTop - viewport.height);
+					scrollVertically(scrollTop - viewport.height);
 					break;
 				case "PageDown":
-					scrollTop = Math.min(
-						scrollHeight - viewport.height,
-						scrollTop + viewport.height,
-					);
+					scrollVertically(scrollTop + viewport.height);
 					break;
 				case "Home":
-					scrollTop = 0;
+					scrollVertically(0);
 					break;
 				case "End":
-					scrollTop = scrollHeight - viewport.height;
+					scrollVertically(maxScrollTop);
 					break;
 				case "Tab":
 					if (focusNextItem(event.shiftKey)) {
@@ -1243,16 +1235,19 @@
 			summary={summarizeItem(hover.element.item)}
 		/>
 	{/if}
-	{#if dragPreview != null && dragPreview.getCount() === 1}
-		<DraggedItem
-			position={dragPreview.at(0)}
-			summary={previewItem(
-				dragPreview.at(0).item.name(),
-				dragPreview.at(0).value,
-				dragPreview.at(0).length,
-				dragPreview.at(0).value + dragPreview.at(0).length,
-			)}
-		/>
+	{#if dragPreview != null}
+		{@const itemPreview = dragPreview.singleOrNull()}
+		{#if itemPreview !== null}
+			<DraggedItem
+				position={itemPreview}
+				summary={previewItem(
+					itemPreview.base.name(),
+					itemPreview.value,
+					itemPreview.length,
+					itemPreview.value + itemPreview.length,
+				)}
+			/>
+		{/if}
 	{/if}
 	{#if focus != null}
 		<FocusedItem focus={focus.element} />
@@ -1261,11 +1256,14 @@
 		style={`height: ${scrollbarHeight}px;`}
 		orientation={"horizontal"}
 		controls={"stage"}
-		tabindex={sortedItems.length}
-		value={hScrollValue}
-		visibleAmount={visibleHAmount}
-		min={minHScrollValue}
-		max={maxHScrollValue}
+		tabindex={timelineItems.length}
+		value={scrollLeft}
+		visibleAmount={viewport.width}
+		min={Math.min(scrollLeft, scrolled.items[0]?.offsetLeft ?? 0)}
+		max={Math.max(
+			scrollLeft,
+			scrolled.items[scrolled.items.length - 1]?.offsetRight ?? 0,
+		)}
 		on:change={handleHScroll}
 		on:dragstart={() => {
 			scrollbarDragging = true;
@@ -1278,9 +1276,9 @@
 		style={`width: ${scrollbarWidth}px;`}
 		orientation={"vertical"}
 		controls={"stage"}
-		tabindex={sortedItems.length + 1}
+		tabindex={timelineItems.length + 1}
 		value={scrollTop}
-		visibleAmount={visibleVAmount}
+		visibleAmount={viewport.height}
 		min={0}
 		max={scrollHeight}
 		on:change={handleVScroll}

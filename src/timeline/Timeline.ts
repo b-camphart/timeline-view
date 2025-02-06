@@ -1,4 +1,3 @@
-import {ValueFormatter} from "src/timeline/layout/stage/Hover.svelte";
 import type {Scale} from "./scale";
 
 export type Unsubscribe = () => void;
