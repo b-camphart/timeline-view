@@ -3,7 +3,7 @@
 	import TimelineView from "../../timeline/Timeline.svelte";
 	import type { RulerValueDisplay } from "../../timeline/Timeline";
 	import { type NamespacedWritableFactory } from "../../timeline/Persistence";
-	import { createEventDispatcher, onMount } from "svelte";
+	import { createEventDispatcher, onMount, tick } from "svelte";
 	import { get } from "svelte/store";
 	import TimelinePropertySection from "../../timeline/property/TimelinePropertySection.svelte";
 	import type { ObsidianNoteTimelineViewModel } from "./viewModel";
@@ -279,8 +279,7 @@
 		.namespace("secondaryProperty")
 		.make("useAs", "end");
 
-	// @ts-ignore
-	let timelineView: TimelineView = $state();
+	let timelineView: ReturnType<typeof TimelineView> | undefined = $state();
 	// @ts-ignore
 	let display: RulerValueDisplay = $state();
 	onMount(async () => {
@@ -339,7 +338,9 @@
 		items = new MutableSortedArray(valueOf, ...filteredItems);
 
 		if (isNew) {
-			timelineView.zoomToFit();
+			tick().then(() => {
+				timelineView?.zoomToFit();
+			});
 		}
 	});
 
@@ -406,7 +407,7 @@
 								break;
 							}
 						}
-						timelineView.invalidateColors();
+						timelineView?.invalidateColors();
 					})(),
 				);
 			}
@@ -586,7 +587,7 @@
 		propertySelector = propertySelector;
 		items = new MutableSortedArray(valueOf, ...items);
 		display = property.displayedAs();
-		timelineView.zoomToFit();
+		timelineView?.zoomToFit();
 	}
 
 	function onSecondaryPropertySelected(property: TimelineProperty) {
@@ -663,7 +664,7 @@
 				}
 			}
 			if (effectCount > 0) {
-				timelineView.invalidateColors();
+				timelineView?.invalidateColors();
 			}
 		},
 		onGroupQueried(index, _group) {
