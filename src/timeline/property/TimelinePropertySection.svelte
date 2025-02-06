@@ -55,11 +55,12 @@
 {/snippet}
 
 <CollapsableSection
-	name="Property"
+	name="Properties"
 	bind:collapsed={$collapsed}
 	class={"timeline-property-setting"}
 >
 	<section>
+		<h6>Order by</h6>
 		{@render incompatibilityWarning()}
 		<TimelineNoteSorterPropertySelect
 			tabindex={0}
@@ -95,20 +96,6 @@
 			/>
 		</h6>
 		{#if selector.secondaryPropertyInUse()}
-			<label>
-				Interpret as <select
-					class="dropdown"
-					bind:value={() =>
-						selector.secondaryPropertyInterpretation(),
-					(value: "length" | "end") => {
-						selector.interpretSecondaryPropertyAs(value);
-						dispatch("secondaryPropertyReinterpreted", value);
-					}}
-				>
-					<option value="length">Length</option>
-					<option value="end">End</option>
-				</select>
-			</label>
 			{@render incompatibilityWarning()}
 			<TimelineNoteSorterPropertySelect
 				tabindex={3}
@@ -130,6 +117,20 @@
 				property={selector.secondaryProperty()}
 				tabindex={4}
 			/>
+			<label>
+				Interpret as <select
+					class="dropdown"
+					bind:value={() =>
+						selector.secondaryPropertyInterpretation(),
+					(value: "length" | "end") => {
+						selector.interpretSecondaryPropertyAs(value);
+						dispatch("secondaryPropertyReinterpreted", value);
+					}}
+				>
+					<option value="length">Length</option>
+					<option value="end">End</option>
+				</select>
+			</label>
 		{/if}
 	</section>
 </CollapsableSection>
@@ -140,6 +141,12 @@
 	}
 	section {
 		font-size: var(--font-ui-small);
+	}
+	section:first-child h6 {
+		margin: 0;
+	}
+	h6 {
+		margin-bottom: 0;
 	}
 	label {
 		width: 100%;
