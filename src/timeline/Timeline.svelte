@@ -10,15 +10,8 @@
 	import TimelineNavigationControls from "./controls/TimelineNavigationControls.svelte";
 	import TimelineSettings from "./controls/settings/TimelineSettings.svelte";
 	import type { RulerValueDisplay } from "src/timeline/Timeline";
-	import type { TimelineGroups } from "src/timeline/group/groups";
-	import TimelineGroupsList from "src/timeline/group/TimelineGroupsList.svelte";
-	import {
-		type ComponentProps,
-		mount,
-		type Snippet,
-		unmount,
-		untrack,
-	} from "svelte";
+	import { type Groups as TimelineGroups } from "src/timeline/group/TimelineGroupsList.svelte";
+	import { mount, type Snippet, unmount, untrack } from "svelte";
 	import TimelineGroupsSettingsSection from "src/timeline/group/TimelineGroupsSettingsSection.svelte";
 	import { ObservableCollapsable } from "src/view/collapsable";
 	import LucideIcon from "src/obsidian/view/LucideIcon.svelte";
@@ -35,7 +28,6 @@
 	interface Props {
 		namespacedWritable: NamespacedWritableFactory<TimelineViewModel>;
 		groups: TimelineGroups;
-		groupEvents: Omit<ComponentProps<typeof TimelineGroupsList>, "groups">;
 		display: RulerValueDisplay;
 		controlBindings: {};
 
@@ -80,7 +72,6 @@
 	const {
 		namespacedWritable,
 		groups,
-		groupEvents,
 		display,
 
 		items: inputItems,
@@ -267,12 +258,6 @@
 		.namespace("settings")
 		.namespace("groups")
 		.make("collapsed", true);
-	const groupsSectionCollapable = new ObservableCollapsable(
-		$groupsSectionCollapsed,
-	);
-	groupsSectionCollapable.onChange = () => {
-		$groupsSectionCollapsed = groupsSectionCollapable.isCollapsed();
-	};
 
 	function openHelpDialog() {
 		openDialog((modal) => {
@@ -343,10 +328,9 @@
 		<TimelineSettings collapsable={settingsCollapable}>
 			{@render additionalSettings()}
 			<TimelineGroupsSettingsSection
-				collapsable={groupsSectionCollapable}
+				bind:collapsed={$groupsSectionCollapsed}
 				{groups}
 				{pendingGroupUpdates}
-				{...groupEvents}
 			/>
 		</TimelineSettings>
 		<div class="control-group">
