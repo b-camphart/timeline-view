@@ -284,45 +284,47 @@
 		focalValue={$focalValue}
 		bind:clientHeight={rulerHeight}
 	/>
-	<CanvasStage
-		bind:this={canvasStage}
-		previewItem={(item, name, value, length, endValue) => {
-			const currentLength = selectLength(item.source);
+	<css-wrapper class="plotarea">
+		<CanvasStage
+			bind:this={canvasStage}
+			previewItem={(item, name, value, length, endValue) => {
+				const currentLength = selectLength(item.source);
 
-			if (currentLength < 0) {
-				return previewItem(name, endValue, -length, value);
-			}
-			return previewItem(name, value, length, endValue);
-		}}
-		summarizeItem={(it) => summarizeItem(it.source)}
-		sortedItems={sorted.items}
-		scale={$scale}
-		focalValue={$focalValue}
-		bind:width={$stageWidth}
-		bind:clientWidth={stageClientWidth}
-		editable={mode != null ? $mode === "edit" : false}
-		{itemsResizable}
-		on:scrollToValue={(event) => navigation.scrollToValue(event.detail)}
-		on:scrollX={({ detail }) =>
-			navigation.scrollToValue($focalValue + detail)}
-		on:zoomIn={({ detail }) => navigation.zoomIn(detail)}
-		on:zoomOut={({ detail }) => navigation.zoomOut(detail)}
-		on:select={({ detail }) =>
-			onSelected(detail.item.source, detail.causedBy)}
-		on:focus={({ detail }) => onFocused(detail.source)}
-		on:create={({ detail }) => onCreate(detail.value)}
-		onItemsChanged={resizeItems}
-		onPreviewNewItemValue={(item, value) =>
-			onPreviewNewItemValue(item.source, value)}
-		oncontextmenu={!oncontextmenu
-			? undefined
-			: (e, items) => {
-					oncontextmenu(
-						e,
-						items.map((it) => it.source),
-					);
-				}}
-	/>
+				if (currentLength < 0) {
+					return previewItem(name, endValue, -length, value);
+				}
+				return previewItem(name, value, length, endValue);
+			}}
+			summarizeItem={(it) => summarizeItem(it.source)}
+			sortedItems={sorted.items}
+			scale={$scale}
+			focalValue={$focalValue}
+			bind:width={$stageWidth}
+			bind:clientWidth={stageClientWidth}
+			editable={mode != null ? $mode === "edit" : false}
+			{itemsResizable}
+			on:scrollToValue={(event) => navigation.scrollToValue(event.detail)}
+			on:scrollX={({ detail }) =>
+				navigation.scrollToValue($focalValue + detail)}
+			on:zoomIn={({ detail }) => navigation.zoomIn(detail)}
+			on:zoomOut={({ detail }) => navigation.zoomOut(detail)}
+			on:select={({ detail }) =>
+				onSelected(detail.item.source, detail.causedBy)}
+			on:focus={({ detail }) => onFocused(detail.source)}
+			on:create={({ detail }) => onCreate(detail.value)}
+			onItemsChanged={resizeItems}
+			onPreviewNewItemValue={(item, value) =>
+				onPreviewNewItemValue(item.source, value)}
+			oncontextmenu={!oncontextmenu
+				? undefined
+				: (e, items) => {
+						oncontextmenu(
+							e,
+							items.map((it) => it.source),
+						);
+					}}
+		/>
+	</css-wrapper>
 	<menu class="timeline-controls">
 		<TimelineNavigationControls {navigation} />
 		<TimelineSettings collapsable={settingsCollapable}>
@@ -345,14 +347,18 @@
 </div>
 
 <style>
-	@property --timeline-background {
-		syntax: "<color>";
-		inherits: true;
-		initial-value: darkgrey;
+	.timeline {
+		background-color: var(--background);
 	}
 
-	:global(.timeline) {
-		background-color: var(--timeline-background);
+	css-wrapper {
+		display: contents;
+	}
+	css-wrapper.plotarea {
+		--padding-top: var(--plotarea-padding-top);
+		--padding-left: var(--plotarea-padding-left);
+		--padding-bottom: var(--plotarea-padding-bottom);
+		--padding-right: var(--plotarea-padding-right);
 	}
 
 	/*! Positioning */

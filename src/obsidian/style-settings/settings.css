@@ -1,0 +1,132 @@
+/* @settings
+
+name: Timeline View
+id: timeline-view
+settings:
+    - 
+        id: timeline-background
+        title: Background color
+        type: variable-themed-color
+        format: hex
+        default-dark: '#1e1e1e'
+        default-light: '#ffffff'
+    -
+        id: items
+        title: Items
+        type: heading
+        level: 2
+        collapsed: true
+    -
+        id: timeline-item-color
+        title: Color
+        description: "The default color for an item if it doesn't belong to a group"
+        type: variable-themed-color
+        format: hex
+        default-dark: '#3b3b3b'
+        default-light: '#5c5c5c'
+    -
+        id: timeline-item-size
+        title: Size
+        type: variable-number
+        default: 16
+        format: px
+    -
+        id: timeline-selected-item-color
+        title: Selected item color
+        description: "By default, the selected item is the same color as the background.  If the opacity is less than 1, the item's group color will show through."
+        type: variable-themed-color
+        format: hex
+        opacity: true
+        default-dark: '#1e1e1eff'
+        default-light: '#ffffffff'
+    -
+        id: timeline-selected-item-border-width
+        title: Selected item border width
+        type: variable-number
+        default: 1
+        format: px
+    -
+        id: timeline-selected-item-border-color
+        title: Selected item border color
+        type: variable-themed-color
+        format: rgb
+        default-dark: 'rgb(166, 138, 249)'
+        default-light: 'rgb(138, 92, 245)'
+
+    -
+        id: timeline-item-margin
+        title: Margin
+        description: "The spacing used to separate items.  Overridden by individual margins below."
+        type: variable-number
+        default: 2
+        format: px
+    -
+        id: items-margin
+        title: Margin
+        type: heading
+        level: 3
+        collapsed: true
+    -
+        id: timeline-item-margin-top
+        title: Top
+        type: variable-number
+        default: 2
+        format: px
+    -
+        id: timeline-item-margin-right
+        title: Right
+        type: variable-number
+        default: 2
+        format: px
+    -
+        id: timeline-item-margin-bottom
+        title: Bottom
+        type: variable-number
+        default: 2
+        format: px
+    -
+        id: timeline-item-margin-left
+        title: Left
+        type: variable-number
+        default: 2
+        format: px
+    -
+        id: 
+    -
+        id: plotarea
+        title: Plot area
+        type: heading
+        level: 2
+        collapsed: true
+    -
+        id: plotarea-padding
+        title: Padding
+        type: heading
+        level: 3
+        collapsed: true
+    -
+        id: timeline-plotarea-padding-top
+        title: Top
+        type: variable-number
+        default: 8
+        format: px
+    -
+        id: timeline-plotarea-padding-right
+        title: Right
+        type: variable-number
+        default: 48
+        format: px
+    -
+        id: timeline-plotarea-padding-bottom
+        title: Bottom
+        type: variable-number
+        default: 48
+        format: px
+    -
+        id: timeline-plotarea-padding-left
+        title: Left
+        type: variable-number
+        default: 48
+        format: px
+
+*/

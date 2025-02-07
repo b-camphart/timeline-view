@@ -1212,41 +1212,32 @@
 ></div>
 
 <style>
-	@property --timeline-item-color {
-		syntax: "<color>";
-		initial-value: grey;
-		inherits: true;
-	}
-	@property --timeline-item-size {
-		syntax: "<length>";
-		initial-value: 16px;
-		inherits: true;
-	}
-	@property --timeline-item-margin {
-		syntax: "<length>";
-		initial-value: 4px;
-		inherits: true;
-	}
-
 	:global(.timeline-item) {
-		background-color: var(--timeline-item-color);
-		margin: var(--timeline-item-margin, 4px);
+		background-color: var(--item-color);
+		margin-top: var(--item-margin-top, 2px);
+		margin-right: var(--item-margin-right, 2px);
+		margin-bottom: var(--item-margin-bottom, 2px);
+		margin-left: var(--item-margin-left 2px);
 	}
 
 	:global(.timeline-item.selected) {
-		background-color: var(--timeline-background);
-		border-color: var(--timeline-item-border-hover);
-		border-width: 1px;
+		background-color: var(--selected-item-color);
+		border-width: var(--selected-item-border-width, 2px);
+		border-color: var(--selected-item-border-color, var(--background));
 		border-style: solid;
 	}
 
 	div#stage {
-		--timeline-item-diameter: var(--timeline-item-size);
+		padding-top: var(--padding-top, 8px);
+		padding-left: var(--padding-left, 8px);
+		padding-bottom: var(--padding-bottom, 8px);
+		padding-right: var(--padding-right, 48px);
+
+		--timeline-item-diameter: var(--item-size);
 		--timeline-item-radius: calc(var(--timeline-item-diameter) / 2);
 
 		flex-grow: 1;
 		position: relative;
-		padding: var(--timeline-padding);
 		overflow: hidden;
 		--scrollbar-width: var(--size-4-1);
 	}

@@ -651,82 +651,134 @@
 	});
 </script>
 
-<TimelineView
-	items={Array.from(items)}
-	{selectValue}
-	selectLength={!propertySelector?.secondaryPropertyInUse()
-		? () => 0
-		: (item) => lengthOf(item.note)}
-	previewItem={(name, value, length, endValue) => {
-		return summarizeItem(name, value, length, endValue);
-	}}
-	summarizeItem={(item) => summarizeNote(item.note)}
-	itemsResizable={propertySelector?.secondaryPropertyInUse() ?? false}
-	namespacedWritable={viewModel}
-	{display}
-	groups={timelineGroups}
-	pendingGroupUpdates={itemRecolorQueueLength}
-	controlBindings={{}}
-	bind:this={timelineView}
-	onSelected={(item, cause) => openFile(cause, item)}
-	onFocused={(item) => dispatch("noteFocused", item.note)}
-	onCreate={(value) => createItem({ value })}
-	onItemsResized={resizeItems}
-	{onPreviewNewItemValue}
-	oncontextmenu={(e, triggerItems) => {
-		oncontextmenu(
-			e,
-			triggerItems.map((it) => it.note),
-		);
-	}}
-	openDialog={openModal}
->
-	{#snippet additionalSettings()}
-		{#if propertySelector}
-			<TimelinePropertySection
-				collapsed={settings
-					.namespace("property")
-					.make("collapsed", true)}
-				selector={propertySelector}
-				on:propertySelected={(event) =>
-					onPropertySelected(event.detail)}
-				on:secondaryPropertySelected={({ detail }) =>
-					onSecondaryPropertySelected(detail)}
-				on:secondaryPropertyToggled={({ detail: inUse }) => {
-					for (const item of itemsById.values()) {
-						item;
-					}
-					timelineView!.refresh();
-				}}
-				on:secondaryPropertyReinterpreted={({
-					detail: interpretation,
-				}) => {
-					$secondaryPropertyInterpretedAs = interpretation;
-				}}
+<css-wrapper>
+	<TimelineView
+		items={Array.from(items)}
+		{selectValue}
+		selectLength={!propertySelector?.secondaryPropertyInUse()
+			? () => 0
+			: (item) => lengthOf(item.note)}
+		previewItem={(name, value, length, endValue) => {
+			return summarizeItem(name, value, length, endValue);
+		}}
+		summarizeItem={(item) => summarizeNote(item.note)}
+		itemsResizable={propertySelector?.secondaryPropertyInUse() ?? false}
+		namespacedWritable={viewModel}
+		{display}
+		groups={timelineGroups}
+		pendingGroupUpdates={itemRecolorQueueLength}
+		controlBindings={{}}
+		bind:this={timelineView}
+		onSelected={(item, cause) => openFile(cause, item)}
+		onFocused={(item) => dispatch("noteFocused", item.note)}
+		onCreate={(value) => createItem({ value })}
+		onItemsResized={resizeItems}
+		{onPreviewNewItemValue}
+		oncontextmenu={(e, triggerItems) => {
+			oncontextmenu(
+				e,
+				triggerItems.map((it) => it.note),
+			);
+		}}
+		openDialog={openModal}
+	>
+		{#snippet additionalSettings()}
+			{#if propertySelector}
+				<TimelinePropertySection
+					collapsed={settings
+						.namespace("property")
+						.make("collapsed", true)}
+					selector={propertySelector}
+					on:propertySelected={(event) =>
+						onPropertySelected(event.detail)}
+					on:secondaryPropertySelected={({ detail }) =>
+						onSecondaryPropertySelected(detail)}
+					on:secondaryPropertyToggled={({ detail: inUse }) => {
+						for (const item of itemsById.values()) {
+							item;
+						}
+						timelineView!.refresh();
+					}}
+					on:secondaryPropertyReinterpreted={({
+						detail: interpretation,
+					}) => {
+						$secondaryPropertyInterpretedAs = interpretation;
+					}}
+				/>
+			{/if}
+			<TimelineFilterSection
+				collapsed={settings.namespace("filter").make("collapsed", true)}
+				{filter}
 			/>
-		{/if}
-		<TimelineFilterSection
-			collapsed={settings.namespace("filter").make("collapsed", true)}
-			{filter}
-		/>
-	{/snippet}
-</TimelineView>
+		{/snippet}
+	</TimelineView>
+</css-wrapper>
 
 <style>
-	:global(body) {
-		--timeline-background: var(--canvas-background);
+	@import "../style-settings/settings.css";
 
+	css-wrapper {
+		display: contents;
+		--background: var(--timeline-background, var(--canvas-background));
+
+		--all-item-margin: var(--timeline-item-margin, var(--size-2-1));
+
+		--item-margin-top: var(
+			--timeline-item-margin-top,
+			var(--all-item-margin)
+		);
+		--item-margin-right: var(
+			--timeline-item-margin-right,
+			var(--all-item-margin)
+		);
+		--item-margin-bottom: var(
+			--timeline-item-margin-bottom,
+			var(--all-item-margin)
+		);
+		--item-margin-left: var(
+			--timeline-item-margin-left,
+			var(--all-item-margin)
+		);
+
+		--item-color: var(--timeline-item-color, var(--graph-node));
+		--item-size: var(--timeline-item-size, var(--size-4-4));
+
+		--selected-item-color: var(
+			--timeline-selected-item-color,
+			var(--background)
+		);
+		--selected-item-border-color: var(
+			--timeline-selected-item-border-color,
+			var(--color-accent)
+		);
+		--selected-item-border-width: var(
+			--timeline-selected-item-border-width,
+			2px
+		);
+
+		--plotarea-padding-top: var(
+			--timeline-plotarea-padding-top,
+			var(--size-4-2)
+		);
+		--plotarea-padding-left: var(
+			--timeline-plotarea-padding-left,
+			var(--size-4-12)
+		);
+		--plotarea-padding-bottom: var(
+			--timeline-plotarea-padding-bottom,
+			var(--size-4-12)
+		);
+		--plotarea-padding-right: var(
+			--timeline-plotarea-padding-right,
+			var(--size-4-12)
+		);
+	}
+
+	:global(body) {
 		--timeline-ruler-label-font-size: var(--file-header-font-size);
 		--timeline-ruler-label-font-weight: var(--file-header-font-weight);
 		--timeline-ruler-label-border-color: var(--canvas-dot-pattern);
 		--timeline-ruler-label-border-width: var(--divider-width);
-
-		--timeline-padding: var(--size-4-2) var(--size-4-12) var(--size-4-12)
-			var(--size-4-12);
-
-		--timeline-item-color: var(--graph-node);
-		--timeline-item-size: var(--size-4-4);
-		--timeline-item-margin: var(--size-2-1);
 
 		--timeline-item-color-hover: var(--graph-node-focused);
 		--timeline-item-border-hover: var(--graph-node-focused);
