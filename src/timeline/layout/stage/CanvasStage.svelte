@@ -6,7 +6,11 @@
 
 	import { createEventDispatcher, onMount, untrack } from "svelte";
 	import { renderLayout } from "./draw";
-	import { TimelineItemElementStyle } from "src/timeline/layout/stage/TimelineItemElement";
+	import {
+		boxContainsPoint,
+		TimelineItemElementStyle,
+		type OffsetBox,
+	} from "src/timeline/layout/stage/TimelineItemElement";
 	import { type Scale } from "src/timeline/scale";
 	import Scrollbar from "src/view/controls/Scrollbar.svelte";
 	import type { ChangeEvent } from "src/view/controls/Scrollbar";
@@ -25,6 +29,7 @@
 		type PlotAreaSourceItem,
 	} from "src/timeline/layout/stage/item";
 	import type { TimelineItemSource } from "src/timeline/item/TimelineItem.svelte";
+	import { Selection } from "src/timeline/layout/stage/selection.svelte";
 
 	type Item = PlotAreaItem<T, SourceItem>;
 
@@ -306,31 +311,31 @@
 
 	const styled = $derived.by(() => {
 		const currentItems = items;
-		const selectedItems = selection.selectedItems;
 		const currentItemStyle = baseItemStyle;
 
-		if (selectedItems.size > 0) {
-			const currentSelectedStyle = selectedItemStyle;
-			currentItems.forEach((it) => {
-				const prefColor = it.color();
-				if (selectedItems.has(it.id)) {
-					it.backgroundColor = prefColor ?? currentSelectedStyle.fill;
-					it.borderColor = currentSelectedStyle.stroke;
-					it.strokeWidth = currentSelectedStyle.strokeWidth;
-				} else {
-					it.backgroundColor = prefColor ?? currentItemStyle.fill;
-					it.borderColor = prefColor ?? currentItemStyle.stroke;
-					it.strokeWidth = currentItemStyle.strokeWidth;
-				}
-			});
-		} else {
+		if (selection.isEmpty()) {
 			currentItems.forEach((it) => {
 				const prefColor = it.color();
 				it.backgroundColor = prefColor ?? currentItemStyle.fill;
 				it.borderColor = prefColor ?? currentItemStyle.stroke;
 				it.strokeWidth = currentItemStyle.strokeWidth;
 			});
+			return { items: currentItems, _: Math.random() };
 		}
+
+		const currentSelectedStyle = selectedItemStyle;
+		currentItems.forEach((it) => {
+			const prefColor = it.color();
+			if (selection.has(it)) {
+				it.backgroundColor = prefColor ?? currentSelectedStyle.fill;
+				it.borderColor = currentSelectedStyle.stroke;
+				it.strokeWidth = currentSelectedStyle.strokeWidth;
+			} else {
+				it.backgroundColor = prefColor ?? currentItemStyle.fill;
+				it.borderColor = prefColor ?? currentItemStyle.stroke;
+				it.strokeWidth = currentItemStyle.strokeWidth;
+			}
+		});
 		return { items: currentItems, _: Math.random() };
 	});
 
@@ -490,86 +495,41 @@
 
 	let dragPreview: DragPreview | null = $state(null);
 
-	function clearSelection() {
-		selection.selectedItems = new Map();
-		selection = selection;
-	}
-	function selectElement(element: Item) {
-		if (selection.selectedItems.has(element.source.id)) return;
-		clearSelection();
-		selection.selectedItems = new Map([[element.source.id, element]]);
-		selection = selection;
-	}
-	function selectElements(elements: Item[]) {
-		clearSelection();
-		selection.selectedItems = new Map(
-			elements.map((it) => [it.source.id, it]),
-		);
-
-		selection = selection;
-	}
 	function shouldExtendSelection(event: MouseEvent) {
 		return (Platform.isMacOS && event.metaKey) || event.ctrlKey;
 	}
-	function includeElementInSelection(element: Item) {
-		selection.selectedItems.set(element.source.id, element);
 
-		selection = selection;
-	}
-	function includeElementsInSelection(elements: Item[]) {
-		for (const element of elements) {
-			selection.selectedItems.set(element.source.id, element);
-		}
-
-		selection = selection;
-	}
 	function createSelectionArea(
 		x: number,
 		y: number,
 		width: number,
 		height: number,
 	) {
-		selection.area = {
+		selectionArea = {
 			offsetLeft: x,
 			offsetTop: y,
 			offsetWidth: width,
 			offsetHeight: height,
 		};
 	}
-	function selectionBounds(elements: Iterable<Item>) {
-		let minX = Number.POSITIVE_INFINITY;
-		let minY = Number.POSITIVE_INFINITY;
-		let maxX = Number.NEGATIVE_INFINITY;
-		let maxY = Number.NEGATIVE_INFINITY;
-		for (const element of elements) {
-			if (element.offsetLeft < minX) {
-				minX = element.offsetLeft;
-			}
-			if (element.offsetTop < minY) {
-				minY = element.offsetTop;
-			}
-			if (element.offsetRight > maxX) {
-				maxX = element.offsetRight;
-			}
-			if (element.offsetBottom > maxY) {
-				maxY = element.offsetBottom;
-			}
-		}
-
-		return {
-			offsetLeft: minX,
-			offsetTop: minY,
-			offsetWidth: maxX - minX,
-			offsetHeight: maxY - minY,
-		};
-	}
 
 	function handleMouseDown(event: MouseEvent) {
 		focusCausedByClick = true;
+
 		if (hover == null || hover.element == null) {
 			focus = null;
+
+			if (
+				selectionBounds !== null &&
+				boxContainsPoint(selectionBounds, event.offsetX, event.offsetY)
+			) {
+				if (prepareDragSelection(event)) {
+					return;
+				}
+			}
+
 			if (!shouldExtendSelection(event)) {
-				clearSelection();
+				selection.clear();
 			}
 			prepareMultiSelectDraw(event);
 			return;
@@ -579,11 +539,11 @@
 			return;
 		}
 		mouseDownOn = hover.element;
-		if (!selection.selectedItems.has(mouseDownOn.source.id)) {
+		if (!selection.has(mouseDownOn)) {
 			if (shouldExtendSelection(event)) {
-				includeElementInSelection(mouseDownOn);
+				selection.addAll([mouseDownOn]);
 			} else {
-				selectElement(mouseDownOn);
+				selection.replaceWith([mouseDownOn]);
 			}
 		}
 
@@ -595,10 +555,8 @@
 	}
 
 	function prepareDragSelection(event: MouseEvent) {
-		const selectedItems = Array.from(selection.selectedItems.values());
-		if (selectedItems.length === 0) {
-			return;
-		}
+		if (selection.isEmpty()) return false;
+		const selectedItems = selection.items();
 
 		const startViewportBounds = stageCSSTarget!.getBoundingClientRect();
 
@@ -672,18 +630,17 @@
 		if (editable) {
 			window.addEventListener("mouseup", releaseItemListener);
 			window.addEventListener("mousemove", dragItemListener);
+			return true;
 		}
+		return false;
 	}
 
 	function prepareResizeSelection(
 		event: Pick<MouseEvent, "clientX">,
 		pureResize: boolean,
 	) {
-		if (!editable) return;
-		const selectedItems = Array.from(selection.selectedItems.values());
-		if (selectedItems.length === 0) {
-			return;
-		}
+		if (!editable || selection.isEmpty()) return;
+		const selectedItems = selection.items();
 
 		const startMouseValue =
 			focalValue -
@@ -754,50 +711,31 @@
 		);
 	}
 
-	let selection: {
-		area: null | {
-			offsetLeft: number;
-			offsetTop: number;
-			offsetWidth: number;
-			offsetHeight: number;
+	let selectionArea = $state<null | OffsetBox>(null);
+	const selection = new Selection<Item>();
+	const selectionBounds = $derived.by(() => {
+		if (selection.length() <= 1) return null;
+		let offsetRight = -Infinity;
+		let offsetBottom = -Infinity;
+		const bounds = {
+			offsetLeft: Infinity,
+			offsetTop: Infinity,
+			offsetWidth: 0,
+			offsetHeight: 0,
 		};
-		selectedItems: Map<string, Item>;
-		readonly bounds: null | {
-			offsetLeft: number;
-			offsetTop: number;
-			offsetWidth: number;
-			offsetHeight: number;
-		};
-	} = $state({
-		area: null,
-		selectedItems: new Map(),
-		get bounds() {
-			if (this.selectedItems.size <= 1) return null;
-			let offsetRight = -Infinity;
-			let offsetBottom = -Infinity;
-			const bounds = {
-				offsetLeft: Infinity,
-				offsetTop: Infinity,
-				offsetWidth: 0,
-				offsetHeight: 0,
-			};
 
-			// update when items are scrolled
-			scrolled.items;
+		// update when items are scrolled
+		scrolled.items;
 
-			for (const item of this.selectedItems.values()) {
-				bounds.offsetLeft = Math.min(
-					bounds.offsetLeft,
-					item.offsetLeft,
-				);
-				bounds.offsetTop = Math.min(bounds.offsetTop, item.offsetTop);
-				offsetRight = Math.max(offsetRight, item.offsetRight);
-				offsetBottom = Math.max(offsetBottom, item.offsetBottom);
-			}
-			bounds.offsetWidth = offsetRight - bounds.offsetLeft;
-			bounds.offsetHeight = offsetBottom - bounds.offsetTop;
-			return bounds;
-		},
+		for (const item of selection) {
+			bounds.offsetLeft = Math.min(bounds.offsetLeft, item.offsetLeft);
+			bounds.offsetTop = Math.min(bounds.offsetTop, item.offsetTop);
+			offsetRight = Math.max(offsetRight, item.offsetRight);
+			offsetBottom = Math.max(offsetBottom, item.offsetBottom);
+		}
+		bounds.offsetWidth = offsetRight - bounds.offsetLeft;
+		bounds.offsetHeight = offsetBottom - bounds.offsetTop;
+		return bounds;
 	});
 
 	function prepareMultiSelectDraw(event: MouseEvent) {
@@ -846,9 +784,9 @@
 
 			createSelectionArea(minX, minY, width, height);
 			if (shouldExtendSelection(event)) {
-				includeElementsInSelection(selectedItems);
+				selection.addAll(selectedItems);
 			} else {
-				selectElements(selectedItems);
+				selection.replaceWith(selectedItems);
 			}
 
 			if (
@@ -884,8 +822,7 @@
 			}
 		}
 		function releaseSelectionArea() {
-			selection.area = null;
-			selection = selection;
+			selectionArea = null;
 			window.removeEventListener("mousemove", dragSelectionArea);
 			window.removeEventListener("mouseup", releaseSelectionArea);
 		}
@@ -895,6 +832,16 @@
 
 	function handleMouseUp(event: MouseEvent) {
 		if (event.button === 2) {
+			if (
+				selectionBounds !== null &&
+				boxContainsPoint(selectionBounds, event.offsetX, event.offsetY)
+			) {
+				oncontextmenu(
+					event,
+					selection.items().map((it) => it.item),
+				);
+				return;
+			}
 			if (hover == null || hover.element == null) {
 				return;
 			}
@@ -1034,7 +981,7 @@
 		if (
 			!scrollbarDragging &&
 			dragPreview == null &&
-			selection.area == null
+			selectionArea == null
 		) {
 			for (let i = 0; i < elements.length; i++) {
 				const element = elements[i];
@@ -1134,7 +1081,7 @@
 		bind:offsetWidth={innerWidth}
 		bind:offsetHeight={innerHeight}
 	></div>
-	<SelectionArea area={selection?.area} />
+	<SelectionArea area={selectionArea} />
 	<canvas
 		bind:this={canvas}
 		tabindex={0}
@@ -1191,20 +1138,8 @@
 	></canvas>
 	<SelectedBounds
 		dragging={dragPreview != null}
-		bounds={selection.bounds}
-		selectedItemCount={selection.selectedItems.size ?? 0}
-		onmousedown={prepareDragSelection}
-		onmouseup={(e) => {
-			if (e.button === 2) {
-				oncontextmenu(
-					e,
-					Array.from(selection.selectedItems.values()).map(
-						(it) => it.item,
-					),
-				);
-			}
-		}}
-		onwheel={handleScroll}
+		bounds={selectionBounds}
+		selectedItemCount={selection.length()}
 	/>
 	{#if hover != null}
 		<Hover

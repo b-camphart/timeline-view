@@ -6,25 +6,12 @@
 		area: OffsetBox | undefined | null;
 		class?: string;
 		role?: AriaRole | undefined;
-		tabindex?: number;
-		onwheel?: (event: WheelEvent) => void;
-		onmousedown?: (event: MouseEvent) => void;
-		onmouseup?: (event: MouseEvent) => void;
 	}
 
-	let {
-		area,
-		class: className = "",
-		role = undefined,
-		tabindex = 0,
-		onmousedown,
-		onmouseup,
-		onwheel,
-	}: Props = $props();
+	let { area, class: className = "", role = undefined }: Props = $props();
 </script>
 
 {#if area != null}
-	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<div
 		class="timeline-selection-area {className}"
 		style:position="absolute"
@@ -33,10 +20,6 @@
 		style:width={area.offsetWidth + "px"}
 		style:height={area.offsetHeight + "px"}
 		{role}
-		{onwheel}
-		{onmousedown}
-		{onmouseup}
-		{tabindex}
 	></div>
 {/if}
 
@@ -56,5 +39,6 @@
 	div {
 		background-color: var(--timeline-selection-area-background);
 		border: 2px solid var(--timeline-selection-area-border);
+		pointer-events: none;
 	}
 </style>
