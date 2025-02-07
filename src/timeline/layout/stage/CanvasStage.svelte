@@ -6,7 +6,10 @@
 
 	import { createEventDispatcher, onMount, untrack } from "svelte";
 	import { renderLayout } from "./draw";
-	import { TimelineItemElementStyle } from "src/timeline/layout/stage/TimelineItemElement";
+	import {
+		boxContainsPoint,
+		TimelineItemElementStyle,
+	} from "src/timeline/layout/stage/TimelineItemElement";
 	import { type Scale } from "src/timeline/scale";
 	import Scrollbar from "src/view/controls/Scrollbar.svelte";
 	import type { ChangeEvent } from "src/view/controls/Scrollbar";
@@ -566,6 +569,14 @@
 
 	function handleMouseDown(event: MouseEvent) {
 		focusCausedByClick = true;
+		if (
+			selection.bounds !== null &&
+			boxContainsPoint(selection.bounds, event.offsetX, event.offsetY)
+		) {
+			if (prepareDragSelection(event)) {
+				return;
+			}
+		}
 		if (hover == null || hover.element == null) {
 			focus = null;
 			if (!shouldExtendSelection(event)) {
@@ -597,7 +608,7 @@
 	function prepareDragSelection(event: MouseEvent) {
 		const selectedItems = Array.from(selection.selectedItems.values());
 		if (selectedItems.length === 0) {
-			return;
+			return false;
 		}
 
 		const startViewportBounds = stageCSSTarget!.getBoundingClientRect();
@@ -672,7 +683,9 @@
 		if (editable) {
 			window.addEventListener("mouseup", releaseItemListener);
 			window.addEventListener("mousemove", dragItemListener);
+			return true;
 		}
+		return false;
 	}
 
 	function prepareResizeSelection(
@@ -895,6 +908,18 @@
 
 	function handleMouseUp(event: MouseEvent) {
 		if (event.button === 2) {
+			if (
+				selection.bounds !== null &&
+				boxContainsPoint(selection.bounds, event.offsetX, event.offsetY)
+			) {
+				oncontextmenu(
+					event,
+					Array.from(selection.selectedItems.values()).map(
+						(it) => it.item,
+					),
+				);
+				return;
+			}
 			if (hover == null || hover.element == null) {
 				return;
 			}
@@ -1193,18 +1218,6 @@
 		dragging={dragPreview != null}
 		bounds={selection.bounds}
 		selectedItemCount={selection.selectedItems.size ?? 0}
-		onmousedown={prepareDragSelection}
-		onmouseup={(e) => {
-			if (e.button === 2) {
-				oncontextmenu(
-					e,
-					Array.from(selection.selectedItems.values()).map(
-						(it) => it.item,
-					),
-				);
-			}
-		}}
-		onwheel={handleScroll}
 	/>
 	{#if hover != null}
 		<Hover
