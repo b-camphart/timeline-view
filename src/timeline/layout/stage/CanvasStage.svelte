@@ -495,21 +495,20 @@
 
 	function clearSelection() {
 		selection.selectedItems = new Map();
-		selection = selection;
+		selection = { ...selection };
 	}
 	function selectElement(element: Item) {
 		if (selection.selectedItems.has(element.source.id)) return;
 		clearSelection();
 		selection.selectedItems = new Map([[element.source.id, element]]);
-		selection = selection;
+		selection = { ...selection };
 	}
 	function selectElements(elements: Item[]) {
 		clearSelection();
 		selection.selectedItems = new Map(
 			elements.map((it) => [it.source.id, it]),
 		);
-
-		selection = selection;
+		selection = { ...selection };
 	}
 	function shouldExtendSelection(event: MouseEvent) {
 		return (Platform.isMacOS && event.metaKey) || event.ctrlKey;
@@ -517,14 +516,14 @@
 	function includeElementInSelection(element: Item) {
 		selection.selectedItems.set(element.source.id, element);
 
-		selection = selection;
+		selection = { ...selection };
 	}
 	function includeElementsInSelection(elements: Item[]) {
 		for (const element of elements) {
 			selection.selectedItems.set(element.source.id, element);
 		}
 
-		selection = selection;
+		selection = { ...selection };
 	}
 	function createSelectionArea(
 		x: number,
@@ -539,46 +538,49 @@
 			offsetHeight: height,
 		};
 	}
-	function selectionBounds(elements: Iterable<Item>) {
-		let minX = Number.POSITIVE_INFINITY;
-		let minY = Number.POSITIVE_INFINITY;
-		let maxX = Number.NEGATIVE_INFINITY;
-		let maxY = Number.NEGATIVE_INFINITY;
-		for (const element of elements) {
-			if (element.offsetLeft < minX) {
-				minX = element.offsetLeft;
-			}
-			if (element.offsetTop < minY) {
-				minY = element.offsetTop;
-			}
-			if (element.offsetRight > maxX) {
-				maxX = element.offsetRight;
-			}
-			if (element.offsetBottom > maxY) {
-				maxY = element.offsetBottom;
-			}
-		}
+	// function selectionBounds(elements: Iterable<Item>) {
+	// 	let minX = Number.POSITIVE_INFINITY;
+	// 	let minY = Number.POSITIVE_INFINITY;
+	// 	let maxX = Number.NEGATIVE_INFINITY;
+	// 	let maxY = Number.NEGATIVE_INFINITY;
+	// 	for (const element of elements) {
+	// 		if (element.offsetLeft < minX) {
+	// 			minX = element.offsetLeft;
+	// 		}
+	// 		if (element.offsetTop < minY) {
+	// 			minY = element.offsetTop;
+	// 		}
+	// 		if (element.offsetRight > maxX) {
+	// 			maxX = element.offsetRight;
+	// 		}
+	// 		if (element.offsetBottom > maxY) {
+	// 			maxY = element.offsetBottom;
+	// 		}
+	// 	}
 
-		return {
-			offsetLeft: minX,
-			offsetTop: minY,
-			offsetWidth: maxX - minX,
-			offsetHeight: maxY - minY,
-		};
-	}
+	// 	return {
+	// 		offsetLeft: minX,
+	// 		offsetTop: minY,
+	// 		offsetWidth: maxX - minX,
+	// 		offsetHeight: maxY - minY,
+	// 	};
+	// }
 
 	function handleMouseDown(event: MouseEvent) {
 		focusCausedByClick = true;
-		if (
-			selection.bounds !== null &&
-			boxContainsPoint(selection.bounds, event.offsetX, event.offsetY)
-		) {
-			if (prepareDragSelection(event)) {
-				return;
-			}
-		}
+
 		if (hover == null || hover.element == null) {
 			focus = null;
+
+			if (
+				selectionBounds !== null &&
+				boxContainsPoint(selectionBounds, event.offsetX, event.offsetY)
+			) {
+				if (prepareDragSelection(event)) {
+					return;
+				}
+			}
+
 			if (!shouldExtendSelection(event)) {
 				clearSelection();
 			}
@@ -775,42 +777,33 @@
 			offsetHeight: number;
 		};
 		selectedItems: Map<string, Item>;
-		readonly bounds: null | {
-			offsetLeft: number;
-			offsetTop: number;
-			offsetWidth: number;
-			offsetHeight: number;
-		};
 	} = $state({
 		area: null,
 		selectedItems: new Map(),
-		get bounds() {
-			if (this.selectedItems.size <= 1) return null;
-			let offsetRight = -Infinity;
-			let offsetBottom = -Infinity;
-			const bounds = {
-				offsetLeft: Infinity,
-				offsetTop: Infinity,
-				offsetWidth: 0,
-				offsetHeight: 0,
-			};
+	});
+	const selectionBounds = $derived.by(() => {
+		if (selection.selectedItems.size <= 1) return null;
+		let offsetRight = -Infinity;
+		let offsetBottom = -Infinity;
+		const bounds = {
+			offsetLeft: Infinity,
+			offsetTop: Infinity,
+			offsetWidth: 0,
+			offsetHeight: 0,
+		};
 
-			// update when items are scrolled
-			scrolled.items;
+		// update when items are scrolled
+		scrolled.items;
 
-			for (const item of this.selectedItems.values()) {
-				bounds.offsetLeft = Math.min(
-					bounds.offsetLeft,
-					item.offsetLeft,
-				);
-				bounds.offsetTop = Math.min(bounds.offsetTop, item.offsetTop);
-				offsetRight = Math.max(offsetRight, item.offsetRight);
-				offsetBottom = Math.max(offsetBottom, item.offsetBottom);
-			}
-			bounds.offsetWidth = offsetRight - bounds.offsetLeft;
-			bounds.offsetHeight = offsetBottom - bounds.offsetTop;
-			return bounds;
-		},
+		for (const item of selection.selectedItems.values()) {
+			bounds.offsetLeft = Math.min(bounds.offsetLeft, item.offsetLeft);
+			bounds.offsetTop = Math.min(bounds.offsetTop, item.offsetTop);
+			offsetRight = Math.max(offsetRight, item.offsetRight);
+			offsetBottom = Math.max(offsetBottom, item.offsetBottom);
+		}
+		bounds.offsetWidth = offsetRight - bounds.offsetLeft;
+		bounds.offsetHeight = offsetBottom - bounds.offsetTop;
+		return bounds;
 	});
 
 	function prepareMultiSelectDraw(event: MouseEvent) {
@@ -909,8 +902,8 @@
 	function handleMouseUp(event: MouseEvent) {
 		if (event.button === 2) {
 			if (
-				selection.bounds !== null &&
-				boxContainsPoint(selection.bounds, event.offsetX, event.offsetY)
+				selectionBounds !== null &&
+				boxContainsPoint(selectionBounds, event.offsetX, event.offsetY)
 			) {
 				oncontextmenu(
 					event,
@@ -1216,7 +1209,7 @@
 	></canvas>
 	<SelectedBounds
 		dragging={dragPreview != null}
-		bounds={selection.bounds}
+		bounds={selectionBounds}
 		selectedItemCount={selection.selectedItems.size ?? 0}
 	/>
 	{#if hover != null}
