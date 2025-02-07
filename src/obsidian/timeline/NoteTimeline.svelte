@@ -3,7 +3,7 @@
 	import TimelineView from "../../timeline/Timeline.svelte";
 	import type { RulerValueDisplay } from "../../timeline/Timeline";
 	import { type NamespacedWritableFactory } from "../../timeline/Persistence";
-	import { createEventDispatcher, onMount, tick } from "svelte";
+	import { createEventDispatcher, onMount, tick, untrack } from "svelte";
 	import { get } from "svelte/store";
 	import TimelinePropertySection from "../../timeline/property/TimelinePropertySection.svelte";
 	import type { ObsidianNoteTimelineViewModel } from "./viewModel";
@@ -14,22 +14,24 @@
 	import { TimelinePropertySelector } from "src/timeline/property/TimelinePropertySelector";
 	import type { TimelineProperty } from "src/timeline/property/TimelineProperty";
 	import { TimelineItemQueryFilter } from "src/timeline/filter/TimelineItemQueryFilter";
-	import { TimelineGroups } from "src/timeline/group/groups";
 	import * as timelineGroup from "src/timeline/group/group";
-	import type { TimelineItemColorSupplier } from "src/timeline/item/color";
 	import { MutableSortedArray } from "src/utils/collections";
+	import type { Reactive } from "src/svelte/reactive";
+	import { Groups as TimelineGroups } from "src/timeline/group/TimelineGroupsList.svelte";
+	import { Group } from "src/timeline/group/GroupListItem.svelte";
+	import { TaskQueue } from "src/utils/tasks";
 
 	class ReactiveNoteItem {
 		created = $state(0);
 		modified = $state(0);
 		properties = $state<Record<string, unknown>>({});
-		group = $state<null | { color(): string }>(null);
+		group = $state<null | { color: Reactive<string> }>(null);
 
 		get id() {
 			return this.#note.id();
 		}
 
-		#note;
+		#note = $state<Note>(null as any);
 		get note() {
 			return this.#note;
 		}
@@ -122,34 +124,22 @@
 		},
 	);
 
-	const groupsNamespace = settings.namespace("groups");
+	const savedGroups = settings.namespace("groups").make("groups", []);
 
-	function saveGroups() {
-		groupsNamespace.make("groups", []).set(
-			timelineGroups.groups().map((group) => ({
-				query: group.query(),
-				color: group.color(),
-			})),
-		);
-	}
-	function createGroup(query: string, color: string) {
-		const group = new timelineGroup.TimelineGroup(
-			noteRepository,
-			query,
-			color,
-		);
-		group.onChanged = saveGroups;
-		return group;
-	}
-	const timelineGroups = $state(
-		new TimelineGroups(
-			get(groupsNamespace.make("groups", []))
-				.map((group) => timelineGroup.schema.parseOrDefault(group))
-				.map(({ query, color }) => createGroup(query, color)),
-			(color) => createGroup("", color),
-		),
+	const timelineGroups = new TimelineGroups(
+		get(savedGroups)
+			.map((group) => timelineGroup.schema.parseOrDefault(group))
+			.map(({ query, color }) => new Group(query, color)),
 	);
-	timelineGroups.onChanged = saveGroups;
+	$effect(() => {
+		$savedGroups = timelineGroups.list().map((group) => {
+			return {
+				color: group.color(),
+				query: group.query(),
+			};
+		});
+	});
+	// timelineGroups.onChanged = saveGroups;
 
 	function openFile(event: Event | undefined, item: ReactiveNoteItem) {
 		dispatch("noteSelected", { note: item.note, event });
@@ -326,7 +316,6 @@
 		for (const note of noteRepository.listAll()) {
 			const item = new ReactiveNoteItem(note);
 			itemsById.set(note.id(), item);
-			enqueueItemColorUpdate(item);
 		}
 
 		const filteredItems = [];
@@ -363,82 +352,111 @@
 			}, 250);
 		};
 	})();
-	const itemColorSupplier = {
-		cache: new Map<string, { index: number; color: string }>(),
-		itemColorForNote(note: Note): string | undefined {
-			return this.cache.get(note.id())?.color ?? undefined;
-		},
-	};
-	itemColorSupplier satisfies TimelineItemColorSupplier;
+
+	// const itemColorSupplier = {
+	// 	cache: new Map<string, { index: number; color: string }>(),
+	// 	itemColorForNote(note: Note): string | undefined {
+	// 		return this.cache.get(note.id())?.color ?? undefined;
+	// 	},
+	// };
+	// itemColorSupplier satisfies TimelineItemColorSupplier;
 
 	let itemRecolorQueueLength = $state(0);
-	const enqueueItemColorUpdate = (() => {
-		const queue: ReactiveNoteItem[] = [];
-		const uniqueQueue = new Set<ReactiveNoteItem>();
-		let timer: null | ReturnType<typeof setTimeout> = null;
-		let tasks: Promise<void>[] = [];
+	// const enqueueItemColorUpdate = (() => {
+	// 	const queue: ReactiveNoteItem[] = [];
+	// 	const uniqueQueue = new Set<ReactiveNoteItem>();
+	// 	let timer: null | ReturnType<typeof setTimeout> = null;
+	// 	let tasks: Promise<void>[] = [];
 
-		async function processBatch() {
-			timer = null;
+	// 	async function processBatch() {
+	// 		timer = null;
 
-			const start = performance.now();
-			if (tasks.length > 0) {
-				await Promise.all(tasks);
+	// 		const start = performance.now();
+	// 		if (tasks.length > 0) {
+	// 			await Promise.all(tasks);
+	// 		}
+	// 		tasks = [];
+
+	// 		while (
+	// 			queue.length > 0 &&
+	// 			performance.now() - start < 16 /* 1/60 */
+	// 		) {
+	// 			const item = queue.shift()!;
+	// 			uniqueQueue.delete(item);
+	// 			const groups = timelineGroups.list();
+	// 			tasks.push(
+	// 				(async () => {
+	// 					// itemColorSupplier.cache.delete(item.note.id());
+	// 					for (let i = 0; i < groups.length; i++) {
+	// 						const group = groups[i];
+	// 						if (await group.noteFilter().matches(item.note)) {
+	// 							item.group = group;
+	// 							// itemColorSupplier.cache.set(item.note.id(), {
+	// 							// 	color: group.color(),
+	// 							// 	index: i,
+	// 							// });
+	// 							break;
+	// 						}
+	// 					}
+	// 					timelineView?.invalidateColors();
+	// 				})(),
+	// 			);
+	// 		}
+	// 		itemRecolorQueueLength = queue.length;
+
+	// 		if (queue.length > 0) {
+	// 			timer = setTimeout(processBatch, 0);
+	// 		}
+	// 	}
+
+	// 	return (item: ReactiveNoteItem) => {
+	// 		if (uniqueQueue.has(item)) return;
+	// 		uniqueQueue.add(item);
+	// 		queue.push(item);
+	// 		// itemColorSupplier.cache.delete(item.id());
+	// 		itemRecolorQueueLength = queue.length;
+	// 		if (timer != null) return;
+
+	// 		timer = setTimeout(processBatch, 0);
+	// 	};
+	// })();
+
+	$effect(() => {
+		const groups = timelineGroups.list();
+		if (groups.length === 0) {
+			for (const item of items) {
+				item.group = null;
 			}
-			tasks = [];
-
-			while (
-				queue.length > 0 &&
-				performance.now() - start < 16 /* 1/60 */
-			) {
-				const item = queue.shift()!;
-				uniqueQueue.delete(item);
-				const groups = timelineGroups.groups();
-				tasks.push(
-					(async () => {
-						itemColorSupplier.cache.delete(item.note.id());
-						for (let i = 0; i < groups.length; i++) {
-							const group = groups[i];
-							if (await group.noteFilter().matches(item.note)) {
-								itemColorSupplier.cache.set(item.note.id(), {
-									color: group.color(),
-									index: i,
-								});
-								break;
-							}
+			return;
+		}
+		const filters = groups.map((it) =>
+			noteRepository.getExclusiveNoteFilterForQuery(it.query()),
+		);
+		let tasks: TaskQueue | null = TaskQueue.new();
+		for (const item of items) {
+			$effect(() => {
+				const note = item.note;
+				tasks?.enqueue(async () => {
+					item.group = null;
+					for (let i = 0; i < groups.length; i++) {
+						if (groups[i].query() === "") continue;
+						if (await filters[i].matches(note)) {
+							item.group = groups[i];
+							break;
 						}
-						timelineView?.invalidateColors();
-					})(),
-				);
-			}
-			itemRecolorQueueLength = queue.length;
-
-			if (queue.length > 0) {
-				timer = setTimeout(processBatch, 0);
-			}
+					}
+				});
+			});
 		}
 
-		return (item: ReactiveNoteItem) => {
-			if (uniqueQueue.has(item)) return;
-			uniqueQueue.add(item);
-			queue.push(item);
-			// itemColorSupplier.cache.delete(item.id());
-			itemRecolorQueueLength = queue.length;
-			if (timer != null) return;
-
-			timer = setTimeout(processBatch, 0);
+		tasks.onProgress((remaining) => {
+			itemRecolorQueueLength = remaining;
+		});
+		return () => {
+			tasks?.cancel();
+			tasks = null;
 		};
-	})();
-
-	function enqueueItemRecolorMatching(
-		predicate: (item: ReactiveNoteItem) => boolean,
-	) {
-		for (const item of itemsById.values()) {
-			if (predicate(item)) {
-				enqueueItemColorUpdate(item);
-			}
-		}
-	}
+	});
 
 	function lengthOf(note: Note) {
 		if (!propertySelector.secondaryPropertyInUse()) {
@@ -546,7 +564,6 @@
 
 		const keep = await filter.noteFilter().matches(file);
 
-		enqueueItemColorUpdate(item);
 		enqueueItemUpdate(() => {
 			items.remove(item);
 			item.replaceNote(file);
@@ -565,7 +582,6 @@
 
 		const keep = await filter.noteFilter().matches(file);
 
-		enqueueItemColorUpdate(item);
 		enqueueItemUpdate(() => {
 			items.remove(item);
 			item.replaceNote(file);
@@ -651,63 +667,6 @@
 	groups={timelineGroups}
 	pendingGroupUpdates={itemRecolorQueueLength}
 	controlBindings={{}}
-	groupEvents={{
-		onGroupAppended(group, groups) {
-			// no-op
-		},
-		onGroupColored(index, group) {
-			let effectCount = 0;
-			for (const item of itemColorSupplier.cache.values()) {
-				if (item.index === index) {
-					item.color = group.color();
-					effectCount++;
-				}
-			}
-			if (effectCount > 0) {
-				timelineView?.invalidateColors();
-			}
-		},
-		onGroupQueried(index, _group) {
-			enqueueItemRecolorMatching((item) => {
-				const def = itemColorSupplier.cache.get(item.note.id());
-				// a new query could impact items that have no group, but not
-				// items that have a group of a higher priority
-				return def == null || def.index >= index;
-			});
-		},
-		onGroupsReordered(from, to, _group, _groups) {
-			const minAffectedIndex = Math.min(from, to);
-			enqueueItemRecolorMatching((item) => {
-				const def = itemColorSupplier.cache.get(item.note.id());
-				// re-order can't impact items that have no group
-				return def != null && def.index >= minAffectedIndex;
-			});
-			// maintain consistency with group order
-			for (const def of itemColorSupplier.cache.values()) {
-				if (def.index >= from) {
-					def.index -= 1;
-				}
-			}
-			for (const def of itemColorSupplier.cache.values()) {
-				if (def.index >= to) {
-					def.index += 1;
-				}
-			}
-		},
-		onGroupRemoved(index, _group, _groups) {
-			enqueueItemRecolorMatching((item) => {
-				const def = itemColorSupplier.cache.get(item.note.id());
-				// removing a group can't impact items that have no group
-				return def != null && def.index >= index;
-			});
-			// maintain consistency with group order
-			for (const def of itemColorSupplier.cache.values()) {
-				if (def.index >= index) {
-					def.index -= 1;
-				}
-			}
-		},
-	}}
 	bind:this={timelineView}
 	onSelected={(item, cause) => openFile(cause, item)}
 	onFocused={(item) => dispatch("noteFocused", item.note)}

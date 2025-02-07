@@ -1,37 +1,65 @@
-<script lang="ts">
-	import { run } from "svelte/legacy";
+<script lang="ts" module>
+	import GroupListItem, {
+		Group as TimelineGroup,
+	} from "src/timeline/group/GroupListItem.svelte";
 
-	import GroupListItem from "src/timeline/group/GroupListItem.svelte";
+	const defaultGroupColors = [
+		"#e05252",
+		"#e0b152",
+		"#b1e052",
+		"#52e052",
+		"#52e0b1",
+		"#52b1e0",
+		"#5252e0",
+		"#b152e0",
+		"#e052b1",
+	];
+
+	export class Groups {
+		#groups = $state<TimelineGroup[]>([]);
+		list(): readonly TimelineGroup[] {
+			return this.#groups;
+		}
+		appendNewGroup() {
+			this.#groups.push(
+				new TimelineGroup(
+					"",
+					defaultGroupColors[
+						this.#groups.length % defaultGroupColors.length
+					],
+				),
+			);
+		}
+
+		reorder(from: number, to: number) {
+			if (from === to) return null;
+			const removed = this.#groups.splice(from, 1);
+			this.#groups.splice(to, 0, removed[0]);
+			return removed[0];
+		}
+
+		removeIndex(index: number) {
+			if (index < 0 || index >= this.#groups.length) {
+				return;
+			}
+			this.#groups.splice(index, 1);
+		}
+
+		constructor(groups: readonly TimelineGroup[]) {
+			this.#groups = groups.slice();
+		}
+	}
+</script>
+
+<script lang="ts">
 	import CtaButton from "src/obsidian/view/CTAButton.svelte";
-	import type { TimelineGroups } from "src/timeline/group/groups";
-	import type { TimelineGroup } from "src/timeline/group/group";
+	import Portal from "src/view/Portal.svelte";
 
 	interface Props {
-		groups: TimelineGroups;
-		onGroupAppended?(group: TimelineGroup, groups: TimelineGroups): void;
-		onGroupsReordered?(
-			from: number,
-			to: number,
-			group: TimelineGroup,
-			groups: TimelineGroups,
-		): void;
-		onGroupRemoved?(
-			index: number,
-			group: TimelineGroup,
-			groups: TimelineGroups,
-		): void;
-		onGroupColored?(index: number, group: TimelineGroup): void;
-		onGroupQueried?(index: number, group: TimelineGroup): void;
+		groups: Groups;
 	}
 
-	let {
-		groups = $bindable(),
-		onGroupAppended = undefined,
-		onGroupsReordered = undefined,
-		onGroupRemoved = undefined,
-		onGroupColored = undefined,
-		onGroupQueried = undefined,
-	}: Props = $props();
+	let { groups }: Props = $props();
 
 	let drag: null | {
 		index: number;
@@ -40,7 +68,7 @@
 		offsetHeight: number;
 	} = $state(null);
 
-	let groupListElement: HTMLElement = $state();
+	let groupListElement: HTMLElement | undefined = $state();
 
 	function primeDrag(
 		index: number,
@@ -52,14 +80,16 @@
 			readonly clientY: number;
 		},
 	) {
+		if (groupListElement === undefined) return;
 		const dragIndex = index;
 		const groupHeight = start.currentTarget.offsetHeight;
 		const groupWidth = start.currentTarget.offsetWidth;
 
 		const offsetHeight =
-			groupListElement.clientHeight / groups.groups().length;
+			groupListElement.clientHeight / groups.list().length;
 
 		function mousemove(event: MouseEvent) {
+			if (groupListElement === undefined) return;
 			drag = {
 				index: dragIndex,
 				offsetHeight,
@@ -83,54 +113,19 @@
 			window.removeEventListener("mousemove", mousemove);
 			window.removeEventListener("mouseup", endDrag);
 
-			if (drag != null) {
-				moveGroup(
-					dragIndex,
-					Math.min(groups.groups().length - 1, drag.overIndex),
-				);
+			try {
+				if (drag != null) {
+					groups.reorder(
+						dragIndex,
+						Math.min(groups.list().length - 1, drag.overIndex),
+					);
+				}
+			} finally {
+				drag = null;
 			}
-
-			drag = null;
 		}
 		window.addEventListener("mousemove", mousemove);
 		window.addEventListener("mouseup", endDrag);
-	}
-
-	let dragDialog: HTMLDialogElement | undefined = $state();
-	run(() => {
-		if (dragDialog != null) {
-			if (dragDialog.parentElement != dragDialog.ownerDocument.body) {
-				dragDialog.ownerDocument?.body?.appendChild(dragDialog);
-			}
-		}
-	});
-
-	function addGroup() {
-		const group = groups.appendNewGroup();
-		onGroupAppended?.(group, groups);
-		groups = groups;
-	}
-
-	function moveGroup(from: number, to: number) {
-		const group = groups.moveGroup(from, to);
-		if (group == null) {
-			return;
-		}
-		onGroupsReordered?.(from, to, group, groups);
-		groups = groups;
-	}
-
-	function removeGroup(index: number) {
-		const group = groups.removeGroup(index);
-		console.log("removed group");
-		console.log(
-			"groups:",
-			groups
-				.groups()
-				.map((it) => ({ query: it.query(), color: it.color() })),
-		);
-		onGroupRemoved?.(index, group, groups);
-		groups = groups;
 	}
 </script>
 
@@ -142,19 +137,17 @@
 	style:--form-height={`${drag?.offsetHeight ?? 0}px`}
 >
 	{#if drag == null}
-		{#each groups.groups() as group, index}
+		{#each groups.list() as group, index}
 			<GroupListItem
 				{group}
-				onRecolored={(group) => onGroupColored?.(index, group)}
-				onRequeried={(group) => onGroupQueried?.(index, group)}
-				onRemove={() => removeGroup(index)}
+				onRemove={groups.removeIndex.bind(groups, index)}
 				onPressDragHandle={(event) => primeDrag(index, event)}
 			/>
 		{/each}
 	{:else}
 		{@const dragIndex = drag.index}
 		{#each groups
-			.groups()
+			.list()
 			.filter((_, index) => index !== dragIndex) as group, index}
 			<GroupListItem
 				{group}
@@ -163,22 +156,23 @@
 					: ""}
 			/>
 		{/each}
-		<dialog
-			open
-			style="top: {drag.imgPos.top}px;left:{drag.imgPos.left}px;"
-			bind:this={dragDialog}
-		>
-			<GroupListItem
-				group={groups.groups()[dragIndex]}
-				style="width:{drag.imgPos.width}px;height:{drag.imgPos
-					.height}px;pointer-events:none;"
-			/>
-		</dialog>
 	{/if}
 </ol>
 <div class="graph-color-button-container">
-	<CtaButton on:action={addGroup}>New group</CtaButton>
+	<CtaButton on:action={() => groups.appendNewGroup()}>New group</CtaButton>
 </div>
+
+{#if drag != null}
+	<Portal open top="{drag.imgPos.top}px" left="{drag.imgPos.left}px">
+		<div>
+			<GroupListItem
+				group={groups.list()[drag.index]}
+				style="width:{drag.imgPos.width}px;height:{drag.imgPos
+					.height}px;pointer-events:none;"
+			/>
+		</div>
+	</Portal>
+{/if}
 
 <style>
 	ol.group-list {
@@ -208,12 +202,7 @@
 		top: var(--form-height);
 	}
 
-	dialog {
-		padding: 0;
-		border: none;
-		margin: unset;
-		background: none;
-		z-index: 9999;
+	:global(dialog) div {
 		cursor: grabbing;
 	}
 

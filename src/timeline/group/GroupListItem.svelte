@@ -1,16 +1,37 @@
+<script lang="ts" module>
+	export class Group {
+		#query = $state("");
+		query() {
+			return this.#query;
+		}
+		filterByQuery(query: string) {
+			this.#query = query;
+		}
+
+		#color = $state("");
+		color() {
+			return this.#color;
+		}
+		recolor(color: string) {
+			this.#color = color;
+		}
+
+		constructor(query: string, color: string) {
+			this.#query = query;
+			this.#color = color;
+		}
+	}
+</script>
+
 <script lang="ts">
-	import type { TimelineGroup } from "src/timeline/group/group";
 	import GroupColorInput from "src/timeline/group/GroupColorInput.svelte";
 	import GroupQueryInput from "src/timeline/group/GroupQueryInput.svelte";
 	import ActionButton from "src/view/inputs/ActionButton.svelte";
-	import { onDestroy } from "svelte";
 
 	interface Props {
-		group: TimelineGroup;
+		group: Group;
 		class?: string;
 		style?: string;
-		onRecolored?(group: TimelineGroup): void;
-		onRequeried?(group: TimelineGroup): void;
 		onRemove?: () => void;
 		onPressDragHandle?(event: {
 			readonly currentTarget: HTMLElement;
@@ -25,8 +46,6 @@
 		group,
 		class: className = undefined,
 		style = undefined,
-		onRecolored = undefined,
-		onRequeried = undefined,
 		onRemove = undefined,
 		onPressDragHandle = undefined,
 	}: Props = $props();
@@ -38,12 +57,13 @@
 	) {
 		if (onPressDragHandle && element) {
 			const currentTarget = element;
+			const elementBounds = element.getBoundingClientRect();
 			onPressDragHandle({
 				get currentTarget() {
 					return currentTarget;
 				},
-				offsetX: event.offsetX + event.currentTarget.offsetLeft,
-				offsetY: event.offsetY + event.currentTarget.offsetTop,
+				offsetX: event.clientX - elementBounds.x,
+				offsetY: event.clientY - elementBounds.y,
 				clientX: event.clientX,
 				clientY: event.clientY,
 			});
@@ -57,12 +77,10 @@
 	{style}
 >
 	<GroupQueryInput
-		queriable={group}
-		onchanged={onRequeried ? () => onRequeried(group) : undefined}
+		bind:query={() => group.query(), (query) => group.filterByQuery(query)}
 	/>
 	<GroupColorInput
-		colorable={group}
-		onchanged={onRecolored ? () => onRecolored(group) : undefined}
+		bind:color={() => group.color(), (color) => group.recolor(color)}
 		onmousedown={onPressDragHandle ? onDragHandeMouseDown : undefined}
 	/>
 	<ActionButton
