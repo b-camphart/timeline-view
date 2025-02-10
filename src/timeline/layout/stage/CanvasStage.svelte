@@ -29,6 +29,8 @@
 	} from "src/timeline/layout/stage/item";
 	import type { TimelineItemSource } from "src/timeline/item/TimelineItem.svelte";
 	import { Selection } from "src/timeline/layout/stage/selection.svelte";
+	import CssProp from "src/view/CSSProp.svelte";
+	import CssColorProp from "src/view/CSSColorProp.svelte";
 
 	type Item = PlotAreaItem<T, SourceItem>;
 
@@ -127,26 +129,24 @@
 	});
 
 	const itemStyle = $state({
-		size: 0,
+		size: 16,
 
-		colorEl: undefined as HTMLElement | undefined,
-		color: "",
+		color: "darkgray",
 
 		selected: {
 			borderWidth: 2,
-			colorEl: undefined as HTMLElement | undefined,
-			color: "",
-			borderColor: "",
+			color: "black",
+			borderColor: "black",
 		},
 
 		margin: {
 			horizontal: 0,
 			vertical: 0,
 
-			top: 0,
-			right: 0,
-			bottom: 0,
-			left: 0,
+			top: 2,
+			right: 2,
+			bottom: 2,
+			left: 2,
 		},
 	});
 
@@ -222,34 +222,6 @@
 		return {
 			items: layoutItems,
 			_: Math.random(),
-		};
-	});
-
-	onMount(() => {
-		let cancelled = false;
-		function queryItemStyle() {
-			if (cancelled) return;
-
-			const base = itemStyle.colorEl,
-				selected = itemStyle.selected.colorEl;
-			if (base === undefined || selected === undefined) {
-				requestAnimationFrame(queryItemStyle);
-				return;
-			}
-
-			const baseStyle = getComputedStyle(base),
-				selectedStyle = getComputedStyle(selected);
-
-			itemStyle.color = baseStyle.backgroundColor;
-			itemStyle.selected.color = selectedStyle.backgroundColor;
-			itemStyle.selected.borderColor = selectedStyle.borderColor;
-
-			requestAnimationFrame(queryItemStyle);
-		}
-		queryItemStyle();
-
-		return () => {
-			cancelled = true;
 		};
 	});
 
@@ -1000,48 +972,7 @@
 	data-hover-side={hover != null ? hover.side : undefined}
 >
 	<Background {scrollTop} itemDimensions={itemStyle} {viewport} />
-	<div style="visibility: hidden;position:absolute;">
-		<div
-			class="measurer"
-			style="width:var(--item-margin-top, 2px);"
-			bind:clientWidth={itemStyle.margin.top}
-		></div>
-		<div
-			class="measurer"
-			style={"width:var(--item-margin-left, 2px);"}
-			bind:clientWidth={itemStyle.margin.left}
-		></div>
-		<div
-			class="measurer"
-			style="width:var(--item-margin-bottom, 2px);"
-			bind:clientWidth={itemStyle.margin.bottom}
-		></div>
-		<div
-			class="measurer"
-			style="width:var(--item-margin-right, 2px);"
-			bind:clientWidth={itemStyle.margin.right}
-		></div>
-		<div
-			class="measurer"
-			style="width:var(--item-size, 16px);"
-			bind:clientWidth={itemStyle.size}
-		></div>
-		<div
-			class="measurer"
-			style="width:var(--selected-item-border-width, 2px);"
-			bind:clientWidth={itemStyle.selected.borderWidth}
-		></div>
-		<div
-			class="measurer"
-			style="background-color:var(--item-color, darkgray);"
-			bind:this={itemStyle.colorEl}
-		></div>
-		<div
-			class="measurer"
-			style="background-color:var(--selected-item-color,var(--background,darkgray));border-color:var(--selected-item-border-color, darkgray);"
-			bind:this={itemStyle.selected.colorEl}
-		></div>
-	</div>
+
 	<div
 		class="bottom-right-padding-measure"
 		bind:offsetWidth={innerWidth}
@@ -1177,14 +1108,27 @@
 	class="scrollbar-style-measurer"
 ></div>
 
-<style>
-	div.measurer {
-		position: absolute;
-		left: -9999px;
-		visibility: hidden !important;
-		height: 1px;
-	}
+<!-- CSS getters -->
+<CssProp name="--item-margin-top" bind:value={itemStyle.margin.top} />
+<CssProp name="--item-margin-left" bind:value={itemStyle.margin.left} />
+<CssProp name="--item-margin-bottom" bind:value={itemStyle.margin.bottom} />
+<CssProp name="--item-margin-right" bind:value={itemStyle.margin.right} />
+<CssProp name="--item-size" bind:value={itemStyle.size} />
+<CssColorProp name="--item-color" bind:value={itemStyle.color} />
+<CssProp
+	name="--selected-item-border-width"
+	bind:value={itemStyle.selected.borderWidth}
+/>
+<CssColorProp
+	name="--selected-item-color"
+	bind:value={itemStyle.selected.color}
+/>
+<CssColorProp
+	name="--selected-item-border-color"
+	bind:value={itemStyle.selected.borderColor}
+/>
 
+<style>
 	div#stage {
 		padding-top: var(--padding-top, 8px);
 		padding-left: var(--padding-left, 8px);
