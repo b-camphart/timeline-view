@@ -8,7 +8,6 @@
 	import { renderLayout } from "./draw";
 	import {
 		boxContainsPoint,
-		TimelineItemElementStyle,
 		type OffsetBox,
 	} from "src/timeline/layout/stage/TimelineItemElement";
 	import { type Scale } from "src/timeline/scale";
@@ -52,9 +51,6 @@
 		sortedItems: readonly SourceItem[];
 		scale: Scale;
 		focalValue: number;
-		width?: number;
-		clientWidth?: number;
-		clientHeight?: number;
 		// todo: replace flags with object of methods. ie: null | { onMove?(): void; onResize?(): void }
 		editable: boolean;
 		itemsResizable: boolean;
@@ -82,9 +78,6 @@
 		sortedItems: timelineItems,
 		scale,
 		focalValue,
-		width = $bindable(0),
-		clientWidth = $bindable(0),
-		clientHeight = $bindable(0),
 		editable,
 		itemsResizable,
 		summarizeItem,
@@ -95,19 +88,19 @@
 	}: Props = $props();
 
 	let canvas: HTMLCanvasElement | undefined = $state();
-	const pointElements: {
-		base: HTMLDivElement | undefined;
-		nextCol: HTMLDivElement | undefined;
-		selected: HTMLDivElement | undefined;
-		focused: HTMLDivElement | undefined;
-		nextRow: HTMLDivElement | undefined;
-	} = $state({
-		base: undefined,
-		nextCol: undefined,
-		selected: undefined,
-		focused: undefined,
-		nextRow: undefined,
-	});
+	// const pointElements: {
+	// 	base: HTMLDivElement | undefined;
+	// 	nextCol: HTMLDivElement | undefined;
+	// 	selected: HTMLDivElement | undefined;
+	// 	focused: HTMLDivElement | undefined;
+	// 	nextRow: HTMLDivElement | undefined;
+	// } = $state({
+	// 	base: undefined,
+	// 	nextCol: undefined,
+	// 	selected: undefined,
+	// 	focused: undefined,
+	// 	nextRow: undefined,
+	// });
 	let stageCSSTarget: HTMLDivElement | undefined = $state();
 
 	let innerWidth = $state(0);
@@ -122,82 +115,49 @@
 			left: 0,
 		},
 	});
+	$effect(() => {
+		const hPadding = viewport.width - innerWidth;
+		const vPadding = viewport.height - innerHeight;
+		viewport.padding = {
+			top: vPadding / 2,
+			right: hPadding / 2,
+			bottom: vPadding / 2,
+			left: hPadding / 2,
+		};
+	});
 
-	const item = $state({
-		width: 0,
-		height: 0,
+	const itemStyle = $state({
+		size: 0,
+
+		colorEl: undefined as HTMLElement | undefined,
+		color: "",
+
+		selected: {
+			borderWidth: 2,
+			colorEl: undefined as HTMLElement | undefined,
+			color: "",
+			borderColor: "",
+		},
+
 		margin: {
 			horizontal: 0,
 			vertical: 0,
+
+			top: 0,
+			right: 0,
+			bottom: 0,
+			left: 0,
 		},
 	});
 
-	const resizeObserver = new ResizeObserver((a) => {
-		if (
-			canvas == null ||
-			Object.values(pointElements).some((el) => el == null) ||
-			stageCSSTarget == null
-		) {
-			return;
-		}
-
-		// if it's completely minimized, no use recalculating everything, since
-		// none of it will be visible anyway.  Also, avoids resetting the
-		// scroll height to 0.
-		if (
-			stageCSSTarget.offsetHeight === 0 &&
-			stageCSSTarget.offsetWidth === 0
-		) {
-			return;
-		}
-
-		item.width = Math.round(pointElements.base!.clientWidth);
-		item.height = Math.round(pointElements.base!.clientHeight);
-		item.margin.horizontal = Math.round(
-			Math.max(
-				0,
-				pointElements.nextCol!.offsetLeft -
-					(pointElements.base!.offsetLeft + item.width),
-			),
-		);
-		item.margin.vertical = Math.round(
-			Math.max(
-				0,
-				pointElements.nextRow!.offsetTop -
-					(pointElements.base!.offsetTop + item.height),
-			),
-		);
-
-		(viewport.padding.top = Math.max(
-			0,
-			pointElements.base!.offsetTop - item.margin.vertical,
-		)),
-			(viewport.padding.left = Math.max(
-				0,
-				pointElements.base!.offsetLeft - item.margin.horizontal,
-			)),
-			(viewport.padding.right =
-				stageCSSTarget.clientWidth -
-				viewport.padding.left -
-				innerWidth),
-			(viewport.padding.bottom =
-				stageCSSTarget.clientHeight -
-				viewport.padding.top -
-				innerHeight),
-			(viewport.width = stageCSSTarget.clientWidth);
-		viewport.height = stageCSSTarget.clientHeight;
-
-		const reportedWidth =
+	export function fitWidth() {
+		return (
 			viewport.width -
 			viewport.padding.left -
 			viewport.padding.right -
-			item.width -
-			item.margin.horizontal;
-
-		if (width != reportedWidth) {
-			width = reportedWidth;
-		}
-	});
+			itemStyle.size
+		);
+	}
 
 	const items = $derived.by(() => {
 		const plotAreaItems = timelineItems.map(PlotAreaItem.from);
@@ -220,16 +180,7 @@
 
 	const layout = $derived.by(() => {
 		const plotAreaItems = scaled.items;
-		layoutItems(
-			item.height / 2,
-			{
-				top: item.margin.vertical,
-				left: item.margin.horizontal,
-				bottom: item.margin.vertical,
-				right: item.margin.horizontal,
-			},
-			plotAreaItems,
-		);
+		layoutItems(itemStyle.size / 2, itemStyle.margin, plotAreaItems);
 		return {
 			items: plotAreaItems,
 			_: Math.random(),
@@ -273,32 +224,25 @@
 			_: Math.random(),
 		};
 	});
-	let baseItemStyle = $state(TimelineItemElementStyle.unstyled);
-	let selectedItemStyle = $state(TimelineItemElementStyle.unstyled);
+
 	onMount(() => {
 		let cancelled = false;
 		function queryItemStyle() {
 			if (cancelled) return;
 
-			const base = pointElements.base,
-				selected = pointElements.selected;
+			const base = itemStyle.colorEl,
+				selected = itemStyle.selected.colorEl;
 			if (base === undefined || selected === undefined) {
 				requestAnimationFrame(queryItemStyle);
 				return;
 			}
 
-			const style = TimelineItemElementStyle.fromCSS(
-					getComputedStyle(base),
-				),
-				selectedStyle = TimelineItemElementStyle.fromCSS(
-					getComputedStyle(selected),
-				);
-			if (!style.equals(baseItemStyle)) {
-				baseItemStyle = style;
-			}
-			if (!selectedStyle.equals(selectedItemStyle)) {
-				selectedItemStyle = selectedStyle;
-			}
+			const baseStyle = getComputedStyle(base),
+				selectedStyle = getComputedStyle(selected);
+
+			itemStyle.color = baseStyle.backgroundColor;
+			itemStyle.selected.color = selectedStyle.backgroundColor;
+			itemStyle.selected.borderColor = selectedStyle.borderColor;
 
 			requestAnimationFrame(queryItemStyle);
 		}
@@ -311,29 +255,34 @@
 
 	const styled = $derived.by(() => {
 		const currentItems = items;
-		const currentItemStyle = baseItemStyle;
+		const itemColor = itemStyle.color;
 
 		if (selection.isEmpty()) {
 			currentItems.forEach((it) => {
 				const prefColor = it.color();
-				it.backgroundColor = prefColor ?? currentItemStyle.fill;
-				it.borderColor = prefColor ?? currentItemStyle.stroke;
-				it.strokeWidth = currentItemStyle.strokeWidth;
+				it.backgroundColor = prefColor ?? itemColor;
+				it.borderColor = prefColor ?? itemColor;
+				it.strokeWidth = 0;
 			});
 			return { items: currentItems, _: Math.random() };
 		}
 
-		const currentSelectedStyle = selectedItemStyle;
+		const selectedItemColor = itemStyle.selected.color;
+		const selectedItemBorder = {
+			color: itemStyle.selected.borderColor,
+			width: itemStyle.selected.borderWidth,
+		};
+
 		currentItems.forEach((it) => {
 			const prefColor = it.color();
 			if (selection.has(it)) {
-				it.backgroundColor = prefColor ?? currentSelectedStyle.fill;
-				it.borderColor = currentSelectedStyle.stroke;
-				it.strokeWidth = currentSelectedStyle.strokeWidth;
+				it.backgroundColor = prefColor ?? selectedItemColor;
+				it.borderColor = selectedItemBorder.color;
+				it.strokeWidth = selectedItemBorder.width;
 			} else {
-				it.backgroundColor = prefColor ?? currentItemStyle.fill;
-				it.borderColor = prefColor ?? currentItemStyle.stroke;
-				it.strokeWidth = currentItemStyle.strokeWidth;
+				it.backgroundColor = prefColor ?? itemColor;
+				it.borderColor = prefColor ?? itemColor;
+				it.strokeWidth = 0;
 			}
 		});
 		return { items: currentItems, _: Math.random() };
@@ -342,6 +291,9 @@
 	$effect(() => {
 		const currentCanvas = canvas;
 		if (currentCanvas === undefined) return;
+
+		const viewportWidth = viewport.width;
+		const viewportHeight = viewport.height;
 
 		const scrolledItems = scrolled.items;
 		// re-style should trigger a redraw
@@ -354,13 +306,13 @@
 
 			const ratio = activeWindow.devicePixelRatio || 1;
 			if (
-				currentCanvas.width != viewport.width * ratio ||
-				currentCanvas.height != viewport.height * ratio
+				currentCanvas.width != viewportWidth * ratio ||
+				currentCanvas.height != viewportHeight * ratio
 			) {
-				currentCanvas.width = viewport.width * ratio;
-				currentCanvas.height = viewport.height * ratio;
-				currentCanvas.style.width = viewport.width + "px";
-				currentCanvas.style.height = viewport.height + "px";
+				currentCanvas.width = viewportWidth * ratio;
+				currentCanvas.height = viewportHeight * ratio;
+				currentCanvas.style.width = viewportWidth + "px";
+				currentCanvas.style.height = viewportHeight + "px";
 				renderContext.scale(ratio, ratio);
 			}
 
@@ -1014,17 +966,16 @@
 	let scrollbarWidth = $derived(
 		scrollbarMeasurerFullWidth - scrollbarMeasurerInnerWidth,
 	);
-	$effect(() => {
-		clientWidth = viewport.width - scrollbarWidth;
-	});
+	const _clientWidth = $derived(viewport.width - scrollbarWidth);
+	export function clientWidth() {
+		return _clientWidth;
+	}
+
 	let scrollbarMeasurerFullHeight: number = $state(0);
 	let scrollbarMeasurerInnerHeight: number = $state(0);
 	let scrollbarHeight = $derived(
 		scrollbarMeasurerFullHeight - scrollbarMeasurerInnerHeight,
 	);
-	run(() => {
-		clientHeight = viewport.height - scrollbarHeight;
-	});
 
 	function handleHScroll(event: ChangeEvent) {
 		dispatch(
@@ -1037,45 +988,60 @@
 	function handleVScroll(event: ChangeEvent) {
 		scrollVertically(event.detail.value);
 	}
-
-	onMount(() => {
-		if (
-			canvas == null ||
-			Object.values(pointElements).some((el) => el == null) ||
-			stageCSSTarget == null
-		) {
-			return;
-		}
-
-		resizeObserver.observe(canvas);
-		Object.values(pointElements).forEach((element) =>
-			resizeObserver.observe(element!),
-		);
-		resizeObserver.observe(stageCSSTarget);
-	});
 </script>
 
 <div
 	id="stage"
+	bind:offsetWidth={viewport.width}
+	bind:offsetHeight={viewport.height}
 	bind:this={stageCSSTarget}
 	aria-readonly={!editable}
 	class:hovered={hover != null}
 	data-hover-side={hover != null ? hover.side : undefined}
 >
-	<Background {scrollTop} itemDimensions={item} {viewport} />
-	<div style="display: flex;flex-direction: row;">
-		<div class="timeline-item" bind:this={pointElements.base}></div>
-		<div class="timeline-item" bind:this={pointElements.nextCol}></div>
+	<Background {scrollTop} itemDimensions={itemStyle} {viewport} />
+	<div style="visibility: hidden;position:absolute;">
 		<div
-			class="timeline-item selected"
-			bind:this={pointElements.selected}
+			class="measurer"
+			style="width:var(--item-margin-top, 2px);"
+			bind:clientWidth={itemStyle.margin.top}
 		></div>
 		<div
-			class="timeline-item focused"
-			bind:this={pointElements.focused}
+			class="measurer"
+			style={"width:var(--item-margin-left, 2px);"}
+			bind:clientWidth={itemStyle.margin.left}
+		></div>
+		<div
+			class="measurer"
+			style="width:var(--item-margin-bottom, 2px);"
+			bind:clientWidth={itemStyle.margin.bottom}
+		></div>
+		<div
+			class="measurer"
+			style="width:var(--item-margin-right, 2px);"
+			bind:clientWidth={itemStyle.margin.right}
+		></div>
+		<div
+			class="measurer"
+			style="width:var(--item-size, 16px);"
+			bind:clientWidth={itemStyle.size}
+		></div>
+		<div
+			class="measurer"
+			style="width:var(--selected-item-border-width, 2px);"
+			bind:clientWidth={itemStyle.selected.borderWidth}
+		></div>
+		<div
+			class="measurer"
+			style="background-color:var(--item-color, darkgray);"
+			bind:this={itemStyle.colorEl}
+		></div>
+		<div
+			class="measurer"
+			style="background-color:var(--selected-item-color,var(--background,darkgray));border-color:var(--selected-item-border-color, darkgray);"
+			bind:this={itemStyle.selected.colorEl}
 		></div>
 	</div>
-	<div class="timeline-item" bind:this={pointElements.nextRow}></div>
 	<div
 		class="bottom-right-padding-measure"
 		bind:offsetWidth={innerWidth}
@@ -1212,19 +1178,11 @@
 ></div>
 
 <style>
-	:global(.timeline-item) {
-		background-color: var(--item-color);
-		margin-top: var(--item-margin-top, 2px);
-		margin-right: var(--item-margin-right, 2px);
-		margin-bottom: var(--item-margin-bottom, 2px);
-		margin-left: var(--item-margin-left 2px);
-	}
-
-	:global(.timeline-item.selected) {
-		background-color: var(--selected-item-color);
-		border-width: var(--selected-item-border-width, 2px);
-		border-color: var(--selected-item-border-color, var(--background));
-		border-style: solid;
+	div.measurer {
+		position: absolute;
+		left: -9999px;
+		visibility: hidden !important;
+		height: 1px;
 	}
 
 	div#stage {
@@ -1260,11 +1218,7 @@
 		top: 0;
 		left: 0;
 	}
-	div#stage .timeline-item {
-		visibility: hidden !important;
-		width: var(--timeline-item-diameter);
-		height: var(--timeline-item-diameter);
-	}
+
 	div#stage .bottom-right-padding-measure {
 		width: 1005;
 		height: 100%;

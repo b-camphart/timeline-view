@@ -96,8 +96,8 @@
 	const focalValue = namespacedWritable.make("focalValue", 0);
 	const persistedValuePerPixel = namespacedWritable.make("scale", 1);
 
-	const stageWidth = writable(0);
-	let stageClientWidth = $state(0);
+	let plotarea = $state<null | CanvasStage<T, TimelineItem<T>>>(null);
+	const fitWidth = $derived(plotarea?.fitWidth() ?? 0);
 
 	function scaleStore(initialScale: Scale = new ValuePerPixelScale(1)) {
 		function atLeastMinimum(value: Scale) {
@@ -205,31 +205,33 @@
 				$focalValue = newFocalValue;
 			}
 		},
-		() => $stageWidth,
+		() => fitWidth,
 	);
 
+	let needsZoomToFit = $state(false);
 	export function zoomToFit() {
 		if (initialized) {
-			navigation.zoomToFit(timelineItems, $stageWidth);
+			navigation.zoomToFit(timelineItems, fitWidth);
 		} else {
-			const unsubscribe = stageWidth.subscribe((newStageWidth) => {
-				if (newStageWidth > 0) {
-					navigation.zoomToFit(timelineItems, newStageWidth);
-					unsubscribe();
-				}
-			});
+			needsZoomToFit = true;
 		}
 	}
+
+	$effect(() => {
+		if (needsZoomToFit && fitWidth > 0) {
+			needsZoomToFit = false;
+			navigation.zoomToFit(timelineItems, fitWidth);
+		}
+	});
 
 	export function refresh() {
 		// items = items;
 	}
 
 	export function focusOnId(id: string) {
-		canvasStage.focusOnId(id);
+		plotarea?.focusOnId(id);
 	}
 
-	let canvasStage: CanvasStage<T, TimelineItem<T>>;
 	export function invalidateColors() {
 		// canvasStage.invalidateColors();
 	}
@@ -237,7 +239,7 @@
 	let initialized = false;
 	$effect(() => {
 		if (!initialized) {
-			if ($stageWidth > 0) {
+			if (fitWidth > 0) {
 				initialized = true;
 			}
 		}
@@ -276,7 +278,7 @@
 <div
 	class="timeline"
 	style:--ruler-height="{rulerHeight}px"
-	style:--stage-client-width="{stageClientWidth}px"
+	style:--plotarea-client-width="{plotarea?.clientWidth() ?? 0}px"
 >
 	<TimelineRuler
 		{display}
@@ -286,7 +288,7 @@
 	/>
 	<css-wrapper class="plotarea">
 		<CanvasStage
-			bind:this={canvasStage}
+			bind:this={plotarea}
 			previewItem={(item, name, value, length, endValue) => {
 				const currentLength = selectLength(item.source);
 
@@ -299,8 +301,6 @@
 			sortedItems={sorted.items}
 			scale={$scale}
 			focalValue={$focalValue}
-			bind:width={$stageWidth}
-			bind:clientWidth={stageClientWidth}
 			editable={mode != null ? $mode === "edit" : false}
 			{itemsResizable}
 			on:scrollToValue={(event) => navigation.scrollToValue(event.detail)}
@@ -367,7 +367,7 @@
 		top: var(--ruler-height);
 		margin-top: var(--size-4-2);
 		margin-right: var(--size-4-2);
-		right: calc(100% - var(--stage-client-width));
+		right: calc(100% - var(--plotarea-client-width));
 	}
 	/*! Icon sizing */
 	:global(.timeline-controls) {

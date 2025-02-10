@@ -1,10 +1,8 @@
 <script lang="ts">
-	
-
 	interface Props {
 		scrollTop: number;
 		itemDimensions: Readonly<{
-			height: number;
+			size: number;
 			margin: Readonly<{
 				vertical: number;
 			}>;
@@ -18,9 +16,12 @@
 
 	let { scrollTop, itemDimensions, viewport }: Props = $props();
 
-	let spacingBetweenItems =
-		$derived(itemDimensions.height + itemDimensions.margin.vertical);
-	let rowCenterOffset = $derived(spacingBetweenItems / 2 + viewport.padding.top + 0.5);
+	let spacingBetweenItems = $derived(
+		itemDimensions.size + itemDimensions.margin.vertical,
+	);
+	let rowCenterOffset = $derived(
+		spacingBetweenItems / 2 + viewport.padding.top + 0.5,
+	);
 
 	const backgroundPatternId = Math.random().toString(36).slice(2);
 </script>
