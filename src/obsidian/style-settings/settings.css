@@ -8,8 +8,8 @@ settings:
         title: Background color
         type: variable-themed-color
         format: hex
-        default-dark: '#1e1e1e'
-        default-light: '#ffffff'
+        default-dark: '#'
+        default-light: '#'
     -
         id: items
         title: Items
@@ -22,8 +22,8 @@ settings:
         description: "The default color for an item if it doesn't belong to a group"
         type: variable-themed-color
         format: hex
-        default-dark: '#3b3b3b'
-        default-light: '#5c5c5c'
+        default-dark: '#'
+        default-light: '#'
     -
         id: timeline-item-size
         title: Size
@@ -37,8 +37,8 @@ settings:
         type: variable-themed-color
         format: hex
         opacity: true
-        default-dark: '#1e1e1eff'
-        default-light: '#ffffffff'
+        default-dark: '#'
+        default-light: '#'
     -
         id: timeline-selected-item-border-width
         title: Selected item border width
@@ -50,8 +50,8 @@ settings:
         title: Selected item border color
         type: variable-themed-color
         format: rgb
-        default-dark: 'rgb(166, 138, 249)'
-        default-light: 'rgb(138, 92, 245)'
+        default-dark: '#'
+        default-light: '#'
 
     -
         id: timeline-item-margin
