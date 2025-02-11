@@ -374,6 +374,8 @@
 
 		--background-line-color: var(--plotarea-background-line-color);
 		--background-line-width: var(--plotarea-background-line-width);
+		--background-line-dash-on: var(--plotarea-background-line-dash-on);
+		--background-line-dash-off: var(--plotarea-background-line-dash-off);
 	}
 
 	/*! Positioning */

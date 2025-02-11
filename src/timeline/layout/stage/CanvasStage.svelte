@@ -28,6 +28,7 @@
 	import { Selection } from "src/timeline/layout/stage/selection.svelte";
 	import CssProp from "src/view/CSSProp.svelte";
 	import CssColorProp from "src/view/CSSColorProp.svelte";
+	import Background from "src/timeline/layout/stage/Background.svelte";
 
 	type Item = PlotAreaItem<T, SourceItem>;
 
@@ -969,7 +970,7 @@
 	data-hover-side={hover != null ? hover.side : undefined}
 	style:--cross-axis-scroll="{scrollTop}px"
 >
-	<!-- <Background {scrollTop} itemDimensions={itemStyle} {viewport} /> -->
+	<Background />
 
 	<div
 		class="bottom-right-padding-measure"
@@ -1133,19 +1134,7 @@
 				max(var(--item-margin-top), var(--item-margin-bottom))
 		);
 	}
-	div {
-		--line-color: var(--background-line-color);
-		--line-width: var(--background-line-width);
-		--gap: var(--item-cross-axis-spacing);
-		--start-y: calc(var(--padding-top) + var(--gap) / 2);
 
-		background: linear-gradient(
-			var(--line-color) var(--line-width),
-			transparent var(--line-width)
-		);
-		background-size: 100% var(--gap);
-		background-position-y: calc(var(--start-y) - var(--cross-axis-scroll));
-	}
 	div#stage {
 		padding-top: var(--padding-top, 8px);
 		padding-left: var(--padding-left, 8px);
