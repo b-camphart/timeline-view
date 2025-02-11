@@ -5,7 +5,6 @@
 	import type { Scale } from "src/timeline/scale";
 	import Playhead from "./Playhead.svelte";
 
-
 	let width: number = $state(0);
 	interface Props {
 		display: RulerValueDisplay | undefined;
@@ -18,9 +17,9 @@
 		display,
 		scale,
 		focalValue,
-		clientHeight: height = $bindable(0)
+		clientHeight: height = $bindable(0),
 	}: Props = $props();
-	
+
 	const dispatch = createEventDispatcher<{
 		mouseMeasurement: { value: string; x: number } | undefined;
 	}>();
@@ -45,19 +44,22 @@
 		return Math.floor(valueOnLeftSide / labelStepValue) * labelStepValue;
 	}
 
-	let labelStepValue = $derived(display?.getSmallestLabelStepValue(scale) ?? 0);
+	let labelStepValue = $derived(
+		display?.getSmallestLabelStepValue(scale) ?? 0,
+	);
 	let labelStepWidth = $derived(scale.toPixels(labelStepValue));
+
 	let labelCount = $derived(getLabelCount(labelStepWidth, width));
 
-	let firstLabelValue = $derived(getFirstLabelValue(
-		focalValue,
-		scale,
-		labelStepValue,
-		width,
-	));
+	let firstLabelValue = $derived(
+		getFirstLabelValue(focalValue, scale, labelStepValue, width),
+	);
 
-	let labels =
-		$derived(display?.labels(labelCount, labelStepValue, firstLabelValue) ?? []);
+	let labels = $derived(
+		display?.labels(labelCount, labelStepValue, firstLabelValue) ?? [],
+	);
+
+	function positionOf(label: { value: number }) {}
 
 	let mousePosition: { value: string; x: number } | undefined = $state();
 
@@ -104,7 +106,8 @@
 	<RulerLabel
 		text={"1234567890-:/APM"}
 		position={0}
-		style="position:relative;visibility:hidden;"
+		style="position:relative;"
+		hidden
 	/>
 	{#each labels as label (label.value)}
 		<RulerLabel
@@ -115,25 +118,12 @@
 </div>
 
 <style>
-	@property --timeline-ruler-background {
-		syntax: "<color>";
-		inherits: true;
-	}
-	@property --timeline-ruler-size {
-		syntax: "<length>";
-		inherits: true;
+	:global(.ruler) {
+		border-bottom: var(--border-color) var(--border-width) solid;
 	}
 
-	:global(.ruler) {
-		background-color: var(
-			--timeline-ruler-background,
-			var(--timeline-background)
-		);
-		height: var(--timeline-ruler-size, auto);
-	}
 	div {
 		width: 100%;
 		position: relative;
-		overflow-x: hidden;
 	}
 </style>

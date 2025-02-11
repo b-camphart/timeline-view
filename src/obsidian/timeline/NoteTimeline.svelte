@@ -772,6 +772,14 @@
 			--timeline-plotarea-padding-right,
 			var(--size-4-12)
 		);
+
+		--ruler-border-color: var(--divider-color);
+		--ruler-border-width: var(--divider-width);
+		--ruler-label-padding: var(--size-2-2);
+		--ruler-label-font-size: var(--font-ui-small);
+		--ruler-label-font-weight: var(--font-normal);
+		--ruler-label-border-color: var(--color-base-30);
+		--ruler-label-border-width: 1px;
 	}
 
 	:global(body) {

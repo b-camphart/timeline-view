@@ -280,12 +280,14 @@
 	style:--ruler-height="{rulerHeight}px"
 	style:--plotarea-client-width="{plotarea?.clientWidth() ?? 0}px"
 >
-	<TimelineRuler
-		{display}
-		scale={$scale}
-		focalValue={$focalValue}
-		bind:clientHeight={rulerHeight}
-	/>
+	<css-wrapper class="ruler">
+		<TimelineRuler
+			{display}
+			scale={$scale}
+			focalValue={$focalValue}
+			bind:clientHeight={rulerHeight}
+		/>
+	</css-wrapper>
 	<css-wrapper class="plotarea">
 		<CanvasStage
 			bind:this={plotarea}
@@ -353,6 +355,16 @@
 
 	css-wrapper {
 		display: contents;
+	}
+	css-wrapper.ruler {
+		--border-color: var(--ruler-border-color);
+		--border-width: var(--ruler-border-width);
+
+		--label-padding: var(--ruler-label-padding);
+		--label-font-size: var(--ruler-label-font-size);
+		--label-font-weight: var(--ruler-label-font-weight);
+		--label-border-color: var(--ruler-label-border-color);
+		--label-border-width: var(--ruler-label-border-width);
 	}
 	css-wrapper.plotarea {
 		--padding-top: var(--plotarea-padding-top);
