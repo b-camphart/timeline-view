@@ -1134,12 +1134,13 @@
 		);
 	}
 	div {
-		--line-width: 1px;
+		--line-color: var(--background-line-color);
+		--line-width: var(--background-line-width);
 		--gap: var(--item-cross-axis-spacing);
 		--start-y: calc(var(--padding-top) + var(--gap) / 2);
 
 		background: linear-gradient(
-			var(--color-base-30) var(--line-width),
+			var(--line-color) var(--line-width),
 			transparent var(--line-width)
 		);
 		background-size: 100% var(--gap);

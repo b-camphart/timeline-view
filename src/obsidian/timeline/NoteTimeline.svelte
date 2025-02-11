@@ -773,6 +773,9 @@
 			var(--size-4-12)
 		);
 
+		--plotarea-background-line-color: var(--canvas-dot-pattern);
+		--plotarea-background-line-width: 1px;
+
 		--ruler-border-color: var(--divider-color);
 		--ruler-border-width: var(--divider-width);
 		--ruler-label-padding: var(--size-2-2);

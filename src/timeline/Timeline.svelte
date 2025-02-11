@@ -371,6 +371,9 @@
 		--padding-left: var(--plotarea-padding-left);
 		--padding-bottom: var(--plotarea-padding-bottom);
 		--padding-right: var(--plotarea-padding-right);
+
+		--background-line-color: var(--plotarea-background-line-color);
+		--background-line-width: var(--plotarea-background-line-width);
 	}
 
 	/*! Positioning */
