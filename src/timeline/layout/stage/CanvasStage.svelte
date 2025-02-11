@@ -2,9 +2,7 @@
 	lang="ts"
 	generics="T extends TimelineItemSource, SourceItem extends PlotAreaSourceItem<T>"
 >
-	import { run } from "svelte/legacy";
-
-	import { createEventDispatcher, onMount, untrack } from "svelte";
+	import { createEventDispatcher, untrack } from "svelte";
 	import { renderLayout } from "./draw";
 	import {
 		boxContainsPoint,
@@ -19,7 +17,6 @@
 	import SelectionArea from "./CanvasSelectionArea.svelte";
 	import SelectedBounds from "./SelectedBounds.svelte";
 	import DraggedItem from "./DraggedItem.svelte";
-	import Background from "src/timeline/layout/stage/Background.svelte";
 	import { DragPreviewElement } from "src/timeline/layout/stage/drag.svelte";
 	import { on } from "svelte/events";
 	import { layoutItems } from "src/timeline/layout/stage/layout";
@@ -970,8 +967,9 @@
 	aria-readonly={!editable}
 	class:hovered={hover != null}
 	data-hover-side={hover != null ? hover.side : undefined}
+	style:--cross-axis-scroll="{scrollTop}px"
 >
-	<Background {scrollTop} itemDimensions={itemStyle} {viewport} />
+	<!-- <Background {scrollTop} itemDimensions={itemStyle} {viewport} /> -->
 
 	<div
 		class="bottom-right-padding-measure"
@@ -1129,6 +1127,24 @@
 />
 
 <style>
+	div {
+		--item-cross-axis-spacing: calc(
+			var(--item-size) +
+				max(var(--item-margin-top), var(--item-margin-bottom))
+		);
+	}
+	div {
+		--line-width: 1px;
+		--gap: var(--item-cross-axis-spacing);
+		--start-y: calc(var(--padding-top) + var(--gap) / 2);
+
+		background: linear-gradient(
+			var(--color-base-30) var(--line-width),
+			transparent var(--line-width)
+		);
+		background-size: 100% var(--gap);
+		background-position-y: calc(var(--start-y) - var(--cross-axis-scroll));
+	}
 	div#stage {
 		padding-top: var(--padding-top, 8px);
 		padding-left: var(--padding-left, 8px);
