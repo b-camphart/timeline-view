@@ -90,23 +90,8 @@
 	}: Props = $props();
 
 	let canvas: HTMLCanvasElement | undefined = $state();
-	// const pointElements: {
-	// 	base: HTMLDivElement | undefined;
-	// 	nextCol: HTMLDivElement | undefined;
-	// 	selected: HTMLDivElement | undefined;
-	// 	focused: HTMLDivElement | undefined;
-	// 	nextRow: HTMLDivElement | undefined;
-	// } = $state({
-	// 	base: undefined,
-	// 	nextCol: undefined,
-	// 	selected: undefined,
-	// 	focused: undefined,
-	// 	nextRow: undefined,
-	// });
 	let stageCSSTarget: HTMLDivElement | undefined = $state();
 
-	let innerWidth = $state(0);
-	let innerHeight = $state(0);
 	const viewport = $state({
 		width: 0,
 		height: 0,
@@ -296,7 +281,7 @@
 	const elements = $derived(scrolled.items);
 	$effect(() => {
 		const currentHover = hover;
-		if (currentHover !== null) {
+		if (currentHover instanceof HoveredItem) {
 			const scrolledItems = scrolled.items;
 			if (
 				currentHover.element.offsetContains(
@@ -438,7 +423,7 @@
 	function handleMouseDown(event: MouseEvent) {
 		focusCausedByClick = true;
 
-		if (hover == null || hover.element == null) {
+		if (!(hover instanceof HoveredItem) || hover.element == null) {
 			focus = null;
 
 			if (
@@ -764,7 +749,7 @@
 				);
 				return;
 			}
-			if (hover == null || hover.element == null) {
+			if (!(hover instanceof HoveredItem) || hover.element == null) {
 				return;
 			}
 			oncontextmenu(event, [hover.element.item]);
@@ -775,7 +760,7 @@
 		}
 		const mouseWasDownOn = mouseDownOn;
 		mouseDownOn = null;
-		if (hover == null || hover.element == null) {
+		if (!(hover instanceof HoveredItem) || hover.element == null) {
 			return;
 		}
 		if (hover.element !== mouseWasDownOn) {
@@ -836,7 +821,9 @@
 		}
 	}
 
-	let hover = $state<HoveredItem | null>(null);
+	const WithinSelection = Symbol();
+
+	let hover = $state<HoveredItem | typeof WithinSelection | null>(null);
 
 	class Focus {
 		#element: Item = $state(undefined as any as Item);
@@ -927,6 +914,18 @@
 					return;
 				}
 			}
+			if (selectionBounds != null) {
+				if (
+					boxContainsPoint(
+						selectionBounds,
+						event.offsetX,
+						event.offsetY,
+					)
+				) {
+					hover = WithinSelection;
+					return;
+				}
+			}
 		}
 		hover = null;
 	}
@@ -967,7 +966,8 @@
 	bind:this={stageCSSTarget}
 	aria-readonly={!editable}
 	class:hovered={hover != null}
-	data-hover-side={hover != null ? hover.side : undefined}
+	data-hover-over-selection={hover === WithinSelection}
+	data-hover-side={hover instanceof HoveredItem ? hover.side : undefined}
 	style:--cross-axis-scroll="{scrollTop}px"
 >
 	<Background />
@@ -979,13 +979,12 @@
 			viewport.padding.bottom = box.bottom;
 		}}
 	/>
-
-	<div
-		class="bottom-right-padding-measure"
-		bind:offsetWidth={innerWidth}
-		bind:offsetHeight={innerHeight}
-	></div>
 	<SelectionArea area={selectionArea} />
+	<SelectedBounds
+		dragging={dragPreview != null}
+		bounds={selectionBounds}
+		selectedItemCount={selection.length()}
+	/>
 	<canvas
 		bind:this={canvas}
 		tabindex={0}
@@ -1040,12 +1039,7 @@
 			}
 		}}
 	></canvas>
-	<SelectedBounds
-		dragging={dragPreview != null}
-		bounds={selectionBounds}
-		selectedItemCount={selection.length()}
-	/>
-	{#if hover != null}
+	{#if hover instanceof HoveredItem}
 		<Hover
 			position={hover.element}
 			summary={summarizeItem(hover.element.item)}
@@ -1165,6 +1159,11 @@
 	}
 	div#stage.hovered[data-hover-side="right"] {
 		cursor: w-resize;
+	}
+	div#stage:not(
+			[aria-readonly="true"]
+		).hovered[data-hover-over-selection="true"] {
+		cursor: grab;
 	}
 	div#stage[aria-readonly="true"][data-hover-side="left"],
 	div#stage[aria-readonly="true"][data-hover-side="right"] {

@@ -3,23 +3,23 @@
 	import type { OffsetBox } from "./TimelineItemElement";
 
 	interface Props {
-		area: OffsetBox | undefined | null;
-		role?: AriaRole | undefined;
-		selected?: true;
+		area: OffsetBox | null;
+		role?: AriaRole;
+		label?: string;
 	}
 
-	let { area, role = undefined, selected }: Props = $props();
+	let { area, role, label }: Props = $props();
 </script>
 
 {#if area != null}
 	<div
 		class="timeline-selection-area"
-		aria-selected={selected}
 		style:--left="{area.offsetLeft}px"
 		style:--top={area.offsetTop + "px"}
 		style:--width={area.offsetWidth + "px"}
 		style:--height={area.offsetHeight + "px"}
 		{role}
+		aria-label={label}
 	></div>
 {/if}
 
@@ -30,7 +30,7 @@
 			var(--selection-area-border-color);
 		border-radius: var(--selection-area-border-radius);
 	}
-	div[aria-selected] {
+	div[role="region"] {
 		background-color: var(--selected-area-background-color);
 		border: var(--selected-area-border-width) solid
 			var(--selected-area-border-color);
