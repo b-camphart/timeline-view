@@ -107,6 +107,7 @@
 
 	const itemStyle = $state({
 		size: 16,
+		radius: 8,
 
 		color: "darkgray",
 
@@ -261,6 +262,7 @@
 		// re-style should trigger a redraw
 		styled.items;
 		const previewItems = dragPreview?.arr() ?? null;
+		const radius = itemStyle.radius;
 
 		const handle = requestAnimationFrame(function draw() {
 			const renderContext = currentCanvas.getContext("2d");
@@ -278,7 +280,13 @@
 				renderContext.scale(ratio, ratio);
 			}
 
-			renderLayout(renderContext, viewport, scrolledItems, previewItems);
+			renderLayout(
+				renderContext,
+				viewport,
+				radius,
+				scrolledItems,
+				previewItems,
+			);
 		});
 		return () => {
 			cancelAnimationFrame(handle);
@@ -1122,6 +1130,7 @@
 <CssProp name="--item-margin-bottom" bind:value={itemStyle.margin.bottom} />
 <CssProp name="--item-margin-right" bind:value={itemStyle.margin.right} />
 <CssProp name="--item-size" bind:value={itemStyle.size} />
+<CssProp name="--item-radius" bind:value={itemStyle.radius} />
 <CssColorProp name="--item-color" bind:value={itemStyle.color} />
 <CssProp
 	name="--selected-item-border-width"

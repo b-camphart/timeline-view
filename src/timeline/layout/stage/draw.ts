@@ -1,26 +1,43 @@
-import type {CanvasElement, CanvasViewport} from "src/timeline/layout/stage/CanvasStage";
+import type {
+	CanvasElement,
+	CanvasViewport,
+} from "src/timeline/layout/stage/CanvasStage";
 
 export type Context = Pick<
 	CanvasRenderingContext2D,
-	"fillStyle" | "strokeStyle" | "lineWidth" | "beginPath" | "closePath" | "fill" | "stroke" | "roundRect" | "moveTo"
+	| "fillStyle"
+	| "strokeStyle"
+	| "lineWidth"
+	| "beginPath"
+	| "closePath"
+	| "fill"
+	| "stroke"
+	| "roundRect"
+	| "moveTo"
+	| "rect"
 >;
 
 export function renderLayout(
 	context: CanvasRenderingContext2D,
 	viewport: CanvasViewport,
+	radius: number,
 	layout: readonly CanvasElement[],
 	dragPreview: readonly CanvasElement[] | null,
 ) {
 	context.beginPath();
 	context.clearRect(0, 0, viewport.width, viewport.height);
 
-	renderItemsSequentially(context, viewport, layout);
+	renderItemsSequentially(context, viewport, layout, radius);
 	if (dragPreview != null && dragPreview.length > 0) {
-		renderItemsSequentially(context, viewport, dragPreview);
+		renderItemsSequentially(context, viewport, dragPreview, radius);
 	}
 }
 
-export function batchRenderItems(context: Context, viewport: CanvasViewport, items: readonly CanvasElement[]) {
+export function batchRenderItems(
+	context: Context,
+	viewport: CanvasViewport,
+	items: readonly CanvasElement[],
+) {
 	const batches = new Map<string, CanvasElement[]>();
 
 	const defaultColor = context.fillStyle;
@@ -71,7 +88,12 @@ export function batchRenderItems(context: Context, viewport: CanvasViewport, ite
 	}
 }
 
-export function renderItemsSequentially(context: Context, viewport: CanvasViewport, items: readonly CanvasElement[]) {
+export function renderItemsSequentially(
+	context: Context,
+	viewport: CanvasViewport,
+	items: readonly CanvasElement[],
+	radius: number,
+) {
 	const defaultBorderColor = context.strokeStyle;
 	const defaultColor = context.fillStyle;
 	const defaultStrokeWidth = 0;
@@ -79,6 +101,28 @@ export function renderItemsSequentially(context: Context, viewport: CanvasViewpo
 	let currentBorderColor = defaultBorderColor;
 	let currentFillColor = defaultColor;
 	let currentStrokeWidth = 2;
+
+	const drawItem =
+		radius === 0
+			? (item: CanvasElement) => {
+					context.moveTo(item.offsetRight, item.offsetTop);
+					context.rect(
+						item.offsetLeft,
+						item.offsetTop,
+						item.offsetWidth,
+						item.offsetHeight,
+					);
+				}
+			: (item: CanvasElement) => {
+					context.moveTo(item.offsetRight, item.offsetTop);
+					context.roundRect(
+						item.offsetLeft,
+						item.offsetTop,
+						item.offsetWidth,
+						item.offsetHeight,
+						radius,
+					);
+				};
 
 	context.beginPath();
 
@@ -92,7 +136,11 @@ export function renderItemsSequentially(context: Context, viewport: CanvasViewpo
 		const borderColor = item.borderColor ?? defaultBorderColor;
 		const strokeWidth = item.strokeWidth ?? defaultStrokeWidth;
 
-		if (color !== currentFillColor || borderColor !== currentBorderColor || strokeWidth !== currentStrokeWidth) {
+		if (
+			color !== currentFillColor ||
+			borderColor !== currentBorderColor ||
+			strokeWidth !== currentStrokeWidth
+		) {
 			context.fill();
 			if (currentStrokeWidth > 0) {
 				context.stroke();
@@ -109,8 +157,7 @@ export function renderItemsSequentially(context: Context, viewport: CanvasViewpo
 			currentStrokeWidth = strokeWidth;
 		}
 
-		context.moveTo(item.offsetRight, item.offsetTop);
-		context.roundRect(item.offsetLeft, item.offsetTop, item.offsetWidth, item.offsetHeight, item.offsetHeight / 2);
+		drawItem(item);
 	}
 	context.closePath();
 	context.fill();

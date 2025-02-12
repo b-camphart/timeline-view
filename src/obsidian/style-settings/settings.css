@@ -31,6 +31,13 @@ settings:
         default: 16
         format: px
     -
+        id: timeline-item-radius
+        title: Radius
+        description: "How rounded should the items be.  Defaults to half the item size."
+        type: variable-number
+        default: 8
+        format: px
+    -
         id: timeline-selected-item-color
         title: Selected item color
         description: "By default, selected items retain their color.  If the opacity is less than 1, the item's group color will show through."

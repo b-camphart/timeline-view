@@ -99,7 +99,7 @@
 
 	div {
 		height: var(--timeline-item-diameter);
-		border-radius: var(--timeline-item-diameter);
+		border-radius: var(--item-radius);
 
 		position: absolute;
 		margin: 0;

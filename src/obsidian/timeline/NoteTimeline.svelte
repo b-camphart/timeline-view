@@ -722,7 +722,9 @@
 		--background: var(--timeline-background, var(--canvas-background));
 
 		--item-color: var(--timeline-item-color, var(--graph-node));
+
 		--item-size: var(--timeline-item-size, var(--size-4-4));
+		--item-radius: var(--timeline-item-radius, calc(var(--item-size) / 2));
 
 		--selected-item-color: var(--timeline-selected-item-color, transparent);
 		--selected-item-border-color: var(
