@@ -31,6 +31,8 @@
 	import Background from "src/timeline/layout/stage/Background.svelte";
 	import Padding from "src/timeline/layout/stage/Padding.svelte";
 	import type { FitBounds } from "src/timeline/controls/navigation/zoomToFit";
+	import { parse } from "path";
+	import { blendColors, OverlayColor, parseColor } from "src/color";
 
 	type Item = PlotAreaItem<T, SourceItem>;
 
@@ -124,6 +126,9 @@
 			left: 2,
 		},
 	});
+	const selectedColorOverlay = $derived(
+		new OverlayColor(itemStyle.selected.color),
+	);
 
 	export function fitBounds(): FitBounds {
 		return {
@@ -222,7 +227,7 @@
 			return { items: currentItems, _: Math.random() };
 		}
 
-		const selectedItemColor = itemStyle.selected.color;
+		const selectedItemColor = selectedColorOverlay;
 		const selectedItemBorder = {
 			color: itemStyle.selected.borderColor,
 			width: itemStyle.selected.borderWidth,
@@ -231,7 +236,9 @@
 		currentItems.forEach((it) => {
 			const prefColor = it.color();
 			if (selection.has(it)) {
-				it.backgroundColor = prefColor ?? selectedItemColor;
+				it.backgroundColor = selectedItemColor.blend(
+					prefColor ?? itemColor,
+				);
 				it.borderColor = selectedItemBorder.color;
 				it.strokeWidth = selectedItemBorder.width;
 			} else {

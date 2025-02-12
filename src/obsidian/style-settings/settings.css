@@ -33,17 +33,17 @@ settings:
     -
         id: timeline-selected-item-color
         title: Selected item color
-        description: "By default, the selected item is the same color as the background.  If the opacity is less than 1, the item's group color will show through."
+        description: "By default, selected items retain their color.  If the opacity is less than 1, the item's group color will show through."
         type: variable-themed-color
         format: hex
         opacity: true
-        default-dark: '#'
-        default-light: '#'
+        default-dark: '#0000'
+        default-light: '#fff0'
     -
         id: timeline-selected-item-border-width
         title: Selected item border width
         type: variable-number
-        default: 1
+        default: 3
         format: px
     -
         id: timeline-selected-item-border-color

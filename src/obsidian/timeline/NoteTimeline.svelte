@@ -724,17 +724,14 @@
 		--item-color: var(--timeline-item-color, var(--graph-node));
 		--item-size: var(--timeline-item-size, var(--size-4-4));
 
-		--selected-item-color: var(
-			--timeline-selected-item-color,
-			var(--background)
-		);
+		--selected-item-color: var(--timeline-selected-item-color, transparent);
 		--selected-item-border-color: var(
 			--timeline-selected-item-border-color,
 			var(--color-accent)
 		);
 		--selected-item-border-width: var(
 			--timeline-selected-item-border-width,
-			2px
+			3px
 		);
 
 		--plotarea-padding-top: var(
