@@ -169,7 +169,7 @@
 
 	const layout = $derived.by(() => {
 		const plotAreaItems = scaled.items;
-		layoutItems(itemStyle.size / 2, itemStyle.margin, plotAreaItems);
+		layoutItems(itemStyle.size, itemStyle.margin, plotAreaItems);
 		return {
 			items: plotAreaItems,
 			_: Math.random(),
@@ -369,7 +369,7 @@
 					selectedItem.item.value(),
 					selectedItem.item.length(),
 					selectedItem.item.value() + selectedItem.item.length(),
-					selectedItem.offsetLeft + selectedItem.layoutRadius,
+					selectedItem.offsetLeft + selectedItem.minSize / 2,
 					selectedItem.backgroundColor,
 					selectedItem.borderColor,
 					selectedItem.strokeWidth,
@@ -521,8 +521,7 @@
 				previousPreview.endValue = newEndValue;
 				previousPreview.length = newEndValue - newItemValue;
 				previousPreview.offsetCenterX = offsetCenterX;
-				previousPreview.offsetLeft =
-					offsetCenterX - item.offsetHeight / 2;
+				previousPreview.offsetLeft = offsetCenterX - item.minSize / 2;
 				previousPreview.offsetRight = offsetCenterX + item.offsetWidth;
 			});
 
@@ -592,7 +591,7 @@
 						previewItem.value + previewItem.length;
 					previewItem.offsetWidth =
 						scale.toPixels(previewItem.length) +
-						selectedItem.offsetHeight;
+						selectedItem.minSize;
 					previewItem.offsetRight =
 						previewItem.offsetLeft + previewItem.offsetWidth;
 				});
@@ -606,7 +605,7 @@
 
 					previewItem.offsetWidth =
 						scale.toPixels(previewItem.length) +
-						selectedItem.offsetHeight;
+						selectedItem.minSize;
 					previewItem.offsetLeft =
 						previewItem.offsetRight - previewItem.offsetWidth;
 				});
@@ -912,15 +911,17 @@
 				if (element.offsetContains(event.offsetX, event.offsetY)) {
 					let side: "middle" | "left" | "right" = "middle";
 					if (itemsResizable) {
-						side =
+						if (
 							event.offsetX <
-							element.offsetLeft + element.offsetHeight / 4
-								? "left"
-								: event.offsetX >
-									  element.offsetRight -
-											element.offsetHeight / 4
-									? "right"
-									: "middle";
+							element.offsetLeft + element.minSize / 2
+						) {
+							side = "left";
+						} else if (
+							event.offsetX >=
+							element.offsetRight - element.minSize / 2
+						) {
+							side = "right";
+						}
 					}
 					hover = new HoveredItem(element, side, [
 						event.offsetX,

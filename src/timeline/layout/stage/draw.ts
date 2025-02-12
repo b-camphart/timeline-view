@@ -15,6 +15,7 @@ export type Context = Pick<
 	| "roundRect"
 	| "moveTo"
 	| "rect"
+	| "globalCompositeOperation"
 >;
 
 export function renderLayout(
@@ -105,7 +106,6 @@ export function renderItemsSequentially(
 	const drawItem =
 		radius === 0
 			? (item: CanvasElement) => {
-					context.moveTo(item.offsetRight, item.offsetTop);
 					context.rect(
 						item.offsetLeft,
 						item.offsetTop,
@@ -114,7 +114,6 @@ export function renderItemsSequentially(
 					);
 				}
 			: (item: CanvasElement) => {
-					context.moveTo(item.offsetRight, item.offsetTop);
 					context.roundRect(
 						item.offsetLeft,
 						item.offsetTop,
@@ -124,6 +123,7 @@ export function renderItemsSequentially(
 					);
 				};
 
+	context.globalCompositeOperation = "source-over";
 	context.beginPath();
 
 	for (let i = 0; i < items.length; i++) {
@@ -164,4 +164,24 @@ export function renderItemsSequentially(
 	if (currentStrokeWidth > 0) {
 		context.stroke();
 	}
+
+	context.globalCompositeOperation = "destination-out";
+	context.beginPath();
+	for (let i = 0; i < items.length; i++) {
+		if (items[i].visible === false) continue;
+		if (items[i].offsetTop > viewport.height || items[i].offsetBottom < 0)
+			continue;
+		if (items[i].offsetLeft > viewport.width || items[i].offsetRight < 0)
+			continue;
+
+		const item = items[i];
+
+		context.rect(
+			item.offsetLeft + 8,
+			item.offsetTop + 7,
+			item.offsetWidth - 16,
+			2,
+		);
+	}
+	context.fill();
 }

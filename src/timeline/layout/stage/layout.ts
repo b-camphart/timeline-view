@@ -1,5 +1,5 @@
-import type {Scale} from "src/timeline/scale";
-import type {TimelineItem} from "src/timeline/Timeline";
+import type { Scale } from "src/timeline/scale";
+import type { TimelineItem } from "src/timeline/Timeline";
 
 export class LayoutItem {
 	constructor(public item: TimelineItem) {}
@@ -10,7 +10,13 @@ export class LayoutItem {
 	right: number = 0;
 	radius: number = 0;
 
-	layout(top: number, left: number, bottom: number, right: number, radius: number) {
+	layout(
+		top: number,
+		left: number,
+		bottom: number,
+		right: number,
+		radius: number,
+	) {
 		this.top = top;
 		this.left = left;
 		this.bottom = bottom;
@@ -20,7 +26,7 @@ export class LayoutItem {
 }
 
 export function layoutItems(
-	radius: number,
+	minSize: number,
 	margin: {
 		readonly top: number;
 		readonly bottom: number;
@@ -35,7 +41,7 @@ export function layoutItems(
 			left: number,
 			bottom: number,
 			right: number,
-			radius: number,
+			minSize: number,
 			width: number,
 			height: number,
 		): void;
@@ -43,15 +49,15 @@ export function layoutItems(
 ) {
 	const vMargin = Math.max(margin.top, margin.bottom);
 	const hMargin = Math.max(margin.left, margin.right);
-	const diameter = radius * 2;
+	const halfMinSize = minSize / 2;
 
-	const rowHeight = diameter + vMargin;
+	const rowHeight = minSize + vMargin;
 	let rows: number[] = [];
 	for (let i = 0; i < scaledItems.length; i++) {
 		const scaled = scaledItems[i];
 
-		const left = scaled.valuePx - radius;
-		const right = left + scaled.lengthPx + diameter;
+		const left = scaled.valuePx - halfMinSize;
+		const right = left + scaled.lengthPx + minSize;
 
 		const relativeLeftMargin = left - hMargin;
 		let r = 0;
@@ -60,10 +66,18 @@ export function layoutItems(
 		}
 
 		const top = r * rowHeight;
-		const bottom = top + diameter;
+		const bottom = top + minSize;
 		rows[r] = right;
 
-		scaled.layout(top, left, bottom, right, radius, right - left, bottom - top);
+		scaled.layout(
+			top,
+			left,
+			bottom,
+			right,
+			minSize,
+			right - left,
+			bottom - top,
+		);
 	}
 }
 
@@ -91,7 +105,8 @@ export function layoutPoints<T extends LayoutItem>(
 		previousLayout.length = sortedItems.length;
 	}
 
-	const startCenterY = viewport.padding.top + point.margin.vertical + pointRadius;
+	const startCenterY =
+		viewport.padding.top + point.margin.vertical + pointRadius;
 
 	const rowHeight = point.margin.vertical + point.width;
 	let rows: number[] = [];
