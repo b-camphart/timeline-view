@@ -19,7 +19,7 @@
 	import DraggedItem from "./DraggedItem.svelte";
 	import { DragPreviewElement } from "src/timeline/layout/stage/drag.svelte";
 	import { on } from "svelte/events";
-	import { layoutItems } from "src/timeline/layout/stage/layout";
+	import { layoutItems, scaleItems } from "src/timeline/layout/stage/layout";
 	import {
 		PlotAreaItem,
 		type PlotAreaSourceItem,
@@ -33,6 +33,7 @@
 	import type { FitBounds } from "src/timeline/controls/navigation/zoomToFit";
 	import { parse } from "path";
 	import { blendColors, OverlayColor, parseColor } from "src/color";
+	import { scrollItems } from "src/timeline/layout/stage/scroll";
 
 	type Item = PlotAreaItem<T, SourceItem>;
 
@@ -153,8 +154,7 @@
 		return plotAreaItems as Item[];
 	});
 	const scaled = $derived.by(() => {
-		const currentScale = scale;
-		items.forEach((it) => it.scale(currentScale));
+		scaleItems(scale, items);
 		return {
 			items,
 			_: Math.random(),
@@ -207,7 +207,7 @@
 		const layoutItems = layout.items;
 		const top = scrollTop - viewport.padding.top;
 		const left = scrollLeft;
-		layoutItems.forEach((it) => it.scroll(top, left));
+		scrollItems(layoutItems, top, left);
 		return {
 			items: layoutItems,
 			_: Math.random(),

@@ -18,8 +18,3 @@ export interface CanvasElement {
 	readonly borderColor: BackgroundColor | undefined;
 	readonly strokeWidth: number | undefined;
 }
-
-export {
-	/** @deprecated import from "./layout" */
-	layoutPoints,
-} from "./layout";

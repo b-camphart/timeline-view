@@ -1,153 +1,187 @@
-import {LayoutItem, layoutPoints} from "src/timeline/layout/stage/layout";
-import {item, itemStyles, margin, padding, scale, viewport} from "src/timeline/layout/stage/layout.fixtures";
-import type {TimelineItem} from "src/timeline/Timeline";
-import {inspect} from "util";
-import {describe} from "vitest";
+import {
+	layoutItems as layoutPoints,
+	scaleItems,
+	type ScaledItem,
+} from "src/timeline/layout/stage/layout";
+import {
+	margin,
+	scale,
+	plotAreaItem,
+} from "src/timeline/layout/stage/layout.fixtures";
+import type { LayoutItem } from "src/timeline/layout/stage/scroll";
+import { describe } from "vitest";
 
-function makeLayoutItem(item: TimelineItem) {
-	return new LayoutItem(item);
-}
-
-describe("laying out items", it => {
-	it("places items horizontally based on scale and their value", t => {
-		const items = [item({value: 10}), item({value: 20}), item({value: 30})];
-
+describe("scaling items", (it) => {
+	it("scales items based on the scale", (t) => {
+		const value = Math.random() * 100 - 50;
+		const item = plotAreaItem({ value });
 		for (let s of [scale(1), scale(2), scale(0.5)]) {
-			const positioned = layoutPoints(viewport(), itemStyles({size: 16}), s, items, makeLayoutItem);
-			t.expect(
-				positioned.map(it => ({
-					left: it.left,
-					centerX: (it.left + it.right) / 2,
-					right: it.right,
-				})),
-				inspect(s),
-			).toEqual([
-				{left: s.toPixels(10) - 8, centerX: s.toPixels(10), right: s.toPixels(10) + 8},
-				{left: s.toPixels(20) - 8, centerX: s.toPixels(20), right: s.toPixels(20) + 8},
-				{left: s.toPixels(30) - 8, centerX: s.toPixels(30), right: s.toPixels(30) + 8},
-			]);
+			scaleItems(s, [item]);
+
+			t.expect(item.valuePx).toEqual(s.toPixels(value));
 		}
 	});
 
-	it("prevents items from overlapping", t => {
-		const items = [item({value: 10}), item({value: 20}), item({value: 30}), item({value: 31})];
+	it("calculates the width of the item based on its length", (t) => {
+		const length = Math.random() * 100;
+		const item = plotAreaItem({ length });
+		for (let s of [scale(1), scale(2), scale(0.5)]) {
+			scaleItems(s, [item]);
+			t.expect(item.lengthPx).toEqual(s.toPixels(length));
+		}
+	});
+});
 
-		const s = scale(1);
-		const positioned = layoutPoints(viewport(), itemStyles({size: 20}), s, items, makeLayoutItem);
+describe("laying out items", (it) => {
+	function scaledItem(
+		params: Partial<{ valuePx: number; lengthPx: number }> = {},
+	): ScaledItem & LayoutItem {
+		const item = plotAreaItem();
+		item.valuePx = params.valuePx ?? 0;
+		item.lengthPx = params.lengthPx ?? 0;
+		return item;
+	}
+
+	it("calculates the horizontal offsets based on the minWidth and positioning", (t) => {
+		const items = [
+			scaledItem({ valuePx: 10 }),
+			scaledItem({ valuePx: 20, lengthPx: 10 }),
+			scaledItem({ valuePx: 30 }),
+		];
+
+		layoutPoints(16, margin(), items);
+
+		t.expect(items[0].layoutLeft).toEqual(10 - 8);
+		t.expect(items[0].layoutRight).toEqual(10 + 8);
+
+		t.expect(items[1].layoutLeft).toEqual(20 - 8);
+		t.expect(items[1].layoutRight).toEqual(20 + 8 + 10);
+
+		t.expect(items[2].layoutLeft).toEqual(30 - 8);
+		t.expect(items[2].layoutRight).toEqual(30 + 8);
+	});
+
+	it("prevents items from overlapping", (t) => {
+		const items = [
+			scaledItem({ valuePx: 10 }),
+			scaledItem({ valuePx: 20 }),
+			scaledItem({ valuePx: 30 }),
+			scaledItem({ valuePx: 31 }),
+		];
+
+		layoutPoints(20, margin(), items);
 
 		t.expect(
-			positioned.map(it => ({
-				top: it.top,
-				centerY: (it.top + it.bottom) / 2,
-				bottom: it.bottom,
+			items.map((it) => ({
+				top: it.layoutTop,
+				centerY: (it.layoutTop + it.layoutBottom) / 2,
+				bottom: it.layoutBottom,
 			})),
 		).toEqual([
-			{top: 0, centerY: 10, bottom: 20},
-			{top: 20, centerY: 30, bottom: 40},
-			{top: 40, centerY: 50, bottom: 60},
-			{top: 0, centerY: 10, bottom: 20},
+			{ top: 0, centerY: 10, bottom: 20 },
+			{ top: 20, centerY: 30, bottom: 40 },
+			{ top: 40, centerY: 50, bottom: 60 },
+			{ top: 0, centerY: 10, bottom: 20 },
 		]);
 	});
 
-	it("prevents items from overlapping, accounting for margin", t => {
-		const items = [item({value: 10}), item({value: 25}), item({value: 40}), item({value: 41})];
+	it("prevents items from overlapping, accounting for margin", (t) => {
+		const items = [
+			scaledItem({ valuePx: 10 }),
+			scaledItem({ valuePx: 25 }),
+			scaledItem({ valuePx: 40 }),
+			scaledItem({ valuePx: 41 }),
+		];
 
-		const s = scale(1);
-		const positioned = layoutPoints(
-			viewport(),
-			itemStyles({size: 20, margin: margin({vertical: 5, horizontal: 10})}),
-			s,
+		layoutPoints(
+			20,
+			margin({ top: 5, left: 10, right: 10, bottom: 5 }),
 			items,
-			makeLayoutItem,
 		);
 
 		t.expect(
-			positioned.map(it => ({
-				top: it.top,
-				centerY: (it.top + it.bottom) / 2,
-				bottom: it.bottom,
+			items.map((it) => ({
+				top: it.layoutTop,
+				centerY: (it.layoutTop + it.layoutBottom) / 2,
+				bottom: it.layoutBottom,
 			})),
 		).toEqual([
 			// first item is pushed down by vertical margin
-			{top: 5, centerY: 15, bottom: 25},
-			{top: 30, centerY: 40, bottom: 50},
-			{top: 55, centerY: 65, bottom: 75},
-			{top: 5, centerY: 15, bottom: 25},
+			{ top: 5, centerY: 15, bottom: 25 },
+			{ top: 30, centerY: 40, bottom: 50 },
+			{ top: 55, centerY: 65, bottom: 75 },
+			{ top: 5, centerY: 15, bottom: 25 },
 		]);
 	});
 
-	it("pushes the items down by the top padding", t => {
-		const items = [item({value: 10}), item({value: 20}), item({value: 30}), item({value: 31})];
+	// it("pushes the items down by the top padding", (t) => {
+	// 	const items = [
+	// 		layoutItem({ valuePx: 10 }),
+	// 		layoutItem({ valuePx: 20 }),
+	// 		layoutItem({ valuePx: 30 }),
+	// 		layoutItem({ valuePx: 31 }),
+	// 	];
 
-		const s = scale(1);
-		const positioned = layoutPoints(
-			viewport({padding: padding({top: 5})}),
-			itemStyles({size: 20}),
-			s,
-			items,
-			makeLayoutItem,
-		);
+	// 	 layoutPoints(
+	// 		10,
+	// 		viewport({ padding: padding({ top: 5 }) }),
+	// 		itemStyles({ size: 20 }),
+	// 		s,
+	// 		items,
+	// 		makeLayoutItem,
+	// 	);
 
-		t.expect(positioned.map(it => it.top)).toEqual([5, 25, 45, 5]);
-	});
+	// 	t.expect(positioned.map((it) => it.top)).toEqual([5, 25, 45, 5]);
+	// });
 
-	it("calculates the width of the item based on its length", t => {
-		for (let s of [scale(1), scale(2), scale(0.5)]) {
-			const positioned = layoutPoints(
-				viewport(),
-				itemStyles({size: 20}),
-				s,
-				[item({value: 10, length: 10})],
-				makeLayoutItem,
-			);
+	it("prevents items from overlapping, accounting for item width", (t) => {
+		const items = [
+			scaledItem({ valuePx: 10, lengthPx: 20 }),
+			scaledItem({ valuePx: 31 }),
+			scaledItem({ valuePx: 52 }),
+		];
+		layoutPoints(20, margin(), items);
 
-			t.expect(positioned[0].right - positioned[0].left).toEqual(s.toPixels(10) + 20);
-		}
-	});
-
-	it("prevents items from overlapping, accounting for item width", t => {
-		const positioned = layoutPoints(
-			viewport(),
-			itemStyles({size: 20}),
-			scale(1),
-			[item({value: 10, length: 20}), item({value: 31}), item({value: 52})],
-			makeLayoutItem,
-		);
-
-		t.expect(positioned.map(it => ({left: it.left, top: it.top, right: it.right}))).toEqual([
-			{left: 0, top: 0, right: 40},
-			{left: 21, top: 20, right: 41},
-			{left: 42, top: 0, right: 62},
+		t.expect(
+			items.map((it) => ({
+				left: it.layoutLeft,
+				top: it.layoutTop,
+				right: it.layoutRight,
+			})),
+		).toEqual([
+			{ left: 0, top: 0, right: 40 },
+			{ left: 21, top: 20, right: 41 },
+			{ left: 42, top: 0, right: 62 },
 		]);
 	});
 
-	it("fills in the top rows as densly as possible", t => {
-		const positioned = layoutPoints(
-			viewport(),
-			itemStyles({size: 20}),
-			scale(1),
-			[item({value: 0, length: 10}), item({value: 0, length: 20}), item({value: 31})],
-			makeLayoutItem,
-		);
+	it("fills in the top rows as densly as possible", (t) => {
+		const items = [
+			scaledItem({ valuePx: 0, lengthPx: 10 }),
+			scaledItem({ valuePx: 0, lengthPx: 20 }),
+			scaledItem({ valuePx: 31 }), // fits in either row
+		];
+		layoutPoints(20, margin(), items);
 
-		t.expect(positioned.find(it => it.item.value() === 0 && it.item.length() === 10)!.top).toEqual(0);
-		t.expect(positioned.find(it => it.item.value() === 0 && it.item.length() === 20)!.top).toEqual(20);
-		t.expect(positioned.find(it => it.item.value() === 31)!.top).toEqual(0);
+		t.expect(
+			items.find((it) => it.valuePx === 0 && it.lengthPx === 10)!
+				.layoutTop,
+		).toEqual(0);
+		t.expect(
+			items.find((it) => it.valuePx === 0 && it.lengthPx === 20)!
+				.layoutTop,
+		).toEqual(20);
+		t.expect(items.find((it) => it.valuePx === 31)!.layoutTop).toEqual(0);
 	});
 
-	it("prevents overlap by skipping rows that are blocked", t => {
-		const positioned = layoutPoints(
-			viewport(),
-			itemStyles({size: 20}),
-			scale(1),
-			[
-				item({value: 0, length: 10}),
-				item({value: 0, length: 20}),
-				item({value: 31}),
-				item({value: 31, length: 1}), // length just to differentiate
-			],
-			makeLayoutItem,
-		);
+	it("prevents overlap by skipping rows that are blocked", (t) => {
+		const items = [
+			scaledItem({ valuePx: 0, lengthPx: 10 }),
+			scaledItem({ valuePx: 0, lengthPx: 20 }),
+			scaledItem({ valuePx: 31 }),
+			scaledItem({ valuePx: 31, lengthPx: 1 }), // length just to differentiate
+		];
+		layoutPoints(20, margin(), items);
 
 		/*
 		 0          31
@@ -159,9 +193,21 @@ describe("laying out items", it => {
 		 0          31
 		*/
 
-		t.expect(positioned.find(it => it.item.value() === 0 && it.item.length() === 10)!.top).toEqual(0);
-		t.expect(positioned.find(it => it.item.value() === 0 && it.item.length() === 20)!.top).toEqual(20);
-		t.expect(positioned.find(it => it.item.value() === 31 && it.item.length() === 0)!.top).toEqual(0);
-		t.expect(positioned.find(it => it.item.value() === 31 && it.item.length() === 1)!.top).toEqual(40);
+		t.expect(
+			items.find((it) => it.valuePx === 0 && it.lengthPx === 10)!
+				.layoutTop,
+		).toEqual(0);
+		t.expect(
+			items.find((it) => it.valuePx === 0 && it.lengthPx === 20)!
+				.layoutTop,
+		).toEqual(20);
+		t.expect(
+			items.find((it) => it.valuePx === 31 && it.lengthPx === 0)!
+				.layoutTop,
+		).toEqual(0);
+		t.expect(
+			items.find((it) => it.valuePx === 31 && it.lengthPx === 1)!
+				.layoutTop,
+		).toEqual(40);
 	});
 });

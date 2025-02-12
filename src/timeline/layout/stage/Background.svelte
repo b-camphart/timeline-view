@@ -2,7 +2,10 @@
 
 <style>
 	div {
-		--top-offset: calc(var(--padding-top) - var(--cross-axis-scroll));
+		--top-offset: calc(
+			var(--padding-top) + var(--item-margin-top) -
+				var(--cross-axis-scroll)
+		);
 		--top: max(0px, var(--top-offset));
 
 		position: absolute;
