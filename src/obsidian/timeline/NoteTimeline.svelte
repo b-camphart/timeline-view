@@ -762,15 +762,15 @@
 		);
 		--plotarea-padding-left: var(
 			--timeline-plotarea-padding-left,
-			var(--size-4-12)
+			var(--size-4-2)
 		);
 		--plotarea-padding-bottom: var(
 			--timeline-plotarea-padding-bottom,
-			var(--size-4-12)
+			var(--size-4-4)
 		);
 		--plotarea-padding-right: var(
 			--timeline-plotarea-padding-right,
-			var(--size-4-12)
+			var(--size-4-16)
 		);
 
 		--plotarea-background-line-color: var(--canvas-dot-pattern);

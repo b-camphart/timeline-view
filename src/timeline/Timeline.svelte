@@ -97,7 +97,7 @@
 	const persistedValuePerPixel = namespacedWritable.make("scale", 1);
 
 	let plotarea = $state<null | CanvasStage<T, TimelineItem<T>>>(null);
-	const fitWidth = $derived(plotarea?.fitWidth() ?? 0);
+	const fitBounds = $derived(plotarea?.fitBounds());
 
 	function scaleStore(initialScale: Scale = new ValuePerPixelScale(1)) {
 		function atLeastMinimum(value: Scale) {
@@ -205,22 +205,22 @@
 				$focalValue = newFocalValue;
 			}
 		},
-		() => fitWidth,
+		() => fitBounds!,
 	);
 
 	let needsZoomToFit = $state(false);
 	export function zoomToFit() {
 		if (initialized) {
-			navigation.zoomToFit(timelineItems, fitWidth);
+			navigation.zoomToFit(timelineItems, fitBounds);
 		} else {
 			needsZoomToFit = true;
 		}
 	}
 
 	$effect(() => {
-		if (needsZoomToFit && fitWidth > 0) {
+		if (needsZoomToFit && fitBounds == null) {
 			needsZoomToFit = false;
-			navigation.zoomToFit(timelineItems, fitWidth);
+			navigation.zoomToFit(timelineItems, fitBounds);
 		}
 	});
 
@@ -239,7 +239,7 @@
 	let initialized = false;
 	$effect(() => {
 		if (!initialized) {
-			if (fitWidth > 0) {
+			if (fitBounds != null) {
 				initialized = true;
 			}
 		}

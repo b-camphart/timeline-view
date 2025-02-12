@@ -29,6 +29,8 @@
 	import CssProp from "src/view/CSSProp.svelte";
 	import CssColorProp from "src/view/CSSColorProp.svelte";
 	import Background from "src/timeline/layout/stage/Background.svelte";
+	import Padding from "src/timeline/layout/stage/Padding.svelte";
+	import type { FitBounds } from "src/timeline/controls/navigation/zoomToFit";
 
 	type Item = PlotAreaItem<T, SourceItem>;
 
@@ -115,16 +117,6 @@
 			left: 0,
 		},
 	});
-	$effect(() => {
-		const hPadding = viewport.width - innerWidth;
-		const vPadding = viewport.height - innerHeight;
-		viewport.padding = {
-			top: vPadding / 2,
-			right: hPadding / 2,
-			bottom: vPadding / 2,
-			left: hPadding / 2,
-		};
-	});
 
 	const itemStyle = $state({
 		size: 16,
@@ -148,13 +140,21 @@
 		},
 	});
 
-	export function fitWidth() {
-		return (
-			viewport.width -
-			viewport.padding.left -
-			viewport.padding.right -
-			itemStyle.size
-		);
+	export function fitBounds(): FitBounds {
+		return {
+			size: viewport.width,
+			padding: {
+				start: viewport.padding.left,
+				end: viewport.padding.right,
+			},
+			items: {
+				size: itemStyle.size,
+				margin: {
+					start: itemStyle.margin.left,
+					end: itemStyle.margin.right,
+				},
+			},
+		};
 	}
 
 	const items = $derived.by(() => {
@@ -971,6 +971,14 @@
 	style:--cross-axis-scroll="{scrollTop}px"
 >
 	<Background />
+	<Padding
+		onOffsetChange={(box) => {
+			viewport.padding.top = box.top;
+			viewport.padding.left = box.left;
+			viewport.padding.right = box.right;
+			viewport.padding.bottom = box.bottom;
+		}}
+	/>
 
 	<div
 		class="bottom-right-padding-measure"
@@ -1167,15 +1175,6 @@
 		position: absolute;
 		top: 0;
 		left: 0;
-	}
-
-	div#stage .bottom-right-padding-measure {
-		width: 1005;
-		height: 100%;
-		visibility: hidden !important;
-		pointer-events: none;
-		bottom: 0;
-		right: 0;
 	}
 
 	.scrollbar-style-measurer {
