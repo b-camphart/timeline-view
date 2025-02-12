@@ -1137,9 +1137,9 @@
 
 <style>
 	div {
+		--item-v-margin: max(var(--item-margin-top), var(--item-margin-bottom));
 		--item-cross-axis-spacing: calc(
-			var(--item-size) +
-				max(var(--item-margin-top), var(--item-margin-bottom))
+			var(--item-size) + var(--item-v-margin)
 		);
 	}
 
