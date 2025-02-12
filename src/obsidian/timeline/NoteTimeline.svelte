@@ -721,25 +721,6 @@
 		display: contents;
 		--background: var(--timeline-background, var(--canvas-background));
 
-		--all-item-margin: var(--timeline-item-margin, var(--size-2-1));
-
-		--item-margin-top: var(
-			--timeline-item-margin-top,
-			var(--all-item-margin)
-		);
-		--item-margin-right: var(
-			--timeline-item-margin-right,
-			var(--all-item-margin)
-		);
-		--item-margin-bottom: var(
-			--timeline-item-margin-bottom,
-			var(--all-item-margin)
-		);
-		--item-margin-left: var(
-			--timeline-item-margin-left,
-			var(--all-item-margin)
-		);
-
 		--item-color: var(--timeline-item-color, var(--graph-node));
 		--item-size: var(--timeline-item-size, var(--size-4-4));
 
@@ -758,7 +739,7 @@
 
 		--plotarea-padding-top: var(
 			--timeline-plotarea-padding-top,
-			var(--size-4-2)
+			var(--size-4-3)
 		);
 		--plotarea-padding-left: var(
 			--timeline-plotarea-padding-left,
@@ -777,6 +758,46 @@
 		--plotarea-background-line-width: 1px;
 		--plotarea-background-line-dash-on: var(--size-2-1);
 		--plotarea-background-line-dash-off: var(--size-2-3);
+
+		--selection-area-glow: 7px;
+
+		--selection-area-background-color: hsla(var(--color-accent-hsl), 0.1);
+		--selection-area-border-color: var(--color-accent);
+		--selection-area-border-width: 2px;
+		--selection-area-border-radius: 2px;
+
+		--selected-area-background-color: hsla(var(--color-accent-hsl), 0.03);
+		--selected-area-border-color: hsla(var(--color-accent-hsl), 0.3);
+		--selected-area-border-width: 3px;
+		--selected-area-border-radius: 3px;
+
+		--all-item-margin: var(
+			--timeline-item-margin,
+			calc(
+				calc(
+						var(--selection-area-glow) +
+							var(--selected-area-border-width)
+					) *
+					2
+			)
+		);
+
+		--item-margin-top: var(
+			--timeline-item-margin-top,
+			var(--all-item-margin)
+		);
+		--item-margin-right: var(
+			--timeline-item-margin-right,
+			var(--all-item-margin)
+		);
+		--item-margin-bottom: var(
+			--timeline-item-margin-bottom,
+			var(--all-item-margin)
+		);
+		--item-margin-left: var(
+			--timeline-item-margin-left,
+			var(--all-item-margin)
+		);
 
 		--ruler-border-color: var(--divider-color);
 		--ruler-border-width: var(--divider-width);

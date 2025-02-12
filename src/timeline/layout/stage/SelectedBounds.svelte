@@ -12,11 +12,7 @@
 </script>
 
 {#if bounds != null && selectedItemCount > 1}
-	<CanvasSelectionArea
-		class="selected {dragging && 'dragging'}"
-		area={bounds}
-		role="gridcell"
-	/>
+	<CanvasSelectionArea selected area={bounds} role="gridcell" />
 {/if}
 
 <style>
