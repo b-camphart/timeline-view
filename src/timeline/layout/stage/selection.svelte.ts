@@ -1,6 +1,6 @@
-import {SvelteMap} from "svelte/reactivity";
+import { SvelteMap } from "svelte/reactivity";
 
-export class Selection<T extends {id: string}> {
+export class Selection<T extends { id: string }> {
 	#items = new SvelteMap<string, T>();
 	length() {
 		return this.#items.size;
@@ -22,7 +22,11 @@ export class Selection<T extends {id: string}> {
 		this.#items.clear();
 	}
 	replaceWith(items: readonly T[]) {
-		if (items.length === this.#items.size && items.every(it => !this.has(it))) return;
+		if (
+			items.length === this.#items.size &&
+			items.every((it) => this.has(it))
+		)
+			return;
 		this.clear();
 		this.addAll(items);
 	}

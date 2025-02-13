@@ -31,8 +31,7 @@
 	import Background from "src/timeline/layout/stage/Background.svelte";
 	import Padding from "src/timeline/layout/stage/Padding.svelte";
 	import type { FitBounds } from "src/timeline/controls/navigation/zoomToFit";
-	import { parse } from "path";
-	import { blendColors, OverlayColor, parseColor } from "src/color";
+	import { OverlayColor } from "src/color";
 	import { scrollItems } from "src/timeline/layout/stage/scroll";
 
 	type Item = PlotAreaItem<T, SourceItem>;
@@ -442,8 +441,8 @@
 			focus = null;
 
 			if (
-				selectionBounds !== null &&
-				boxContainsPoint(selectionBounds, event.offsetX, event.offsetY)
+				selectedBounds !== null &&
+				boxContainsPoint(selectedBounds, event.offsetX, event.offsetY)
 			) {
 				if (prepareDragSelection(event)) {
 					return;
@@ -634,7 +633,7 @@
 
 	let selectionArea = $state<null | OffsetBox>(null);
 	const selection = new Selection<Item>();
-	const selectionBounds = $derived.by(() => {
+	const selectedBounds = $derived.by(() => {
 		if (selection.length() <= 1) return null;
 		let offsetRight = -Infinity;
 		let offsetBottom = -Infinity;
@@ -754,8 +753,8 @@
 	function handleMouseUp(event: MouseEvent) {
 		if (event.button === 2) {
 			if (
-				selectionBounds !== null &&
-				boxContainsPoint(selectionBounds, event.offsetX, event.offsetY)
+				selectedBounds !== null &&
+				boxContainsPoint(selectedBounds, event.offsetX, event.offsetY)
 			) {
 				oncontextmenu(
 					event,
@@ -930,10 +929,10 @@
 					return;
 				}
 			}
-			if (selectionBounds != null) {
+			if (selectedBounds != null) {
 				if (
 					boxContainsPoint(
-						selectionBounds,
+						selectedBounds,
 						event.offsetX,
 						event.offsetY,
 					)
@@ -998,7 +997,7 @@
 	<SelectionArea area={selectionArea} />
 	<SelectedBounds
 		dragging={dragPreview != null}
-		bounds={selectionBounds}
+		bounds={selectedBounds}
 		selectedItemCount={selection.length()}
 	/>
 	<canvas
