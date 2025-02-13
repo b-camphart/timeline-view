@@ -912,12 +912,12 @@
 					if (itemsResizable) {
 						if (
 							event.offsetX <
-							element.offsetLeft + element.minSize / 2
+							element.offsetLeft + element.minSize / 4
 						) {
 							side = "left";
 						} else if (
 							event.offsetX >=
-							element.offsetRight - element.minSize / 2
+							element.offsetRight - element.minSize / 4
 						) {
 							side = "right";
 						}
@@ -975,7 +975,7 @@
 </script>
 
 <div
-	id="stage"
+	class="timeline-view--plotarea"
 	bind:offsetWidth={viewport.width}
 	bind:offsetHeight={viewport.height}
 	bind:this={stageCSSTarget}
@@ -1115,6 +1115,27 @@
 			scrollbarDragging = false;
 		}}
 	/>
+
+	<!-- CSS getters -->
+	<CssProp name="--item-margin-top" bind:value={itemStyle.margin.top} />
+	<CssProp name="--item-margin-left" bind:value={itemStyle.margin.left} />
+	<CssProp name="--item-margin-bottom" bind:value={itemStyle.margin.bottom} />
+	<CssProp name="--item-margin-right" bind:value={itemStyle.margin.right} />
+	<CssProp name="--item-size" bind:value={itemStyle.size} />
+	<CssProp name="--item-radius" bind:value={itemStyle.radius} />
+	<CssColorProp name="--item-color" bind:value={itemStyle.color} />
+	<CssProp
+		name="--selected-item-border-width"
+		bind:value={itemStyle.selected.borderWidth}
+	/>
+	<CssColorProp
+		name="--selected-item-color"
+		bind:value={itemStyle.selected.color}
+	/>
+	<CssColorProp
+		name="--selected-item-border-color"
+		bind:value={itemStyle.selected.borderColor}
+	/>
 </div>
 <div
 	bind:clientHeight={scrollbarMeasurerInnerHeight}
@@ -1124,27 +1145,6 @@
 	class="scrollbar-style-measurer"
 ></div>
 
-<!-- CSS getters -->
-<CssProp name="--item-margin-top" bind:value={itemStyle.margin.top} />
-<CssProp name="--item-margin-left" bind:value={itemStyle.margin.left} />
-<CssProp name="--item-margin-bottom" bind:value={itemStyle.margin.bottom} />
-<CssProp name="--item-margin-right" bind:value={itemStyle.margin.right} />
-<CssProp name="--item-size" bind:value={itemStyle.size} />
-<CssProp name="--item-radius" bind:value={itemStyle.radius} />
-<CssColorProp name="--item-color" bind:value={itemStyle.color} />
-<CssProp
-	name="--selected-item-border-width"
-	bind:value={itemStyle.selected.borderWidth}
-/>
-<CssColorProp
-	name="--selected-item-color"
-	bind:value={itemStyle.selected.color}
-/>
-<CssColorProp
-	name="--selected-item-border-color"
-	bind:value={itemStyle.selected.borderColor}
-/>
-
 <style>
 	div {
 		--item-v-margin: max(var(--item-margin-top), var(--item-margin-bottom));
@@ -1153,7 +1153,7 @@
 		);
 	}
 
-	div#stage {
+	div {
 		padding-top: var(--padding-top, 8px);
 		padding-left: var(--padding-left, 8px);
 		padding-bottom: var(--padding-bottom, 8px);
@@ -1167,23 +1167,21 @@
 		overflow: hidden;
 		--scrollbar-width: var(--size-4-1);
 	}
-	div#stage.hovered[data-hover-side="middle"] {
+	div.hovered:not([data-hover-over-selection="true"]) {
 		cursor: pointer;
 	}
-	div#stage.hovered[data-hover-side="left"] {
+	div.hovered[data-hover-side="left"]:not([aria-readonly="true"]) {
 		cursor: e-resize;
 	}
-	div#stage.hovered[data-hover-side="right"] {
+	div.hovered[data-hover-side="right"]:not([aria-readonly="true"]) {
 		cursor: w-resize;
 	}
-	div#stage:not(
+	div:not(
 			[aria-readonly="true"]
-		).hovered[data-hover-over-selection="true"] {
+		).hovered[data-hover-over-selection="true"]:not(
+			[data-hover-side="middle"]
+		) {
 		cursor: grab;
-	}
-	div#stage[aria-readonly="true"][data-hover-side="left"],
-	div#stage[aria-readonly="true"][data-hover-side="right"] {
-		cursor: pointer;
 	}
 
 	canvas {
@@ -1202,15 +1200,15 @@
 		visibility: hidden;
 	}
 
-	div#stage :global([role="scrollbar"]) {
+	div :global([role="scrollbar"]) {
 		position: absolute;
 	}
-	div#stage :global([role="scrollbar"][aria-orientation="horizontal"]) {
+	div :global([role="scrollbar"][aria-orientation="horizontal"]) {
 		bottom: 0;
 		left: 0;
 		width: 100%;
 	}
-	div#stage :global([role="scrollbar"][aria-orientation="vertical"]) {
+	div :global([role="scrollbar"][aria-orientation="vertical"]) {
 		top: 0;
 		right: 0;
 		height: 100%;

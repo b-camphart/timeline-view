@@ -10,7 +10,7 @@
 </script>
 
 <div
-	class="label"
+	class="timeline-view--ruler-label"
 	aria-hidden={hidden}
 	data-value={text}
 	style="left: {position}px;{style}"
@@ -19,13 +19,14 @@
 </div>
 
 <style>
-	:global(.label) {
-		border-right: var(--label-border-color) var(--label-border-width) solid;
+	.timeline-view--ruler-label {
+		border-right: var(--border-color) var(--border-width) solid;
 
-		padding: var(--label-padding);
-		font-size: var(--label-font-size);
-		font-weight: var(--label-font-weight);
+		padding: var(--padding);
+		font-size: var(--font-size);
+		font-weight: var(--font-weight);
 	}
+
 	div {
 		box-sizing: border-box !important;
 

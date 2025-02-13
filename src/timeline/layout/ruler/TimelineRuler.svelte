@@ -88,7 +88,7 @@
 </script>
 
 <div
-	class="ruler"
+	class="timeline-view--ruler"
 	style="--label-width:{labelStepWidth}px;"
 	bind:clientWidth={width}
 	bind:clientHeight={height}
@@ -118,11 +118,8 @@
 </div>
 
 <style>
-	:global(.ruler) {
-		border-bottom: var(--border-color) var(--border-width) solid;
-	}
-
 	div {
+		border-bottom: var(--border-color) var(--border-width) solid;
 		width: 100%;
 		position: relative;
 	}

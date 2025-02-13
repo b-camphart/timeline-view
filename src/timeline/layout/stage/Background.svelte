@@ -1,25 +1,19 @@
-<div></div>
+<div class="timeline-view--plotarea-background"></div>
 
 <style>
 	div {
-		--top-offset: calc(
-			var(--padding-top) + var(--item-margin-top) -
-				var(--cross-axis-scroll)
-		);
-		--top: max(0px, var(--top-offset));
-
+		pointer-events: none;
 		position: absolute;
-		top: var(--top);
+		top: 0;
 		left: 0;
 		right: 0;
 		bottom: 0;
-
-		pointer-events: none;
-
+	}
+	.timeline-view--plotarea-background {
+		/** draw horizontal lines */
 		--line-color: var(--background-line-color);
 		--line-width: var(--background-line-width);
 		--gap: var(--item-cross-axis-spacing);
-		--start-y: calc(var(--item-size) / 2);
 
 		background: linear-gradient(
 			var(--line-color),
@@ -28,10 +22,20 @@
 			transparent
 		);
 		background-size: 100% var(--gap);
+
+		/** prevents lines from appearing above items in the plot area */
+		--start-y: calc(var(--item-size) / 2);
+		--top-offset: calc(
+			var(--padding-top) + var(--item-margin-top) -
+				var(--cross-axis-scroll)
+		);
+		--top: max(0px, var(--top-offset));
+		top: var(--top);
 		background-position-y: calc(
 			var(--start-y) + var(--top-offset) - var(--top)
 		);
 
+		/** create dashes by masking out horizontal lines with repeating vertical lines */
 		--dash-on: var(--background-line-dash-on);
 		--dash-off: var(--background-line-dash-off);
 

@@ -651,75 +651,72 @@
 	});
 </script>
 
-<css-wrapper>
-	<TimelineView
-		items={Array.from(items)}
-		{selectValue}
-		selectLength={!propertySelector?.secondaryPropertyInUse()
-			? () => 0
-			: (item) => lengthOf(item.note)}
-		previewItem={(name, value, length, endValue) => {
-			return summarizeItem(name, value, length, endValue);
-		}}
-		summarizeItem={(item) => summarizeNote(item.note)}
-		itemsResizable={propertySelector?.secondaryPropertyInUse() ?? false}
-		namespacedWritable={viewModel}
-		{display}
-		groups={timelineGroups}
-		pendingGroupUpdates={itemRecolorQueueLength}
-		controlBindings={{}}
-		bind:this={timelineView}
-		onSelected={(item, cause) => openFile(cause, item)}
-		onFocused={(item) => dispatch("noteFocused", item.note)}
-		onCreate={(value) => createItem({ value })}
-		onItemsResized={resizeItems}
-		{onPreviewNewItemValue}
-		oncontextmenu={(e, triggerItems) => {
-			oncontextmenu(
-				e,
-				triggerItems.map((it) => it.note),
-			);
-		}}
-		openDialog={openModal}
-	>
-		{#snippet additionalSettings()}
-			{#if propertySelector}
-				<TimelinePropertySection
-					collapsed={settings
-						.namespace("property")
-						.make("collapsed", true)}
-					selector={propertySelector}
-					on:propertySelected={(event) =>
-						onPropertySelected(event.detail)}
-					on:secondaryPropertySelected={({ detail }) =>
-						onSecondaryPropertySelected(detail)}
-					on:secondaryPropertyToggled={({ detail: inUse }) => {
-						for (const item of itemsById.values()) {
-							item;
-						}
-						timelineView!.refresh();
-					}}
-					on:secondaryPropertyReinterpreted={({
-						detail: interpretation,
-					}) => {
-						$secondaryPropertyInterpretedAs = interpretation;
-					}}
-				/>
-			{/if}
-			<TimelineFilterSection
-				collapsed={settings.namespace("filter").make("collapsed", true)}
-				{filter}
+<TimelineView
+	items={Array.from(items)}
+	{selectValue}
+	selectLength={!propertySelector?.secondaryPropertyInUse()
+		? () => 0
+		: (item) => lengthOf(item.note)}
+	previewItem={(name, value, length, endValue) => {
+		return summarizeItem(name, value, length, endValue);
+	}}
+	summarizeItem={(item) => summarizeNote(item.note)}
+	itemsResizable={propertySelector?.secondaryPropertyInUse() ?? false}
+	namespacedWritable={viewModel}
+	{display}
+	groups={timelineGroups}
+	pendingGroupUpdates={itemRecolorQueueLength}
+	controlBindings={{}}
+	bind:this={timelineView}
+	onSelected={(item, cause) => openFile(cause, item)}
+	onFocused={(item) => dispatch("noteFocused", item.note)}
+	onCreate={(value) => createItem({ value })}
+	onItemsResized={resizeItems}
+	{onPreviewNewItemValue}
+	oncontextmenu={(e, triggerItems) => {
+		oncontextmenu(
+			e,
+			triggerItems.map((it) => it.note),
+		);
+	}}
+	openDialog={openModal}
+>
+	{#snippet additionalSettings()}
+		{#if propertySelector}
+			<TimelinePropertySection
+				collapsed={settings
+					.namespace("property")
+					.make("collapsed", true)}
+				selector={propertySelector}
+				on:propertySelected={(event) =>
+					onPropertySelected(event.detail)}
+				on:secondaryPropertySelected={({ detail }) =>
+					onSecondaryPropertySelected(detail)}
+				on:secondaryPropertyToggled={({ detail: inUse }) => {
+					for (const item of itemsById.values()) {
+						item;
+					}
+					timelineView!.refresh();
+				}}
+				on:secondaryPropertyReinterpreted={({
+					detail: interpretation,
+				}) => {
+					$secondaryPropertyInterpretedAs = interpretation;
+				}}
 			/>
-		{/snippet}
-	</TimelineView>
-</css-wrapper>
+		{/if}
+		<TimelineFilterSection
+			collapsed={settings.namespace("filter").make("collapsed", true)}
+			{filter}
+		/>
+	{/snippet}
+</TimelineView>
 
 <style>
 	@import "../style-settings/settings.css";
 
-	css-wrapper {
-		display: contents;
-		--background: var(--timeline-background, var(--canvas-background));
+	:global(.timeline-view--timeline) {
+		background-color: var(--timeline-background, var(--canvas-background));
 
 		--item-color: var(--timeline-item-color, var(--graph-node));
 

@@ -22,6 +22,11 @@
 		type TimelineItem,
 		type TimelineItemSource,
 	} from "src/timeline/item/TimelineItem.svelte";
+	import Controls from "src/timeline/controls/Controls.svelte";
+	import ControlGroup from "src/timeline/controls/ControlGroup.svelte";
+	import ControlItem, {
+		controlItem,
+	} from "src/timeline/controls/ControlItem.svelte";
 
 	type Item = T;
 
@@ -276,58 +281,55 @@
 </script>
 
 <div
-	class="timeline"
+	class="timeline-view--timeline"
 	style:--ruler-height="{rulerHeight}px"
 	style:--plotarea-client-width="{plotarea?.clientWidth() ?? 0}px"
 >
-	<css-wrapper class="ruler">
-		<TimelineRuler
-			{display}
-			scale={$scale}
-			focalValue={$focalValue}
-			bind:clientHeight={rulerHeight}
-		/>
-	</css-wrapper>
-	<css-wrapper class="plotarea">
-		<CanvasStage
-			bind:this={plotarea}
-			previewItem={(item, name, value, length, endValue) => {
-				const currentLength = selectLength(item.source);
+	<TimelineRuler
+		{display}
+		scale={$scale}
+		focalValue={$focalValue}
+		bind:clientHeight={rulerHeight}
+	/>
 
-				if (currentLength < 0) {
-					return previewItem(name, endValue, -length, value);
-				}
-				return previewItem(name, value, length, endValue);
-			}}
-			summarizeItem={(it) => summarizeItem(it.source)}
-			sortedItems={sorted.items}
-			scale={$scale}
-			focalValue={$focalValue}
-			editable={mode != null ? $mode === "edit" : false}
-			{itemsResizable}
-			on:scrollToValue={(event) => navigation.scrollToValue(event.detail)}
-			on:scrollX={({ detail }) =>
-				navigation.scrollToValue($focalValue + detail)}
-			on:zoomIn={({ detail }) => navigation.zoomIn(detail)}
-			on:zoomOut={({ detail }) => navigation.zoomOut(detail)}
-			on:select={({ detail }) =>
-				onSelected(detail.item.source, detail.causedBy)}
-			on:focus={({ detail }) => onFocused(detail.source)}
-			on:create={({ detail }) => onCreate(detail.value)}
-			onItemsChanged={resizeItems}
-			onPreviewNewItemValue={(item, value) =>
-				onPreviewNewItemValue(item.source, value)}
-			oncontextmenu={!oncontextmenu
-				? undefined
-				: (e, items) => {
-						oncontextmenu(
-							e,
-							items.map((it) => it.source),
-						);
-					}}
-		/>
-	</css-wrapper>
-	<menu class="timeline-controls">
+	<CanvasStage
+		bind:this={plotarea}
+		previewItem={(item, name, value, length, endValue) => {
+			const currentLength = selectLength(item.source);
+
+			if (currentLength < 0) {
+				return previewItem(name, endValue, -length, value);
+			}
+			return previewItem(name, value, length, endValue);
+		}}
+		summarizeItem={(it) => summarizeItem(it.source)}
+		sortedItems={sorted.items}
+		scale={$scale}
+		focalValue={$focalValue}
+		editable={mode != null ? $mode === "edit" : false}
+		{itemsResizable}
+		on:scrollToValue={(event) => navigation.scrollToValue(event.detail)}
+		on:scrollX={({ detail }) =>
+			navigation.scrollToValue($focalValue + detail)}
+		on:zoomIn={({ detail }) => navigation.zoomIn(detail)}
+		on:zoomOut={({ detail }) => navigation.zoomOut(detail)}
+		on:select={({ detail }) =>
+			onSelected(detail.item.source, detail.causedBy)}
+		on:focus={({ detail }) => onFocused(detail.source)}
+		on:create={({ detail }) => onCreate(detail.value)}
+		onItemsChanged={resizeItems}
+		onPreviewNewItemValue={(item, value) =>
+			onPreviewNewItemValue(item.source, value)}
+		oncontextmenu={!oncontextmenu
+			? undefined
+			: (e, items) => {
+					oncontextmenu(
+						e,
+						items.map((it) => it.source),
+					);
+				}}
+	/>
+	<Controls>
 		<TimelineNavigationControls {navigation} />
 		<TimelineSettings collapsable={settingsCollapable}>
 			{@render additionalSettings()}
@@ -337,36 +339,32 @@
 				{pendingGroupUpdates}
 			/>
 		</TimelineSettings>
-		<div class="control-group">
+		<ControlGroup>
 			<ActionButton
-				class="clickable-icon control-item"
+				class="clickable-icon {controlItem}"
 				on:action={openHelpDialog}
 			>
 				<LucideIcon id="help" />
 			</ActionButton>
-		</div>
-	</menu>
+		</ControlGroup>
+	</Controls>
 </div>
 
 <style>
-	.timeline {
-		background-color: var(--background);
-	}
-
-	css-wrapper {
-		display: contents;
-	}
-	css-wrapper.ruler {
+	.timeline-view--timeline :global(.timeline-view--ruler) {
 		--border-color: var(--ruler-border-color);
 		--border-width: var(--ruler-border-width);
-
-		--label-padding: var(--ruler-label-padding);
-		--label-font-size: var(--ruler-label-font-size);
-		--label-font-weight: var(--ruler-label-font-weight);
-		--label-border-color: var(--ruler-label-border-color);
-		--label-border-width: var(--ruler-label-border-width);
 	}
-	css-wrapper.plotarea {
+
+	.timeline-view--timeline :global(.timeline-view--ruler-label) {
+		--padding: var(--ruler-label-padding);
+		--font-size: var(--ruler-label-font-size);
+		--font-weight: var(--ruler-label-font-weight);
+		--border-color: var(--ruler-label-border-color);
+		--border-width: var(--ruler-label-border-width);
+	}
+
+	.timeline-view--timeline :global(.timeline-view--plotarea) {
 		--padding-top: var(--plotarea-padding-top);
 		--padding-left: var(--plotarea-padding-left);
 		--padding-bottom: var(--plotarea-padding-bottom);
@@ -378,67 +376,8 @@
 		--background-line-dash-off: var(--plotarea-background-line-dash-off);
 	}
 
-	/*! Positioning */
-	:global(.timeline-controls) {
-		position: absolute;
-		top: var(--ruler-height);
-		margin-top: var(--size-4-2);
-		margin-right: var(--size-4-2);
-		right: calc(100% - var(--plotarea-client-width));
-	}
-	/*! Icon sizing */
-	:global(.timeline-controls) {
-		--icon-size: var(--icon-s);
-		--icon-stroke: var(--icon-s-stroke-width);
-	}
-	/*! Menu padding overrides  */
-	:global(menu.timeline-controls) {
-		padding: 0;
-	}
-
-	/*! Internal layout */
-	:global(.timeline-controls) {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-4-2);
-		align-items: flex-end;
-	}
-	:global(.timeline-controls > *) {
-		margin: 0;
-	}
-
-	/*! Item styling */
-	:global(.timeline-controls > *) {
-		border-radius: var(--radius-s);
-		background-color: var(--timeline-settings-background);
-		border: 1px solid var(--background-modifier-border);
-		box-shadow: var(--input-shadow);
-		box-sizing: border-box;
-	}
-	:global(.timeline-controls > * > *) {
-		background-color: var(--timeline-settings-background);
-	}
-
 	:global(.timeline-settings-groups-section) {
 		position: relative;
-	}
-
-	.control-group :global(.control-item) {
-		padding: var(--timeline-settings-button-padding);
-	}
-
-	.control-group :global(button.control-item.clickable-icon) {
-		background-color: var(--interactive-normal);
-	}
-	.control-group :global(button.control-item.clickable-icon:hover) {
-		background-color: var(--interactive-normal);
-	}
-
-	div menu {
-		pointer-events: none;
-	}
-	div menu > :global(*) {
-		pointer-events: all;
 	}
 
 	div {
