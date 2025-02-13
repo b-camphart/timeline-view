@@ -603,7 +603,9 @@
 		propertySelector = propertySelector;
 		items = new MutableSortedArray(valueOf, ...items);
 		display = property.displayedAs();
-		timelineView?.zoomToFit();
+		tick().then(() => {
+			timelineView?.zoomToFit();
+		});
 	}
 
 	function onSecondaryPropertySelected(property: TimelineProperty) {
