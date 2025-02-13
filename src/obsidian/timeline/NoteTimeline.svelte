@@ -735,10 +735,7 @@
 			3px
 		);
 
-		--plotarea-padding-top: var(
-			--timeline-plotarea-padding-top,
-			var(--size-4-3)
-		);
+		--plotarea-padding-top: var(--timeline-plotarea-padding-top, 0);
 		--plotarea-padding-left: var(
 			--timeline-plotarea-padding-left,
 			var(--size-4-2)

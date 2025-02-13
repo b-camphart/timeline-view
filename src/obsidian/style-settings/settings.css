@@ -65,7 +65,7 @@ settings:
         title: Margin
         description: "The spacing used to separate items.  Overridden by individual margins below."
         type: variable-number
-        default: 2
+        default: 20
         format: px
     -
         id: items-margin
@@ -77,28 +77,26 @@ settings:
         id: timeline-item-margin-top
         title: Top
         type: variable-number
-        default: 2
+        default: 20
         format: px
     -
         id: timeline-item-margin-right
         title: Right
         type: variable-number
-        default: 2
+        default: 20
         format: px
     -
         id: timeline-item-margin-bottom
         title: Bottom
         type: variable-number
-        default: 2
+        default: 20
         format: px
     -
         id: timeline-item-margin-left
         title: Left
         type: variable-number
-        default: 2
+        default: 20
         format: px
-    -
-        id: 
     -
         id: plotarea
         title: Plot area
@@ -115,7 +113,7 @@ settings:
         id: timeline-plotarea-padding-top
         title: Top
         type: variable-number
-        default: 8
+        default: 0
         format: px
     -
         id: timeline-plotarea-padding-right
