@@ -661,16 +661,15 @@
 	function prepareMultiSelectDraw(event: MouseEvent) {
 		const startViewportBounds = stageCSSTarget!.getBoundingClientRect();
 		const startX = event.clientX - startViewportBounds.left;
-		const startY = event.clientY - startViewportBounds.top;
 		const startFocalValue = focalValue;
-		const startScrollTop = scrollTop;
+		const pageStartY = event.clientY - startViewportBounds.top + scrollTop;
 
 		let isDragging = false;
 
 		function dragSelectionArea(event: MouseEvent) {
 			const scrolledStartX =
 				startX - scale.toPixels(focalValue - startFocalValue);
-			const scrolledStartY = startY - scrollTop - startScrollTop;
+			const scrolledStartY = pageStartY - scrollTop;
 			const endX = event.clientX - startViewportBounds.left;
 			const endY = event.clientY - startViewportBounds.top;
 
