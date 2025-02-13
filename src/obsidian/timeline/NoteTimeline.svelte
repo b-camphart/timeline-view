@@ -105,6 +105,7 @@
 
 	let currentFilteringId = 0;
 	const filterQuery = settings.namespace("filter").make("query", "");
+	let filtering = $state(false);
 	let filter = new TimelineItemQueryFilter(
 		noteRepository,
 		$filterQuery,
@@ -113,14 +114,32 @@
 
 			const filteringId = currentFilteringId + 1;
 			currentFilteringId = filteringId;
-			const newItems = [];
-			for (const item of Array.from(itemsById.values())) {
-				if (currentFilteringId !== filteringId) break;
-				if (await filter.noteFilter().matches(item.note)) {
-					newItems.push(item);
-				}
+
+			const newItems: ReactiveNoteItem[] = [];
+			const tasks = TaskQueue.new();
+
+			filtering = true;
+
+			for (const item of itemsById.values()) {
+				tasks.enqueue(async () => {
+					if (await filter.noteFilter().matches(item.note)) {
+						newItems.push(item);
+					}
+				});
 			}
-			items = new MutableSortedArray(valueOf, ...newItems);
+
+			tasks.onProgress(() => {
+				if (currentFilteringId !== filteringId) {
+					tasks.cancel();
+					return;
+				}
+				items = new MutableSortedArray(valueOf, ...newItems);
+			});
+
+			tasks.onFinished((cancelled) => {
+				if (cancelled) return;
+				filtering = false;
+			});
 		},
 	);
 
@@ -710,6 +729,7 @@
 		<TimelineFilterSection
 			collapsed={settings.namespace("filter").make("collapsed", true)}
 			{filter}
+			{filtering}
 		/>
 	{/snippet}
 </TimelineView>
