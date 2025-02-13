@@ -1078,15 +1078,15 @@
 		<FocusedItem focus={focus.element} />
 	{/if}
 	<Scrollbar
-		style={`height: ${scrollbarHeight}px;`}
+		style={`--size: ${scrollbarHeight}px;`}
 		orientation={"horizontal"}
 		controls={"stage"}
 		tabindex={timelineItems.length}
-		value={scrollLeft}
+		value={0}
 		visibleAmount={viewport.width}
-		min={Math.min(scrollLeft, scrolled.items[0]?.offsetLeft ?? 0)}
+		min={Math.min(0, scrolled.items[0]?.offsetLeft ?? 0)}
 		max={Math.max(
-			scrollLeft,
+			viewport.width,
 			scrolled.items[scrolled.items.length - 1]?.offsetRight ?? 0,
 		)}
 		on:change={handleHScroll}
@@ -1098,7 +1098,7 @@
 		}}
 	/>
 	<Scrollbar
-		style={`width: ${scrollbarWidth}px;`}
+		style={`--size: ${scrollbarWidth}px;`}
 		orientation={"vertical"}
 		controls={"stage"}
 		tabindex={timelineItems.length + 1}
