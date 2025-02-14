@@ -1,11 +1,25 @@
-import type {TimelineItem, TimelineItemSource} from "src/timeline/item/TimelineItem.svelte";
-import type {Scale} from "src/timeline/scale";
+import type {
+	TimelineItem,
+	TimelineItemSource,
+} from "src/timeline/item/TimelineItem.svelte";
+import type { Scale } from "src/timeline/scale";
 
-export type PlotAreaSourceItem<T extends TimelineItemSource> = Omit<TimelineItem<T>, "setValue" | "setLength">;
+export type PlotAreaSourceItem<T extends TimelineItemSource> = Omit<
+	TimelineItem<T>,
+	"setValue" | "setLength"
+>;
 
-export class PlotAreaItem<T extends TimelineItemSource, S extends PlotAreaSourceItem<T>> {
-	static #byItem = new WeakMap<PlotAreaSourceItem<any>, PlotAreaItem<any, any>>();
-	static from<T extends TimelineItemSource, S extends PlotAreaSourceItem<T>>(item: S): PlotAreaItem<T, S> {
+export class PlotAreaItem<
+	T extends TimelineItemSource,
+	S extends PlotAreaSourceItem<T>,
+> {
+	static #byItem = new WeakMap<
+		PlotAreaSourceItem<any>,
+		PlotAreaItem<any, any>
+	>();
+	static from<T extends TimelineItemSource, S extends PlotAreaSourceItem<T>>(
+		item: S,
+	): PlotAreaItem<T, S> {
 		const existingItem = PlotAreaItem.#byItem.get(item);
 		if (existingItem !== undefined) {
 			return existingItem;
@@ -46,13 +60,21 @@ export class PlotAreaItem<T extends TimelineItemSource, S extends PlotAreaSource
 	layoutLeft = 0;
 	layoutBottom = 0;
 	layoutRight = 0;
-	layoutRadius = 0;
-	layout(top: number, left: number, bottom: number, right: number, radius: number, width: number, height: number) {
+	minSize = 0;
+	layout(
+		top: number,
+		left: number,
+		bottom: number,
+		right: number,
+		minSize: number,
+		width: number,
+		height: number,
+	) {
 		this.layoutTop = top;
 		this.layoutLeft = left;
 		this.layoutBottom = bottom;
 		this.layoutRight = right;
-		this.layoutRadius = radius;
+		this.minSize = minSize;
 		// these don't change with scroll, so we can set them here
 		this.offsetWidth = width;
 		this.offsetHeight = height;
@@ -72,7 +94,12 @@ export class PlotAreaItem<T extends TimelineItemSource, S extends PlotAreaSource
 	}
 
 	offsetContains(x: number, y: number) {
-		return this.offsetLeft <= x && x < this.offsetRight && this.offsetTop <= y && y < this.offsetBottom;
+		return (
+			this.offsetLeft <= x &&
+			x < this.offsetRight &&
+			this.offsetTop <= y &&
+			y < this.offsetBottom
+		);
 	}
 
 	offsetIntersects(left: number, top: number, width: number, height: number) {

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { constrainedWithinBody } from "src/timeline/layout/stage/Hover.svelte";
 	import { hoverTooltip } from "src/view/Tooltip";
+	import { bodyTooltip } from "src/view/Tooltip.svelte";
 
 	interface Props {
 		position: {
@@ -15,11 +16,12 @@
 </script>
 
 <div
-	use:hoverTooltip={{
-		visible: true,
-		label: summary,
-		className: "timeline-item-tooltip",
-		elementPosition: constrainedWithinBody.bind(null, hoverTooltip.center),
+	use:bodyTooltip={{
+		get label() {
+			return summary;
+		},
+		mod: "mod-top",
+		side: constrainedWithinBody.bind(null, hoverTooltip.top),
 	}}
 	aria-label={summary}
 	style:top="{position.offsetTop}px"

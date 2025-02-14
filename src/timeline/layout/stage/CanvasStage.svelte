@@ -2,13 +2,10 @@
 	lang="ts"
 	generics="T extends TimelineItemSource, SourceItem extends PlotAreaSourceItem<T>"
 >
-	import { run } from "svelte/legacy";
-
-	import { createEventDispatcher, onMount, untrack } from "svelte";
+	import { createEventDispatcher, untrack } from "svelte";
 	import { renderLayout } from "./draw";
 	import {
 		boxContainsPoint,
-		TimelineItemElementStyle,
 		type OffsetBox,
 	} from "src/timeline/layout/stage/TimelineItemElement";
 	import { type Scale } from "src/timeline/scale";
@@ -20,16 +17,23 @@
 	import SelectionArea from "./CanvasSelectionArea.svelte";
 	import SelectedBounds from "./SelectedBounds.svelte";
 	import DraggedItem from "./DraggedItem.svelte";
-	import Background from "src/timeline/layout/stage/Background.svelte";
 	import { DragPreviewElement } from "src/timeline/layout/stage/drag.svelte";
 	import { on } from "svelte/events";
-	import { layoutItems } from "src/timeline/layout/stage/layout";
+	import { layoutItems, scaleItems } from "src/timeline/layout/stage/layout";
 	import {
 		PlotAreaItem,
 		type PlotAreaSourceItem,
 	} from "src/timeline/layout/stage/item";
 	import type { TimelineItemSource } from "src/timeline/item/TimelineItem.svelte";
 	import { Selection } from "src/timeline/layout/stage/selection.svelte";
+	import CssProp from "src/view/CSSProp.svelte";
+	import CssColorProp from "src/view/CSSColorProp.svelte";
+	import Background from "src/timeline/layout/stage/Background.svelte";
+	import Padding from "src/timeline/layout/stage/Padding.svelte";
+	import type { FitBounds } from "src/timeline/controls/navigation/zoomToFit";
+	import { OverlayColor } from "src/color";
+	import { scrollItems } from "src/timeline/layout/stage/scroll";
+	import Scrollbars from "src/timeline/layout/stage/Scrollbars.svelte";
 
 	type Item = PlotAreaItem<T, SourceItem>;
 
@@ -52,9 +56,6 @@
 		sortedItems: readonly SourceItem[];
 		scale: Scale;
 		focalValue: number;
-		width?: number;
-		clientWidth?: number;
-		clientHeight?: number;
 		// todo: replace flags with object of methods. ie: null | { onMove?(): void; onResize?(): void }
 		editable: boolean;
 		itemsResizable: boolean;
@@ -82,9 +83,6 @@
 		sortedItems: timelineItems,
 		scale,
 		focalValue,
-		width = $bindable(0),
-		clientWidth = $bindable(0),
-		clientHeight = $bindable(0),
 		editable,
 		itemsResizable,
 		summarizeItem,
@@ -95,23 +93,8 @@
 	}: Props = $props();
 
 	let canvas: HTMLCanvasElement | undefined = $state();
-	const pointElements: {
-		base: HTMLDivElement | undefined;
-		nextCol: HTMLDivElement | undefined;
-		selected: HTMLDivElement | undefined;
-		focused: HTMLDivElement | undefined;
-		nextRow: HTMLDivElement | undefined;
-	} = $state({
-		base: undefined,
-		nextCol: undefined,
-		selected: undefined,
-		focused: undefined,
-		nextRow: undefined,
-	});
 	let stageCSSTarget: HTMLDivElement | undefined = $state();
 
-	let innerWidth = $state(0);
-	let innerHeight = $state(0);
 	const viewport = $state({
 		width: 0,
 		height: 0,
@@ -123,89 +106,55 @@
 		},
 	});
 
-	const item = $state({
-		width: 0,
-		height: 0,
+	const itemStyle = $state({
+		size: 16,
+		radius: 8,
+
+		color: "darkgray",
+
+		selected: {
+			borderWidth: 2,
+			color: "black",
+			borderColor: "black",
+		},
+
 		margin: {
 			horizontal: 0,
 			vertical: 0,
+
+			top: 2,
+			right: 2,
+			bottom: 2,
+			left: 2,
 		},
 	});
+	const selectedColorOverlay = $derived(
+		new OverlayColor(itemStyle.selected.color),
+	);
 
-	const resizeObserver = new ResizeObserver((a) => {
-		if (
-			canvas == null ||
-			Object.values(pointElements).some((el) => el == null) ||
-			stageCSSTarget == null
-		) {
-			return;
-		}
-
-		// if it's completely minimized, no use recalculating everything, since
-		// none of it will be visible anyway.  Also, avoids resetting the
-		// scroll height to 0.
-		if (
-			stageCSSTarget.offsetHeight === 0 &&
-			stageCSSTarget.offsetWidth === 0
-		) {
-			return;
-		}
-
-		item.width = Math.round(pointElements.base!.clientWidth);
-		item.height = Math.round(pointElements.base!.clientHeight);
-		item.margin.horizontal = Math.round(
-			Math.max(
-				0,
-				pointElements.nextCol!.offsetLeft -
-					(pointElements.base!.offsetLeft + item.width),
-			),
-		);
-		item.margin.vertical = Math.round(
-			Math.max(
-				0,
-				pointElements.nextRow!.offsetTop -
-					(pointElements.base!.offsetTop + item.height),
-			),
-		);
-
-		(viewport.padding.top = Math.max(
-			0,
-			pointElements.base!.offsetTop - item.margin.vertical,
-		)),
-			(viewport.padding.left = Math.max(
-				0,
-				pointElements.base!.offsetLeft - item.margin.horizontal,
-			)),
-			(viewport.padding.right =
-				stageCSSTarget.clientWidth -
-				viewport.padding.left -
-				innerWidth),
-			(viewport.padding.bottom =
-				stageCSSTarget.clientHeight -
-				viewport.padding.top -
-				innerHeight),
-			(viewport.width = stageCSSTarget.clientWidth);
-		viewport.height = stageCSSTarget.clientHeight;
-
-		const reportedWidth =
-			viewport.width -
-			viewport.padding.left -
-			viewport.padding.right -
-			item.width -
-			item.margin.horizontal;
-
-		if (width != reportedWidth) {
-			width = reportedWidth;
-		}
-	});
+	export function fitBounds(): FitBounds {
+		return {
+			size: viewport.width,
+			padding: {
+				start: viewport.padding.left,
+				end: viewport.padding.right,
+			},
+			items: {
+				size: itemStyle.size,
+				margin: {
+					start: itemStyle.margin.left,
+					end: itemStyle.margin.right,
+				},
+			},
+		};
+	}
 
 	const items = $derived.by(() => {
 		const plotAreaItems = timelineItems.map(PlotAreaItem.from);
 		return plotAreaItems as Item[];
 	});
 	const scaled = $derived.by(() => {
-		const currentScale = scale;
-		items.forEach((it) => it.scale(currentScale));
+		scaleItems(scale, items);
 		return {
 			items,
 			_: Math.random(),
@@ -220,16 +169,7 @@
 
 	const layout = $derived.by(() => {
 		const plotAreaItems = scaled.items;
-		layoutItems(
-			item.height / 2,
-			{
-				top: item.margin.vertical,
-				left: item.margin.horizontal,
-				bottom: item.margin.vertical,
-				right: item.margin.horizontal,
-			},
-			plotAreaItems,
-		);
+		layoutItems(itemStyle.size, itemStyle.margin, plotAreaItems);
 		return {
 			items: plotAreaItems,
 			_: Math.random(),
@@ -267,73 +207,45 @@
 		const layoutItems = layout.items;
 		const top = scrollTop - viewport.padding.top;
 		const left = scrollLeft;
-		layoutItems.forEach((it) => it.scroll(top, left));
+		scrollItems(layoutItems, top, left);
 		return {
 			items: layoutItems,
 			_: Math.random(),
 		};
 	});
-	let baseItemStyle = $state(TimelineItemElementStyle.unstyled);
-	let selectedItemStyle = $state(TimelineItemElementStyle.unstyled);
-	onMount(() => {
-		let cancelled = false;
-		function queryItemStyle() {
-			if (cancelled) return;
-
-			const base = pointElements.base,
-				selected = pointElements.selected;
-			if (base === undefined || selected === undefined) {
-				requestAnimationFrame(queryItemStyle);
-				return;
-			}
-
-			const style = TimelineItemElementStyle.fromCSS(
-					getComputedStyle(base),
-				),
-				selectedStyle = TimelineItemElementStyle.fromCSS(
-					getComputedStyle(selected),
-				);
-			if (!style.equals(baseItemStyle)) {
-				baseItemStyle = style;
-			}
-			if (!selectedStyle.equals(selectedItemStyle)) {
-				selectedItemStyle = selectedStyle;
-			}
-
-			requestAnimationFrame(queryItemStyle);
-		}
-		queryItemStyle();
-
-		return () => {
-			cancelled = true;
-		};
-	});
 
 	const styled = $derived.by(() => {
 		const currentItems = items;
-		const currentItemStyle = baseItemStyle;
+		const itemColor = itemStyle.color;
 
 		if (selection.isEmpty()) {
 			currentItems.forEach((it) => {
 				const prefColor = it.color();
-				it.backgroundColor = prefColor ?? currentItemStyle.fill;
-				it.borderColor = prefColor ?? currentItemStyle.stroke;
-				it.strokeWidth = currentItemStyle.strokeWidth;
+				it.backgroundColor = prefColor ?? itemColor;
+				it.borderColor = prefColor ?? itemColor;
+				it.strokeWidth = 0;
 			});
 			return { items: currentItems, _: Math.random() };
 		}
 
-		const currentSelectedStyle = selectedItemStyle;
+		const selectedItemColor = selectedColorOverlay;
+		const selectedItemBorder = {
+			color: itemStyle.selected.borderColor,
+			width: itemStyle.selected.borderWidth,
+		};
+
 		currentItems.forEach((it) => {
 			const prefColor = it.color();
 			if (selection.has(it)) {
-				it.backgroundColor = prefColor ?? currentSelectedStyle.fill;
-				it.borderColor = currentSelectedStyle.stroke;
-				it.strokeWidth = currentSelectedStyle.strokeWidth;
+				it.backgroundColor = selectedItemColor.blend(
+					prefColor ?? itemColor,
+				);
+				it.borderColor = selectedItemBorder.color;
+				it.strokeWidth = selectedItemBorder.width;
 			} else {
-				it.backgroundColor = prefColor ?? currentItemStyle.fill;
-				it.borderColor = prefColor ?? currentItemStyle.stroke;
-				it.strokeWidth = currentItemStyle.strokeWidth;
+				it.backgroundColor = prefColor ?? itemColor;
+				it.borderColor = prefColor ?? itemColor;
+				it.strokeWidth = 0;
 			}
 		});
 		return { items: currentItems, _: Math.random() };
@@ -343,10 +255,14 @@
 		const currentCanvas = canvas;
 		if (currentCanvas === undefined) return;
 
+		const viewportWidth = viewport.width;
+		const viewportHeight = viewport.height;
+
 		const scrolledItems = scrolled.items;
 		// re-style should trigger a redraw
 		styled.items;
 		const previewItems = dragPreview?.arr() ?? null;
+		const radius = itemStyle.radius;
 
 		const handle = requestAnimationFrame(function draw() {
 			const renderContext = currentCanvas.getContext("2d");
@@ -354,17 +270,23 @@
 
 			const ratio = activeWindow.devicePixelRatio || 1;
 			if (
-				currentCanvas.width != viewport.width * ratio ||
-				currentCanvas.height != viewport.height * ratio
+				currentCanvas.width != viewportWidth * ratio ||
+				currentCanvas.height != viewportHeight * ratio
 			) {
-				currentCanvas.width = viewport.width * ratio;
-				currentCanvas.height = viewport.height * ratio;
-				currentCanvas.style.width = viewport.width + "px";
-				currentCanvas.style.height = viewport.height + "px";
+				currentCanvas.width = viewportWidth * ratio;
+				currentCanvas.height = viewportHeight * ratio;
+				currentCanvas.style.width = viewportWidth + "px";
+				currentCanvas.style.height = viewportHeight + "px";
 				renderContext.scale(ratio, ratio);
 			}
 
-			renderLayout(renderContext, viewport, scrolledItems, previewItems);
+			renderLayout(
+				renderContext,
+				viewport,
+				radius,
+				scrolledItems,
+				previewItems,
+			);
 		});
 		return () => {
 			cancelAnimationFrame(handle);
@@ -374,7 +296,7 @@
 	const elements = $derived(scrolled.items);
 	$effect(() => {
 		const currentHover = hover;
-		if (currentHover !== null) {
+		if (currentHover instanceof HoveredItem) {
 			const scrolledItems = scrolled.items;
 			if (
 				currentHover.element.offsetContains(
@@ -447,7 +369,7 @@
 					selectedItem.item.value(),
 					selectedItem.item.length(),
 					selectedItem.item.value() + selectedItem.item.length(),
-					selectedItem.offsetLeft + selectedItem.layoutRadius,
+					selectedItem.offsetLeft + selectedItem.minSize / 2,
 					selectedItem.backgroundColor,
 					selectedItem.borderColor,
 					selectedItem.strokeWidth,
@@ -516,12 +438,12 @@
 	function handleMouseDown(event: MouseEvent) {
 		focusCausedByClick = true;
 
-		if (hover == null || hover.element == null) {
+		if (!(hover instanceof HoveredItem) || hover.element == null) {
 			focus = null;
 
 			if (
-				selectionBounds !== null &&
-				boxContainsPoint(selectionBounds, event.offsetX, event.offsetY)
+				selectedBounds !== null &&
+				boxContainsPoint(selectedBounds, event.offsetX, event.offsetY)
 			) {
 				if (prepareDragSelection(event)) {
 					return;
@@ -599,8 +521,7 @@
 				previousPreview.endValue = newEndValue;
 				previousPreview.length = newEndValue - newItemValue;
 				previousPreview.offsetCenterX = offsetCenterX;
-				previousPreview.offsetLeft =
-					offsetCenterX - item.offsetHeight / 2;
+				previousPreview.offsetLeft = offsetCenterX - item.minSize / 2;
 				previousPreview.offsetRight = offsetCenterX + item.offsetWidth;
 			});
 
@@ -670,7 +591,7 @@
 						previewItem.value + previewItem.length;
 					previewItem.offsetWidth =
 						scale.toPixels(previewItem.length) +
-						selectedItem.offsetHeight;
+						selectedItem.minSize;
 					previewItem.offsetRight =
 						previewItem.offsetLeft + previewItem.offsetWidth;
 				});
@@ -684,7 +605,7 @@
 
 					previewItem.offsetWidth =
 						scale.toPixels(previewItem.length) +
-						selectedItem.offsetHeight;
+						selectedItem.minSize;
 					previewItem.offsetLeft =
 						previewItem.offsetRight - previewItem.offsetWidth;
 				});
@@ -713,7 +634,7 @@
 
 	let selectionArea = $state<null | OffsetBox>(null);
 	const selection = new Selection<Item>();
-	const selectionBounds = $derived.by(() => {
+	const selectedBounds = $derived.by(() => {
 		if (selection.length() <= 1) return null;
 		let offsetRight = -Infinity;
 		let offsetBottom = -Infinity;
@@ -741,16 +662,15 @@
 	function prepareMultiSelectDraw(event: MouseEvent) {
 		const startViewportBounds = stageCSSTarget!.getBoundingClientRect();
 		const startX = event.clientX - startViewportBounds.left;
-		const startY = event.clientY - startViewportBounds.top;
 		const startFocalValue = focalValue;
-		const startScrollTop = scrollTop;
+		const pageStartY = event.clientY - startViewportBounds.top + scrollTop;
 
 		let isDragging = false;
 
 		function dragSelectionArea(event: MouseEvent) {
 			const scrolledStartX =
 				startX - scale.toPixels(focalValue - startFocalValue);
-			const scrolledStartY = startY - scrollTop - startScrollTop;
+			const scrolledStartY = pageStartY - scrollTop;
 			const endX = event.clientX - startViewportBounds.left;
 			const endY = event.clientY - startViewportBounds.top;
 
@@ -833,8 +753,8 @@
 	function handleMouseUp(event: MouseEvent) {
 		if (event.button === 2) {
 			if (
-				selectionBounds !== null &&
-				boxContainsPoint(selectionBounds, event.offsetX, event.offsetY)
+				selectedBounds !== null &&
+				boxContainsPoint(selectedBounds, event.offsetX, event.offsetY)
 			) {
 				oncontextmenu(
 					event,
@@ -842,7 +762,7 @@
 				);
 				return;
 			}
-			if (hover == null || hover.element == null) {
+			if (!(hover instanceof HoveredItem) || hover.element == null) {
 				return;
 			}
 			oncontextmenu(event, [hover.element.item]);
@@ -853,7 +773,7 @@
 		}
 		const mouseWasDownOn = mouseDownOn;
 		mouseDownOn = null;
-		if (hover == null || hover.element == null) {
+		if (!(hover instanceof HoveredItem) || hover.element == null) {
 			return;
 		}
 		if (hover.element !== mouseWasDownOn) {
@@ -914,7 +834,9 @@
 		}
 	}
 
-	let hover = $state<HoveredItem | null>(null);
+	const WithinSelection = Symbol();
+
+	let hover = $state<HoveredItem | typeof WithinSelection | null>(null);
 
 	class Focus {
 		#element: Item = $state(undefined as any as Item);
@@ -988,15 +910,17 @@
 				if (element.offsetContains(event.offsetX, event.offsetY)) {
 					let side: "middle" | "left" | "right" = "middle";
 					if (itemsResizable) {
-						side =
+						if (
 							event.offsetX <
-							element.offsetLeft + element.offsetHeight / 4
-								? "left"
-								: event.offsetX >
-									  element.offsetRight -
-											element.offsetHeight / 4
-									? "right"
-									: "middle";
+							element.offsetLeft + element.minSize / 4
+						) {
+							side = "left";
+						} else if (
+							event.offsetX >=
+							element.offsetRight - element.minSize / 4
+						) {
+							side = "right";
+						}
 					}
 					hover = new HoveredItem(element, side, [
 						event.offsetX,
@@ -1005,26 +929,27 @@
 					return;
 				}
 			}
+			if (selectedBounds != null) {
+				if (
+					boxContainsPoint(
+						selectedBounds,
+						event.offsetX,
+						event.offsetY,
+					)
+				) {
+					hover = WithinSelection;
+					return;
+				}
+			}
 		}
 		hover = null;
 	}
 
-	let scrollbarMeasurerFullWidth: number = $state(0);
-	let scrollbarMeasurerInnerWidth: number = $state(0);
-	let scrollbarWidth = $derived(
-		scrollbarMeasurerFullWidth - scrollbarMeasurerInnerWidth,
-	);
-	$effect(() => {
-		clientWidth = viewport.width - scrollbarWidth;
-	});
-	let scrollbarMeasurerFullHeight: number = $state(0);
-	let scrollbarMeasurerInnerHeight: number = $state(0);
-	let scrollbarHeight = $derived(
-		scrollbarMeasurerFullHeight - scrollbarMeasurerInnerHeight,
-	);
-	run(() => {
-		clientHeight = viewport.height - scrollbarHeight;
-	});
+	let scrollbars = $state<Scrollbars | null>(null);
+
+	export function clientWidth() {
+		return scrollbars?.getClientWidth() ?? 0;
+	}
 
 	function handleHScroll(event: ChangeEvent) {
 		dispatch(
@@ -1038,50 +963,36 @@
 		scrollVertically(event.detail.value);
 	}
 
-	onMount(() => {
-		if (
-			canvas == null ||
-			Object.values(pointElements).some((el) => el == null) ||
-			stageCSSTarget == null
-		) {
-			return;
-		}
-
-		resizeObserver.observe(canvas);
-		Object.values(pointElements).forEach((element) =>
-			resizeObserver.observe(element!),
-		);
-		resizeObserver.observe(stageCSSTarget);
-	});
+	const id = "timeline-view--plotarea-" + Math.random().toString(36).slice(2);
 </script>
 
 <div
-	id="stage"
+	{id}
+	class="timeline-view--plotarea"
+	bind:offsetWidth={viewport.width}
+	bind:offsetHeight={viewport.height}
 	bind:this={stageCSSTarget}
 	aria-readonly={!editable}
 	class:hovered={hover != null}
-	data-hover-side={hover != null ? hover.side : undefined}
+	data-hover-over-selection={hover === WithinSelection}
+	data-hover-side={hover instanceof HoveredItem ? hover.side : undefined}
+	style:--cross-axis-scroll="{scrollTop}px"
 >
-	<Background {scrollTop} itemDimensions={item} {viewport} />
-	<div style="display: flex;flex-direction: row;">
-		<div class="timeline-item" bind:this={pointElements.base}></div>
-		<div class="timeline-item" bind:this={pointElements.nextCol}></div>
-		<div
-			class="timeline-item selected"
-			bind:this={pointElements.selected}
-		></div>
-		<div
-			class="timeline-item focused"
-			bind:this={pointElements.focused}
-		></div>
-	</div>
-	<div class="timeline-item" bind:this={pointElements.nextRow}></div>
-	<div
-		class="bottom-right-padding-measure"
-		bind:offsetWidth={innerWidth}
-		bind:offsetHeight={innerHeight}
-	></div>
+	<Background />
+	<Padding
+		onOffsetChange={(box) => {
+			viewport.padding.top = box.top;
+			viewport.padding.left = box.left;
+			viewport.padding.right = box.right;
+			viewport.padding.bottom = box.bottom;
+		}}
+	/>
 	<SelectionArea area={selectionArea} />
+	<SelectedBounds
+		dragging={dragPreview != null}
+		bounds={selectedBounds}
+		selectedItemCount={selection.length()}
+	/>
 	<canvas
 		bind:this={canvas}
 		tabindex={0}
@@ -1136,12 +1047,7 @@
 			}
 		}}
 	></canvas>
-	<SelectedBounds
-		dragging={dragPreview != null}
-		bounds={selectionBounds}
-		selectedItemCount={selection.length()}
-	/>
-	{#if hover != null}
+	{#if hover instanceof HoveredItem}
 		<Hover
 			position={hover.element}
 			summary={summarizeItem(hover.element.item)}
@@ -1165,145 +1071,89 @@
 	{#if focus != null}
 		<FocusedItem focus={focus.element} />
 	{/if}
-	<Scrollbar
-		style={`height: ${scrollbarHeight}px;`}
-		orientation={"horizontal"}
-		controls={"stage"}
-		tabindex={timelineItems.length}
-		value={scrollLeft}
-		visibleAmount={viewport.width}
-		min={Math.min(scrollLeft, scrolled.items[0]?.offsetLeft ?? 0)}
-		max={Math.max(
-			scrollLeft,
-			scrolled.items[scrolled.items.length - 1]?.offsetRight ?? 0,
-		)}
-		on:change={handleHScroll}
-		on:dragstart={() => {
+	<Scrollbars
+		bind:this={scrollbars}
+		tabIndex={timelineItems.length}
+		{id}
+		{scrollHeight}
+		{scrollTop}
+		minLeftOffset={scrolled.items[0]?.offsetLeft ?? 0}
+		maxRightOffset={scrolled.items[scrolled.items.length - 1]
+			?.offsetRight ?? 0}
+		onVScroll={handleVScroll}
+		onHScroll={handleHScroll}
+		onThumbDragStart={() => {
 			scrollbarDragging = true;
 		}}
-		on:dragend={() => {
+		onThumbDragEnd={() => {
 			scrollbarDragging = false;
 		}}
 	/>
-	<Scrollbar
-		style={`width: ${scrollbarWidth}px;`}
-		orientation={"vertical"}
-		controls={"stage"}
-		tabindex={timelineItems.length + 1}
-		value={scrollTop}
-		visibleAmount={viewport.height}
-		min={0}
-		max={scrollHeight}
-		on:change={handleVScroll}
-		on:dragstart={() => {
-			scrollbarDragging = true;
-		}}
-		on:dragend={() => {
-			scrollbarDragging = false;
-		}}
+
+	<!-- CSS getters -->
+	<CssProp name="--item-margin-top" bind:value={itemStyle.margin.top} />
+	<CssProp name="--item-margin-left" bind:value={itemStyle.margin.left} />
+	<CssProp name="--item-margin-bottom" bind:value={itemStyle.margin.bottom} />
+	<CssProp name="--item-margin-right" bind:value={itemStyle.margin.right} />
+	<CssProp name="--item-size" bind:value={itemStyle.size} />
+	<CssProp name="--item-radius" bind:value={itemStyle.radius} />
+	<CssColorProp name="--item-color" bind:value={itemStyle.color} />
+	<CssProp
+		name="--selected-item-border-width"
+		bind:value={itemStyle.selected.borderWidth}
+	/>
+	<CssColorProp
+		name="--selected-item-color"
+		bind:value={itemStyle.selected.color}
+	/>
+	<CssColorProp
+		name="--selected-item-border-color"
+		bind:value={itemStyle.selected.borderColor}
 	/>
 </div>
-<div
-	bind:clientHeight={scrollbarMeasurerInnerHeight}
-	bind:clientWidth={scrollbarMeasurerInnerWidth}
-	bind:offsetHeight={scrollbarMeasurerFullHeight}
-	bind:offsetWidth={scrollbarMeasurerFullWidth}
-	class="scrollbar-style-measurer"
-></div>
 
 <style>
-	@property --timeline-item-color {
-		syntax: "<color>";
-		initial-value: grey;
-		inherits: true;
-	}
-	@property --timeline-item-size {
-		syntax: "<length>";
-		initial-value: 16px;
-		inherits: true;
-	}
-	@property --timeline-item-margin {
-		syntax: "<length>";
-		initial-value: 4px;
-		inherits: true;
+	div {
+		--item-v-margin: max(var(--item-margin-top), var(--item-margin-bottom));
+		--item-cross-axis-spacing: calc(
+			var(--item-size) + var(--item-v-margin)
+		);
 	}
 
-	:global(.timeline-item) {
-		background-color: var(--timeline-item-color);
-		margin: var(--timeline-item-margin, 4px);
-	}
+	div {
+		padding-top: var(--padding-top, 8px);
+		padding-left: var(--padding-left, 8px);
+		padding-bottom: var(--padding-bottom, 8px);
+		padding-right: var(--padding-right, 48px);
 
-	:global(.timeline-item.selected) {
-		background-color: var(--timeline-background);
-		border-color: var(--timeline-item-border-hover);
-		border-width: 1px;
-		border-style: solid;
-	}
-
-	div#stage {
-		--timeline-item-diameter: var(--timeline-item-size);
+		--timeline-item-diameter: var(--item-size);
 		--timeline-item-radius: calc(var(--timeline-item-diameter) / 2);
 
 		flex-grow: 1;
 		position: relative;
-		padding: var(--timeline-padding);
 		overflow: hidden;
 		--scrollbar-width: var(--size-4-1);
 	}
-	div#stage.hovered[data-hover-side="middle"] {
+	div.hovered:not([data-hover-over-selection="true"]) {
 		cursor: pointer;
 	}
-	div#stage.hovered[data-hover-side="left"] {
+	div.hovered[data-hover-side="left"]:not([aria-readonly="true"]) {
 		cursor: e-resize;
 	}
-	div#stage.hovered[data-hover-side="right"] {
+	div.hovered[data-hover-side="right"]:not([aria-readonly="true"]) {
 		cursor: w-resize;
 	}
-	div#stage[aria-readonly="true"][data-hover-side="left"],
-	div#stage[aria-readonly="true"][data-hover-side="right"] {
-		cursor: pointer;
+	div:not(
+			[aria-readonly="true"]
+		).hovered[data-hover-over-selection="true"]:not(
+			[data-hover-side="middle"]
+		) {
+		cursor: grab;
 	}
 
 	canvas {
 		position: absolute;
 		top: 0;
 		left: 0;
-	}
-	div#stage .timeline-item {
-		visibility: hidden !important;
-		width: var(--timeline-item-diameter);
-		height: var(--timeline-item-diameter);
-	}
-	div#stage .bottom-right-padding-measure {
-		width: 1005;
-		height: 100%;
-		visibility: hidden !important;
-		pointer-events: none;
-		bottom: 0;
-		right: 0;
-	}
-
-	.scrollbar-style-measurer {
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100px;
-		height: 100px;
-		overflow: scroll;
-		visibility: hidden;
-	}
-
-	div#stage :global([role="scrollbar"]) {
-		position: absolute;
-	}
-	div#stage :global([role="scrollbar"][aria-orientation="horizontal"]) {
-		bottom: 0;
-		left: 0;
-		width: 100%;
-	}
-	div#stage :global([role="scrollbar"][aria-orientation="vertical"]) {
-		top: 0;
-		right: 0;
-		height: 100%;
 	}
 </style>

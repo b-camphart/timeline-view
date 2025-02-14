@@ -22,6 +22,11 @@
 		type TimelineItem,
 		type TimelineItemSource,
 	} from "src/timeline/item/TimelineItem.svelte";
+	import Controls from "src/timeline/controls/Controls.svelte";
+	import ControlGroup from "src/timeline/controls/ControlGroup.svelte";
+	import ControlItem, {
+		controlItem,
+	} from "src/timeline/controls/ControlItem.svelte";
 
 	type Item = T;
 
@@ -96,8 +101,8 @@
 	const focalValue = namespacedWritable.make("focalValue", 0);
 	const persistedValuePerPixel = namespacedWritable.make("scale", 1);
 
-	const stageWidth = writable(0);
-	let stageClientWidth = $state(0);
+	let plotarea = $state<null | CanvasStage<T, TimelineItem<T>>>(null);
+	const fitBounds = $derived(plotarea?.fitBounds());
 
 	function scaleStore(initialScale: Scale = new ValuePerPixelScale(1)) {
 		function atLeastMinimum(value: Scale) {
@@ -205,31 +210,33 @@
 				$focalValue = newFocalValue;
 			}
 		},
-		() => $stageWidth,
+		() => fitBounds!,
 	);
 
+	let needsZoomToFit = $state(false);
 	export function zoomToFit() {
 		if (initialized) {
-			navigation.zoomToFit(timelineItems, $stageWidth);
+			navigation.zoomToFit(timelineItems, fitBounds);
 		} else {
-			const unsubscribe = stageWidth.subscribe((newStageWidth) => {
-				if (newStageWidth > 0) {
-					navigation.zoomToFit(timelineItems, newStageWidth);
-					unsubscribe();
-				}
-			});
+			needsZoomToFit = true;
 		}
 	}
+
+	$effect(() => {
+		if (needsZoomToFit && fitBounds == null) {
+			needsZoomToFit = false;
+			navigation.zoomToFit(timelineItems, fitBounds);
+		}
+	});
 
 	export function refresh() {
 		// items = items;
 	}
 
 	export function focusOnId(id: string) {
-		canvasStage.focusOnId(id);
+		plotarea?.focusOnId(id);
 	}
 
-	let canvasStage: CanvasStage<T, TimelineItem<T>>;
 	export function invalidateColors() {
 		// canvasStage.invalidateColors();
 	}
@@ -237,7 +244,7 @@
 	let initialized = false;
 	$effect(() => {
 		if (!initialized) {
-			if ($stageWidth > 0) {
+			if (fitBounds != null) {
 				initialized = true;
 			}
 		}
@@ -274,9 +281,9 @@
 </script>
 
 <div
-	class="timeline"
+	class="timeline-view--timeline"
 	style:--ruler-height="{rulerHeight}px"
-	style:--stage-client-width="{stageClientWidth}px"
+	style:--plotarea-client-width="{plotarea?.clientWidth() ?? 0}px"
 >
 	<TimelineRuler
 		{display}
@@ -284,8 +291,9 @@
 		focalValue={$focalValue}
 		bind:clientHeight={rulerHeight}
 	/>
+
 	<CanvasStage
-		bind:this={canvasStage}
+		bind:this={plotarea}
 		previewItem={(item, name, value, length, endValue) => {
 			const currentLength = selectLength(item.source);
 
@@ -298,8 +306,6 @@
 		sortedItems={sorted.items}
 		scale={$scale}
 		focalValue={$focalValue}
-		bind:width={$stageWidth}
-		bind:clientWidth={stageClientWidth}
 		editable={mode != null ? $mode === "edit" : false}
 		{itemsResizable}
 		on:scrollToValue={(event) => navigation.scrollToValue(event.detail)}
@@ -323,7 +329,7 @@
 					);
 				}}
 	/>
-	<menu class="timeline-controls">
+	<Controls>
 		<TimelineNavigationControls {navigation} />
 		<TimelineSettings collapsable={settingsCollapable}>
 			{@render additionalSettings()}
@@ -333,89 +339,45 @@
 				{pendingGroupUpdates}
 			/>
 		</TimelineSettings>
-		<div class="control-group">
+		<ControlGroup>
 			<ActionButton
-				class="clickable-icon control-item"
+				class="clickable-icon {controlItem}"
 				on:action={openHelpDialog}
 			>
 				<LucideIcon id="help" />
 			</ActionButton>
-		</div>
-	</menu>
+		</ControlGroup>
+	</Controls>
 </div>
 
 <style>
-	@property --timeline-background {
-		syntax: "<color>";
-		inherits: true;
-		initial-value: darkgrey;
+	.timeline-view--timeline :global(.timeline-view--ruler) {
+		--border-color: var(--ruler-border-color);
+		--border-width: var(--ruler-border-width);
 	}
 
-	:global(.timeline) {
-		background-color: var(--timeline-background);
+	.timeline-view--timeline :global(.timeline-view--ruler-label) {
+		--padding: var(--ruler-label-padding);
+		--font-size: var(--ruler-label-font-size);
+		--font-weight: var(--ruler-label-font-weight);
+		--border-color: var(--ruler-label-border-color);
+		--border-width: var(--ruler-label-border-width);
 	}
 
-	/*! Positioning */
-	:global(.timeline-controls) {
-		position: absolute;
-		top: var(--ruler-height);
-		margin-top: var(--size-4-2);
-		margin-right: var(--size-4-2);
-		right: calc(100% - var(--stage-client-width));
-	}
-	/*! Icon sizing */
-	:global(.timeline-controls) {
-		--icon-size: var(--icon-s);
-		--icon-stroke: var(--icon-s-stroke-width);
-	}
-	/*! Menu padding overrides  */
-	:global(menu.timeline-controls) {
-		padding: 0;
-	}
+	.timeline-view--timeline :global(.timeline-view--plotarea) {
+		--padding-top: var(--plotarea-padding-top);
+		--padding-left: var(--plotarea-padding-left);
+		--padding-bottom: var(--plotarea-padding-bottom);
+		--padding-right: var(--plotarea-padding-right);
 
-	/*! Internal layout */
-	:global(.timeline-controls) {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-4-2);
-		align-items: flex-end;
-	}
-	:global(.timeline-controls > *) {
-		margin: 0;
-	}
-
-	/*! Item styling */
-	:global(.timeline-controls > *) {
-		border-radius: var(--radius-s);
-		background-color: var(--timeline-settings-background);
-		border: 1px solid var(--background-modifier-border);
-		box-shadow: var(--input-shadow);
-		box-sizing: border-box;
-	}
-	:global(.timeline-controls > * > *) {
-		background-color: var(--timeline-settings-background);
+		--background-line-color: var(--plotarea-background-line-color);
+		--background-line-width: var(--plotarea-background-line-width);
+		--background-line-dash-on: var(--plotarea-background-line-dash-on);
+		--background-line-dash-off: var(--plotarea-background-line-dash-off);
 	}
 
 	:global(.timeline-settings-groups-section) {
 		position: relative;
-	}
-
-	.control-group :global(.control-item) {
-		padding: var(--timeline-settings-button-padding);
-	}
-
-	.control-group :global(button.control-item.clickable-icon) {
-		background-color: var(--interactive-normal);
-	}
-	.control-group :global(button.control-item.clickable-icon:hover) {
-		background-color: var(--interactive-normal);
-	}
-
-	div menu {
-		pointer-events: none;
-	}
-	div menu > :global(*) {
-		pointer-events: all;
 	}
 
 	div {

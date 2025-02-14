@@ -1,7 +1,7 @@
-import {exists} from "src/utils/null";
-import type {TimelineNoteItem} from "../TimelineNoteItem";
-import type {QueryFilterReaderWriter} from "./query";
-import type {NoteRepository} from "src/note/repository";
+import { exists } from "src/utils/null";
+import type { TimelineNoteItem } from "../TimelineNoteItem";
+import type { QueryFilterReaderWriter } from "./query";
+import type { NoteRepository } from "src/note/repository";
 
 export class TimelineItemQueryFilter implements QueryFilterReaderWriter {
 	constructor(
@@ -27,14 +27,24 @@ export class TimelineItemQueryFilter implements QueryFilterReaderWriter {
 	#notes;
 	#onQueryChange;
 
+	#debounce: null | ReturnType<typeof setTimeout> = null;
 	filterByQuery(query: string): void {
 		this.#filter = this.#notes.getInclusiveNoteFilterForQuery(query);
-		this.#onQueryChange(query);
+
+		if (this.#debounce) {
+			clearTimeout(this.#debounce);
+			this.#debounce = setTimeout(() => {
+				this.#onQueryChange(query);
+				this.#debounce = null;
+			}, 350);
+		} else {
+			this.#onQueryChange(query);
+		}
 	}
 
 	async filteredItems(items: Iterable<TimelineNoteItem>) {
 		const itemsOrNull = await Promise.all(
-			[...items].map(async item => {
+			[...items].map(async (item) => {
 				if (await this.#filter.matches(item.note)) {
 					return item;
 				}

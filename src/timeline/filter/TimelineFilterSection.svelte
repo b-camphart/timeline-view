@@ -6,14 +6,15 @@
 
 	interface Props {
 		filter: QueryFilterReaderWriter;
+		filtering: boolean;
 		collapsed: Writable<boolean>;
 	}
 
-	let { filter, collapsed }: Props = $props();
+	let { filter, filtering, collapsed }: Props = $props();
 </script>
 
 <CollapsableSection name="Filter" bind:collapsed={$collapsed}>
-	<TimelineQueryFilterInput {filter} />
+	<TimelineQueryFilterInput {filter} {filtering} />
 </CollapsableSection>
 
 <style>

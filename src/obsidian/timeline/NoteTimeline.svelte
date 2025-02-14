@@ -105,6 +105,7 @@
 
 	let currentFilteringId = 0;
 	const filterQuery = settings.namespace("filter").make("query", "");
+	let filtering = $state(false);
 	let filter = new TimelineItemQueryFilter(
 		noteRepository,
 		$filterQuery,
@@ -113,14 +114,32 @@
 
 			const filteringId = currentFilteringId + 1;
 			currentFilteringId = filteringId;
-			const newItems = [];
-			for (const item of Array.from(itemsById.values())) {
-				if (currentFilteringId !== filteringId) break;
-				if (await filter.noteFilter().matches(item.note)) {
-					newItems.push(item);
-				}
+
+			const newItems: ReactiveNoteItem[] = [];
+			const tasks = TaskQueue.new();
+
+			filtering = true;
+
+			for (const item of itemsById.values()) {
+				tasks.enqueue(async () => {
+					if (await filter.noteFilter().matches(item.note)) {
+						newItems.push(item);
+					}
+				});
 			}
-			items = new MutableSortedArray(valueOf, ...newItems);
+
+			tasks.onProgress(() => {
+				if (currentFilteringId !== filteringId) {
+					tasks.cancel();
+					return;
+				}
+				items = new MutableSortedArray(valueOf, ...newItems);
+			});
+
+			tasks.onFinished((cancelled) => {
+				if (cancelled) return;
+				filtering = false;
+			});
 		},
 	);
 
@@ -603,7 +622,9 @@
 		propertySelector = propertySelector;
 		items = new MutableSortedArray(valueOf, ...items);
 		display = property.displayedAs();
-		timelineView?.zoomToFit();
+		tick().then(() => {
+			timelineView?.zoomToFit();
+		});
 	}
 
 	function onSecondaryPropertySelected(property: TimelineProperty) {
@@ -708,26 +729,16 @@
 		<TimelineFilterSection
 			collapsed={settings.namespace("filter").make("collapsed", true)}
 			{filter}
+			{filtering}
 		/>
 	{/snippet}
 </TimelineView>
 
 <style>
+	@import "../style-settings/settings.css";
+	@import "./variables.css";
+
 	:global(body) {
-		--timeline-background: var(--canvas-background);
-
-		--timeline-ruler-label-font-size: var(--file-header-font-size);
-		--timeline-ruler-label-font-weight: var(--file-header-font-weight);
-		--timeline-ruler-label-border-color: var(--canvas-dot-pattern);
-		--timeline-ruler-label-border-width: var(--divider-width);
-
-		--timeline-padding: var(--size-4-2) var(--size-4-12) var(--size-4-12)
-			var(--size-4-12);
-
-		--timeline-item-color: var(--graph-node);
-		--timeline-item-size: var(--size-4-4);
-		--timeline-item-margin: var(--size-2-1);
-
 		--timeline-item-color-hover: var(--graph-node-focused);
 		--timeline-item-border-hover: var(--graph-node-focused);
 

@@ -1,7 +1,13 @@
-import {type Readable, type Writable} from "svelte/store";
-import {ValuePerPixelScale, type Scale} from "../scale";
-import {zoomToFit} from "src/timeline/controls/navigation/zoomToFit";
-import type {TimelineItem, TimelineItemSource} from "src/timeline/item/TimelineItem.svelte";
+import { type Readable, type Writable } from "svelte/store";
+import { ValuePerPixelScale, type Scale } from "../scale";
+import {
+	zoomToFit,
+	type FitBounds,
+} from "src/timeline/controls/navigation/zoomToFit";
+import type {
+	TimelineItem,
+	TimelineItemSource,
+} from "src/timeline/item/TimelineItem.svelte";
 
 export type ZoomConstraints = {
 	keepValue: number;
@@ -12,22 +18,24 @@ export type ZoomConstraints = {
 export interface TimelineNavigation<T extends TimelineItemSource> {
 	zoomIn(constraints?: ZoomConstraints): void;
 	zoomOut(constraints?: ZoomConstraints): void;
-	zoomToFit(items?: Iterable<TimelineItem<T>>, width?: number): void;
+	zoomToFit(items?: Iterable<TimelineItem<T>>, within?: FitBounds): void;
 	scrollToFirst(): void;
 	scrollToValue(value: number): void;
 }
 
-class TimelineNavigationSvelteImpl<T extends TimelineItemSource> implements TimelineNavigation<T> {
+class TimelineNavigationSvelteImpl<T extends TimelineItemSource>
+	implements TimelineNavigation<T>
+{
 	private scale: Scale;
 
 	constructor(
 		private scaleProperty: Vetoable<Scale>,
-		private items: {get(): Iterable<TimelineItem<T>>},
+		private items: { get(): Iterable<TimelineItem<T>> },
 		private setFocalValue: Writable<number>["update"],
-		private availableWidth: () => number,
+		private fitBounds: () => FitBounds,
 	) {
 		this.scale = new ValuePerPixelScale(1);
-		scaleProperty.subscribe(newValue => {
+		scaleProperty.subscribe((newValue) => {
 			this.scale = newValue;
 		});
 	}
@@ -44,9 +52,11 @@ class TimelineNavigationSvelteImpl<T extends TimelineItemSource> implements Time
 			orderOfMagnitude -= 1;
 		}
 
-		const newScale = this.scaleProperty.set(new ValuePerPixelScale(multiple * Math.pow(10, orderOfMagnitude)));
+		const newScale = this.scaleProperty.set(
+			new ValuePerPixelScale(multiple * Math.pow(10, orderOfMagnitude)),
+		);
 		if (constraints != null) {
-			const {keepValue, at} = constraints;
+			const { keepValue, at } = constraints;
 			this.setFocalValue(() => keepValue - newScale.toValue(at));
 		}
 	}
@@ -63,15 +73,20 @@ class TimelineNavigationSvelteImpl<T extends TimelineItemSource> implements Time
 			orderOfMagnitude += 1;
 		}
 
-		const newScale = this.scaleProperty.set(new ValuePerPixelScale(multiple * Math.pow(10, orderOfMagnitude)));
+		const newScale = this.scaleProperty.set(
+			new ValuePerPixelScale(multiple * Math.pow(10, orderOfMagnitude)),
+		);
 		if (constraints != null) {
-			const {keepValue, at} = constraints;
+			const { keepValue, at } = constraints;
 			this.setFocalValue(() => keepValue - newScale.toValue(at));
 		}
 	}
 
-	zoomToFit(items: Iterable<TimelineItem<T>> = this.items.get(), width: number = this.availableWidth()) {
-		const [scale, centerValue] = zoomToFit(items, width);
+	zoomToFit(
+		items: Iterable<TimelineItem<T>> = this.items.get(),
+		within: FitBounds = this.fitBounds(),
+	) {
+		const [scale, centerValue] = zoomToFit(items, within);
 		this.scaleProperty.set(scale);
 		this.setFocalValue(() => centerValue);
 	}
@@ -131,9 +146,14 @@ export interface Vetoable<T> extends Readable<T> {
 
 export function timelineNavigation<T extends TimelineItemSource>(
 	scale: Vetoable<Scale>,
-	items: {get(): Iterable<TimelineItem<T>>},
+	items: { get(): Iterable<TimelineItem<T>> },
 	focalValue: Writable<number>["update"],
-	availableWidth: () => number,
+	fitBounds: () => FitBounds,
 ): TimelineNavigation<T> {
-	return new TimelineNavigationSvelteImpl(scale, items, focalValue, availableWidth);
+	return new TimelineNavigationSvelteImpl(
+		scale,
+		items,
+		focalValue,
+		fitBounds,
+	);
 }

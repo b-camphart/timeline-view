@@ -3,7 +3,7 @@
 	import type { OffsetBox } from "./TimelineItemElement";
 
 	interface Props {
-		bounds: OffsetBox | undefined | null;
+		bounds: OffsetBox | null;
 		selectedItemCount: number;
 		dragging: boolean;
 	}
@@ -13,9 +13,9 @@
 
 {#if bounds != null && selectedItemCount > 1}
 	<CanvasSelectionArea
-		class="selected {dragging && 'dragging'}"
 		area={bounds}
-		role="gridcell"
+		role="region"
+		label="{selectedItemCount} items selected"
 	/>
 {/if}
 

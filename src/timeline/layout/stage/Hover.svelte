@@ -36,6 +36,7 @@
 
 <script lang="ts">
 	import { hoverTooltip } from "src/view/Tooltip";
+	import { bodyTooltip } from "src/view/Tooltip.svelte";
 	import { fade } from "svelte/transition";
 
 	interface Props {
@@ -49,58 +50,59 @@
 
 	let { position, summary }: Props = $props();
 
-	let hovered = $state(false);
+	let el = $state<HTMLElement | null>(null);
+
+	let tooltip = $state<null | { destroy: () => void }>(null);
+	function showTooltip() {
+		hideTooltip();
+		tooltip = bodyTooltip(el!, {
+			mod: "mod-top",
+			label: summary,
+			side: constrainedWithinBody.bind(null, hoverTooltip.top),
+		});
+	}
+	function hideTooltip() {
+		tooltip?.destroy();
+	}
 </script>
 
 <div
-	use:hoverTooltip={{
-		visible: hovered,
-		label: summary,
-		className: "timeline-item-tooltip",
-		elementPosition: constrainedWithinBody.bind(null, hoverTooltip.center),
-	}}
+	bind:this={el}
 	transition:fade={{ duration: 500 }}
-	onintroend={() => (hovered = true)}
-	onoutrostart={() => (hovered = false)}
-	class="timeline-item hover"
+	onintroend={showTooltip}
+	onoutrostart={hideTooltip}
+	class="timeline-view--item-hover"
 	aria-label={summary}
-	style:top="{position.offsetTop}px"
-	style:left="{position.offsetLeft}px"
-	style:width="{position.offsetWidth}px"
+	style:--top="{position.offsetTop}px"
+	style:--left="{position.offsetLeft}px"
+	style:--width="{position.offsetWidth}px"
 ></div>
 
 <style>
-	:global(.timeline-item.hover) {
-		background-color: var(--timeline-item-color-hover);
+	div {
+		top: var(--top);
+		left: var(--left);
+		width: var(--width);
+		height: var(--item-size);
+	}
+	.timeline-view--item-hover {
+		background-color: var(--hover-item-color);
+	}
+	.timeline-view--item-hover {
+		border: var(--hover-item-border-size) solid
+			var(--hover-item-border-color);
 
-		border: 2px solid var(--timeline-item-border-hover);
-		box-sizing: content-box;
-		translate: -2px -2px;
+		top: calc(var(--top) - var(--hover-item-border-size));
+		left: calc(var(--left) - var(--hover-item-border-size));
+		width: calc(var(--width) + var(--hover-item-border-size) * 2);
+		height: calc(var(--item-size) + var(--hover-item-border-size) * 2);
 	}
-	:global(.timeline-item-tooltip) {
-		--timeline-item-radius: 8px;
-		--arrow-size: 5px;
-		background-color: var(--timeline-item-tooltip-background);
-		transform: translate(
-			-50%,
-			calc(-100% - var(--timeline-item-radius) - var(--arrow-size) - 2px)
-		);
-		animation: pop-up 200ms forwards ease-in-out;
-	}
-	:global(.timeline-item-tooltip .tooltip-arrow) {
-		top: unset;
-		bottom: calc(-1 * var(--arrow-size));
-		border-top: var(--arrow-size) solid
-			var(--timeline-item-tooltip-background);
-		border-left: var(--arrow-size) solid transparent;
-		border-right: var(--arrow-size) solid transparent;
-		border-bottom: none;
+
+	.timeline-view--item-hover {
+		border-radius: calc(var(--item-radius) + var(--hover-item-border-size));
 	}
 
 	div {
-		height: var(--timeline-item-diameter);
-		border-radius: var(--timeline-item-diameter);
-
 		position: absolute;
 		margin: 0;
 		pointer-events: none;
