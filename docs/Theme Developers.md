@@ -2,7 +2,7 @@
 
 ## Css Variables
 
-The easiest way to customize the appearance of the Timeline View plugin is to modify the css variables. A few of them are configurable by the user via the [Style Settings](https://github.com/mgmeyers/obsidian-style-settingsgithub.com/) plugin. If you're planning to supply new, default values for these variables, please also maintain the ability for users to override them. When a variable is configurable, it will be marked accordingly.
+The easiest way to customize the appearance of the Timeline View plugin is to modify the css variables. A few of them are configurable by the user via the [Style Settings](https://github.com/mgmeyers/obsidian-style-settings) plugin. If you're planning to supply new, default values for these variables, please also maintain the ability for users to override them. When a variable is configurable, it will be marked accordingly.
 
 The css variables can be found in [src/obsidian/timeline/variables.css](/src/obsidian/timeline/variables.css).
 
