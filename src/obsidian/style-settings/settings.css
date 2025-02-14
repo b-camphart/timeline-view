@@ -4,7 +4,7 @@ name: Timeline View
 id: timeline-view
 settings:
     - 
-        id: timeline-background
+        id: timeline-view--timeline-background
         title: Background color
         type: variable-themed-color
         format: hex
@@ -17,7 +17,7 @@ settings:
         level: 2
         collapsed: true
     -
-        id: timeline-item-color
+        id: timeline-view--item-color
         title: Color
         description: "The default color for an item if it doesn't belong to a group"
         type: variable-themed-color
@@ -25,20 +25,20 @@ settings:
         default-dark: '#'
         default-light: '#'
     -
-        id: timeline-item-size
+        id: timeline-view--item-size
         title: Size
         type: variable-number
         default: 16
         format: px
     -
-        id: timeline-item-radius
+        id: timeline-view--item-radius
         title: Radius
         description: "How rounded should the items be.  Defaults to half the item size."
         type: variable-number
         default: 8
         format: px
     -
-        id: timeline-selected-item-color
+        id: timeline-view--selected-item-color
         title: Selected item color
         description: "By default, selected items retain their color.  If the opacity is less than 1, the item's group color will show through."
         type: variable-themed-color
@@ -47,13 +47,13 @@ settings:
         default-dark: '#0000'
         default-light: '#fff0'
     -
-        id: timeline-selected-item-border-width
+        id: timeline-view--selected-item-border-width
         title: Selected item border width
         type: variable-number
         default: 3
         format: px
     -
-        id: timeline-selected-item-border-color
+        id: timeline-view--selected-item-border-color
         title: Selected item border color
         type: variable-themed-color
         format: rgb
@@ -61,7 +61,7 @@ settings:
         default-light: '#'
 
     -
-        id: timeline-item-margin
+        id: timeline-view--item-margin
         title: Margin
         description: "The spacing used to separate items.  Overridden by individual margins below."
         type: variable-number
@@ -74,25 +74,25 @@ settings:
         level: 3
         collapsed: true
     -
-        id: timeline-item-margin-top
+        id: timeline-view--item-margin-top
         title: Top
         type: variable-number
         default: 20
         format: px
     -
-        id: timeline-item-margin-right
+        id: timeline-view--item-margin-right
         title: Right
         type: variable-number
         default: 20
         format: px
     -
-        id: timeline-item-margin-bottom
+        id: timeline-view--item-margin-bottom
         title: Bottom
         type: variable-number
         default: 20
         format: px
     -
-        id: timeline-item-margin-left
+        id: timeline-view--item-margin-left
         title: Left
         type: variable-number
         default: 20
@@ -110,25 +110,25 @@ settings:
         level: 3
         collapsed: true
     -
-        id: timeline-plotarea-padding-top
+        id: timeline-view--plotarea-padding-top
         title: Top
         type: variable-number
         default: 0
         format: px
     -
-        id: timeline-plotarea-padding-right
+        id: timeline-view--plotarea-padding-right
         title: Right
         type: variable-number
         default: 48
         format: px
     -
-        id: timeline-plotarea-padding-bottom
+        id: timeline-view--plotarea-padding-bottom
         title: Bottom
         type: variable-number
         default: 48
         format: px
     -
-        id: timeline-plotarea-padding-left
+        id: timeline-view--plotarea-padding-left
         title: Left
         type: variable-number
         default: 48

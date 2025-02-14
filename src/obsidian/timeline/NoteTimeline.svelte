@@ -738,44 +738,56 @@
 	@import "../style-settings/settings.css";
 
 	:global(.timeline-view--timeline) {
-		background-color: var(--timeline-background, var(--canvas-background));
+		background-color: var(
+			--timeline-view--timeline-background,
+			var(--canvas-background)
+		);
 
-		--item-color: var(--timeline-item-color, var(--graph-node));
+		--item-color: var(--timeline-view--item-color, var(--graph-node));
 
-		--item-size: var(--timeline-item-size, var(--size-4-4));
-		--item-radius: var(--timeline-item-radius, calc(var(--item-size) / 2));
+		--item-size: var(--timeline-view--item-size, var(--size-4-4));
+		--item-radius: var(
+			--timeline-view--item-radius,
+			calc(var(--item-size) / 2)
+		);
 
-		--selected-item-color: var(--timeline-selected-item-color, transparent);
+		--selected-item-color: var(
+			--timeline-view--selected-item-color,
+			transparent
+		);
 		--selected-item-border-color: var(
-			--timeline-selected-item-border-color,
+			--timeline-view--selected-item-border-color,
 			var(--color-accent)
 		);
 		--selected-item-border-width: var(
-			--timeline-selected-item-border-width,
+			--timeline-view--selected-item-border-width,
 			3px
 		);
 
 		--hover-item-color: var(
-			--timeline-hover-item-color,
+			--timeline-view--hover-item-color,
 			var(--color-accent)
 		);
 		--hover-item-border-color: var(
-			--timeline-hover-item-border-color,
+			--timeline-view--hover-item-border-color,
 			var(--selected-item-border-color)
 		);
-		--hover-item-border-size: var(--timeline-hover-item-border-size, 2px);
+		--hover-item-border-size: var(
+			--timeline-view--hover-item-border-size,
+			2px
+		);
 
-		--plotarea-padding-top: var(--timeline-plotarea-padding-top, 0px);
+		--plotarea-padding-top: var(--timeline-view--plotarea-padding-top, 0px);
 		--plotarea-padding-left: var(
-			--timeline-plotarea-padding-left,
+			--timeline-view--plotarea-padding-left,
 			var(--size-4-2)
 		);
 		--plotarea-padding-bottom: var(
-			--timeline-plotarea-padding-bottom,
+			--timeline-view--plotarea-padding-bottom,
 			var(--size-4-4)
 		);
 		--plotarea-padding-right: var(
-			--timeline-plotarea-padding-right,
+			--timeline-view--plotarea-padding-right,
 			var(--size-4-16)
 		);
 
@@ -797,7 +809,7 @@
 		--selected-area-border-radius: 3px;
 
 		--all-item-margin: var(
-			--timeline-item-margin,
+			--timeline-view--item-margin,
 			calc(
 				calc(
 						var(--selection-area-glow) +
@@ -808,19 +820,19 @@
 		);
 
 		--item-margin-top: var(
-			--timeline-item-margin-top,
+			--timeline-view--item-margin-top,
 			var(--all-item-margin)
 		);
 		--item-margin-right: var(
-			--timeline-item-margin-right,
+			--timeline-view--item-margin-right,
 			var(--all-item-margin)
 		);
 		--item-margin-bottom: var(
-			--timeline-item-margin-bottom,
+			--timeline-view--item-margin-bottom,
 			var(--all-item-margin)
 		);
 		--item-margin-left: var(
-			--timeline-item-margin-left,
+			--timeline-view--item-margin-left,
 			var(--all-item-margin)
 		);
 
