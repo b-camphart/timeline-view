@@ -3,22 +3,9 @@
 name: Timeline View
 id: timeline-view
 settings:
-    - 
-        id: timeline-view--timeline-background
-        title: Background color
-        type: variable-themed-color
-        format: hex
-        default-dark: '#'
-        default-light: '#'
-    -
-        id: items
-        title: Items
-        type: heading
-        level: 2
-        collapsed: true
     -
         id: timeline-view--item-color
-        title: Color
+        title: Item color
         description: "The default color for an item if it doesn't belong to a group"
         type: variable-themed-color
         format: hex
@@ -26,13 +13,13 @@ settings:
         default-light: '#'
     -
         id: timeline-view--item-size
-        title: Size
+        title: Item size
         type: variable-number
         default: 16
         format: px
     -
         id: timeline-view--item-radius
-        title: Radius
+        title: Item radius
         description: "How rounded should the items be.  Defaults to half the item size."
         type: variable-number
         default: 8
@@ -59,79 +46,5 @@ settings:
         format: rgb
         default-dark: '#'
         default-light: '#'
-
-    -
-        id: timeline-view--item-margin
-        title: Margin
-        description: "The spacing used to separate items.  Overridden by individual margins below."
-        type: variable-number
-        default: 20
-        format: px
-    -
-        id: items-margin
-        title: Margin
-        type: heading
-        level: 3
-        collapsed: true
-    -
-        id: timeline-view--item-margin-top
-        title: Top
-        type: variable-number
-        default: 20
-        format: px
-    -
-        id: timeline-view--item-margin-right
-        title: Right
-        type: variable-number
-        default: 20
-        format: px
-    -
-        id: timeline-view--item-margin-bottom
-        title: Bottom
-        type: variable-number
-        default: 20
-        format: px
-    -
-        id: timeline-view--item-margin-left
-        title: Left
-        type: variable-number
-        default: 20
-        format: px
-    -
-        id: plotarea
-        title: Plot area
-        type: heading
-        level: 2
-        collapsed: true
-    -
-        id: plotarea-padding
-        title: Padding
-        type: heading
-        level: 3
-        collapsed: true
-    -
-        id: timeline-view--plotarea-padding-top
-        title: Top
-        type: variable-number
-        default: 0
-        format: px
-    -
-        id: timeline-view--plotarea-padding-right
-        title: Right
-        type: variable-number
-        default: 48
-        format: px
-    -
-        id: timeline-view--plotarea-padding-bottom
-        title: Bottom
-        type: variable-number
-        default: 48
-        format: px
-    -
-        id: timeline-view--plotarea-padding-left
-        title: Left
-        type: variable-number
-        default: 48
-        format: px
 
 */
