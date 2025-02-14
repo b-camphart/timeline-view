@@ -33,6 +33,7 @@
 	import type { FitBounds } from "src/timeline/controls/navigation/zoomToFit";
 	import { OverlayColor } from "src/color";
 	import { scrollItems } from "src/timeline/layout/stage/scroll";
+	import Scrollbars from "src/timeline/layout/stage/Scrollbars.svelte";
 
 	type Item = PlotAreaItem<T, SourceItem>;
 
@@ -944,21 +945,11 @@
 		hover = null;
 	}
 
-	let scrollbarMeasurerFullWidth: number = $state(0);
-	let scrollbarMeasurerInnerWidth: number = $state(0);
-	let scrollbarWidth = $derived(
-		scrollbarMeasurerFullWidth - scrollbarMeasurerInnerWidth,
-	);
-	const _clientWidth = $derived(viewport.width - scrollbarWidth);
-	export function clientWidth() {
-		return _clientWidth;
-	}
+	let scrollbars = $state<Scrollbars | null>(null);
 
-	let scrollbarMeasurerFullHeight: number = $state(0);
-	let scrollbarMeasurerInnerHeight: number = $state(0);
-	let scrollbarHeight = $derived(
-		scrollbarMeasurerFullHeight - scrollbarMeasurerInnerHeight,
-	);
+	export function clientWidth() {
+		return scrollbars?.getClientWidth() ?? 0;
+	}
 
 	function handleHScroll(event: ChangeEvent) {
 		dispatch(
@@ -971,9 +962,12 @@
 	function handleVScroll(event: ChangeEvent) {
 		scrollVertically(event.detail.value);
 	}
+
+	const id = "timeline-view--plotarea-" + Math.random().toString(36).slice(2);
 </script>
 
 <div
+	{id}
 	class="timeline-view--plotarea"
 	bind:offsetWidth={viewport.width}
 	bind:offsetHeight={viewport.height}
@@ -1077,40 +1071,21 @@
 	{#if focus != null}
 		<FocusedItem focus={focus.element} />
 	{/if}
-	<Scrollbar
-		style={`--size: ${scrollbarHeight}px;`}
-		orientation={"horizontal"}
-		controls={"stage"}
-		tabindex={timelineItems.length}
-		value={0}
-		visibleAmount={viewport.width}
-		min={Math.min(0, scrolled.items[0]?.offsetLeft ?? 0)}
-		max={Math.max(
-			viewport.width,
-			scrolled.items[scrolled.items.length - 1]?.offsetRight ?? 0,
-		)}
-		on:change={handleHScroll}
-		on:dragstart={() => {
+	<Scrollbars
+		bind:this={scrollbars}
+		tabIndex={timelineItems.length}
+		{id}
+		{scrollHeight}
+		{scrollTop}
+		minLeftOffset={scrolled.items[0]?.offsetLeft ?? 0}
+		maxRightOffset={scrolled.items[scrolled.items.length - 1]
+			?.offsetRight ?? 0}
+		onVScroll={handleVScroll}
+		onHScroll={handleHScroll}
+		onThumbDragStart={() => {
 			scrollbarDragging = true;
 		}}
-		on:dragend={() => {
-			scrollbarDragging = false;
-		}}
-	/>
-	<Scrollbar
-		style={`--size: ${scrollbarWidth}px;`}
-		orientation={"vertical"}
-		controls={"stage"}
-		tabindex={timelineItems.length + 1}
-		value={scrollTop}
-		visibleAmount={viewport.height}
-		min={0}
-		max={scrollHeight}
-		on:change={handleVScroll}
-		on:dragstart={() => {
-			scrollbarDragging = true;
-		}}
-		on:dragend={() => {
+		onThumbDragEnd={() => {
 			scrollbarDragging = false;
 		}}
 	/>
@@ -1136,13 +1111,6 @@
 		bind:value={itemStyle.selected.borderColor}
 	/>
 </div>
-<div
-	bind:clientHeight={scrollbarMeasurerInnerHeight}
-	bind:clientWidth={scrollbarMeasurerInnerWidth}
-	bind:offsetHeight={scrollbarMeasurerFullHeight}
-	bind:offsetWidth={scrollbarMeasurerFullWidth}
-	class="scrollbar-style-measurer"
-></div>
 
 <style>
 	div {
@@ -1187,29 +1155,5 @@
 		position: absolute;
 		top: 0;
 		left: 0;
-	}
-
-	.scrollbar-style-measurer {
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100px;
-		height: 100px;
-		overflow: scroll;
-		visibility: hidden;
-	}
-
-	div :global([role="scrollbar"]) {
-		position: absolute;
-	}
-	div :global([role="scrollbar"][aria-orientation="horizontal"]) {
-		bottom: 0;
-		left: 0;
-		width: 100%;
-	}
-	div :global([role="scrollbar"][aria-orientation="vertical"]) {
-		top: 0;
-		right: 0;
-		height: 100%;
 	}
 </style>
