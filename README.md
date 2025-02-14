@@ -6,11 +6,11 @@ Transform the way you explore your notes with the Obsidian Timeline View Plugin!
 
 ## 🌟 Key Features
 
--   [**Custom Ordering:**](#ordering-by-any-numeric-property) Choose a property in your notes and instantly see them ordered in a visual timeline or number line.
--   [**Quick Note Creation:**](#-quick-note-creation) Double-click anywhere on the timeline or number line to create a new note with the property value set based on where you clicked.
--   [**Drag & Drop Reordering:**](#-drag--drop-reordering) Easily move notes around, with multi-select support, to update their property values on the fly.
--   [**Filtering:**](#-filter) Refine your view with filters using Obsidian’s search syntax.
--   [**Grouping with Color:**](#-group-notes-with-colors) Group notes by Obsidian search query, similar to Obsidian's graph view, for a more colorful visualization.
+- [**Custom Ordering:**](#ordering-by-any-numeric-property) Choose a property in your notes and instantly see them ordered in a visual timeline or number line.
+- [**Quick Note Creation:**](#-quick-note-creation) Double-click anywhere on the timeline or number line to create a new note with the property value set based on where you clicked.
+- [**Drag & Drop Reordering:**](#-drag--drop-reordering) Easily move notes around, with multi-select support, to update their property values on the fly.
+- [**Filtering:**](#-filter) Refine your view with filters using Obsidian’s search syntax.
+- [**Grouping with Color:**](#-group-notes-with-colors) Group notes by Obsidian search query, similar to Obsidian's graph view, for a more colorful visualization.
 
 # Screenshots
 
@@ -46,11 +46,11 @@ Double-click anywhere on the timeline to instantly create a new note. The proper
 
 Easily update the property value of a note by dragging and dropping it on the timeline.
 
--   Move a single note:
+- Move a single note:
 
     ![drag and drop single note](docs/resources/move-single-note-example.gif)
 
--   Or move a selection of notes to change their values together.
+- Or move a selection of notes to change their values together.
 
     ![drag and drop multiple notes](docs/resources/move-multiple-notes-example.gif)
 
@@ -80,13 +80,17 @@ Additionally, clicking on a note in the linked timeline will open it in the link
 
 ![linked timeline tab](docs/resources/linked%20timeline%20tab.PNG)
 
+# For Theme Developers
+
+You can find details about the css variables and classes [here](/docs/Theme%20Developers.md).
+
 # Roadmap
 
--   [x] Filter based on obsidian query
--   [x] Color groups based on obsidian query
--   [x] [Create new note with property based on filter and position in timeline](https://github.com/b-camphart/plot-point-timeline/issues/4)
--   [ ] [Manual Vertical Positioning of Notes](https://github.com/b-camphart/plot-point-timeline/issues/1)
--   [ ] [Vertical Layout](https://github.com/b-camphart/plot-point-timeline/issues/2)
--   [ ] [Embeds?](https://github.com/b-camphart/plot-point-timeline/issues/6)
--   [ ] [Mobile support](https://github.com/b-camphart/plot-point-timeline/issues/7)
--   [ ] Duration/length and/or end property
+- [x] Filter based on obsidian query
+- [x] Color groups based on obsidian query
+- [x] [Create new note with property based on filter and position in timeline](https://github.com/b-camphart/plot-point-timeline/issues/4)
+- [ ] [Manual Vertical Positioning of Notes](https://github.com/b-camphart/plot-point-timeline/issues/1)
+- [ ] [Vertical Layout](https://github.com/b-camphart/plot-point-timeline/issues/2)
+- [ ] [Embeds?](https://github.com/b-camphart/plot-point-timeline/issues/6)
+- [ ] [Mobile support](https://github.com/b-camphart/plot-point-timeline/issues/7)
+- [ ] Duration/length and/or end property

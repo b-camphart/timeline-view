@@ -1,0 +1,78 @@
+:global(.timeline-view--timeline) {
+    background-color: var(--canvas-background);
+}
+
+/* Selection areas */
+:global(.timeline-view--timeline) {
+    /* extra padding around selection/selected areas */
+    --selection-area-glow: 7px;
+
+    /* the region the user has draw to select items within it */
+    --selection-area-background-color: hsla(var(--color-accent-hsl), 0.1);
+    --selection-area-border-color: var(--color-accent);
+    --selection-area-border-width: 2px;
+    --selection-area-border-radius: 2px;
+
+    /* the combined bounds of all the currently selected items */
+    --selected-bounds-background-color: hsla(var(--color-accent-hsl), 0.03);
+    --selected-bounds-border-color: hsla(var(--color-accent-hsl), 0.3);
+    --selected-bounds-border-width: 3px;
+    --selected-bounds-border-radius: 3px;
+}
+
+/* Items */
+:global(.timeline-view--timeline) {
+    /* @user-configurable */
+    --item-color: var(--timeline-view--item-color, var(--graph-node));
+    /* @user-configurable */
+    --item-size: var(--timeline-view--item-size, var(--size-4-4));
+    /* @user-configurable */
+    --item-radius: var(--timeline-view--item-radius,
+            calc(var(--item-size) / 2));
+
+    /* @user-configurable */
+    --selected-item-color: var(--timeline-view--selected-item-color,
+            transparent);
+    /* @user-configurable */
+    --selected-item-border-color: var(--timeline-view--selected-item-border-color,
+            var(--color-accent));
+    /* @user-configurable */
+    --selected-item-border-width: var(--timeline-view--selected-item-border-width,
+            3px);
+
+    --hover-item-color: var(--color-accent);
+    --hover-item-border-color: var(--selected-item-border-color);
+    --hover-item-border-size: 2px;
+
+    --item-margin: calc(calc(var(--selection-area-glow) + var(--selected-bounds-border-width)) * 2);
+
+    --item-margin-top: var(--item-margin);
+    --item-margin-right: var(--item-margin);
+    --item-margin-bottom: var(--item-margin);
+    --item-margin-left: var(--item-margin);
+
+}
+
+/* Plot area */
+:global(.timeline-view--timeline) {
+    --plotarea-padding-top: 0px;
+    --plotarea-padding-left: var(--size-4-2);
+    --plotarea-padding-bottom: var(--size-4-4);
+    --plotarea-padding-right: var(--size-4-16);
+
+    --plotarea-background-line-color: var(--canvas-dot-pattern);
+    --plotarea-background-line-width: 1px;
+    --plotarea-background-line-dash-on: var(--size-2-1);
+    --plotarea-background-line-dash-off: var(--size-2-3);
+}
+
+/* Ruler */
+:global(.timeline-view--timeline) {
+    --ruler-border-color: var(--divider-color);
+    --ruler-border-width: var(--divider-width);
+    --ruler-label-padding: var(--size-2-2);
+    --ruler-label-font-size: var(--font-ui-small);
+    --ruler-label-font-weight: var(--font-normal);
+    --ruler-label-border-color: var(--color-base-30);
+    --ruler-label-border-width: 1px;
+}

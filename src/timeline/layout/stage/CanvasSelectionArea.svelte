@@ -45,9 +45,9 @@
 	}
 	.timeline-view--timeline-selection-area[role="region"] {
 		/** selected area */
-		background-color: var(--selected-area-background-color);
-		border: var(--selected-area-border-width) solid
-			var(--selected-area-border-color);
-		border-radius: var(--selected-area-border-radius);
+		background-color: var(--selected-bounds-background-color);
+		border: var(--selected-bounds-border-width) solid
+			var(--selected-bounds-border-color);
+		border-radius: var(--selected-bounds-border-radius);
 	}
 </style>
