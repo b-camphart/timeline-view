@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { run } from "svelte/legacy";
-
 	import { hoverTooltip } from "src/view/Tooltip";
+	import { bodyTooltip } from "src/view/Tooltip.svelte";
 
 	interface Props {
 		x: number;
@@ -9,18 +8,18 @@
 	}
 
 	let { x, label }: Props = $props();
-
-	const tooltip = $derived.by(() => {
-		return {
-			label,
-			visible: true,
-			className: "mod-top",
-			elementPosition: hoverTooltip.top,
-		};
-	});
 </script>
 
-<div style="left: {x}px;" use:hoverTooltip={tooltip}></div>
+<div
+	style="left: {x}px;"
+	use:bodyTooltip={{
+		get label() {
+			return label;
+		},
+		mod: "mod-top",
+		side: hoverTooltip.top,
+	}}
+></div>
 
 <style>
 	div {

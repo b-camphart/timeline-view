@@ -755,6 +755,16 @@
 			3px
 		);
 
+		--hover-item-color: var(
+			--timeline-hover-item-color,
+			var(--color-accent)
+		);
+		--hover-item-border-color: var(
+			--timeline-hover-item-border-color,
+			var(--selected-item-border-color)
+		);
+		--hover-item-border-size: var(--timeline-hover-item-border-size, 2px);
+
 		--plotarea-padding-top: var(--timeline-plotarea-padding-top, 0px);
 		--plotarea-padding-left: var(
 			--timeline-plotarea-padding-left,
@@ -824,11 +834,6 @@
 	}
 
 	:global(body) {
-		--timeline-ruler-label-font-size: var(--file-header-font-size);
-		--timeline-ruler-label-font-weight: var(--file-header-font-weight);
-		--timeline-ruler-label-border-color: var(--canvas-dot-pattern);
-		--timeline-ruler-label-border-width: var(--divider-width);
-
 		--timeline-item-color-hover: var(--graph-node-focused);
 		--timeline-item-border-hover: var(--graph-node-focused);
 
