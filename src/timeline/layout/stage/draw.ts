@@ -165,21 +165,21 @@ export function renderItemsSequentially(
 		context.stroke();
 	}
 
+	// draw lines within items with durations
 	context.globalCompositeOperation = "destination-out";
 	context.beginPath();
 	for (let i = 0; i < items.length; i++) {
-		if (items[i].visible === false) continue;
-		if (items[i].offsetTop > viewport.height || items[i].offsetBottom < 0)
-			continue;
-		if (items[i].offsetLeft > viewport.width || items[i].offsetRight < 0)
-			continue;
-
 		const item = items[i];
+		if (item.visible === false) continue;
+		if (item.offsetTop > viewport.height || item.offsetBottom < 0) continue;
+		if (item.offsetLeft > viewport.width || item.offsetRight < 0) continue;
+		// don't add duration line to items without duration
+		if (item.offsetHeight === item.offsetWidth) continue;
 
 		context.rect(
-			item.offsetLeft + 8,
-			item.offsetTop + 7,
-			item.offsetWidth - 16,
+			item.offsetLeft + radius,
+			item.offsetTop + (radius - 1),
+			item.offsetWidth - radius * 2,
 			2,
 		);
 	}
