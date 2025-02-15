@@ -102,7 +102,7 @@
 
 	let itemsById: Map<string, ReactiveNoteItem> = new Map();
 	let items: MutableSortedArray<ReactiveNoteItem> = $state.raw(
-		new MutableSortedArray(valueOf),
+		MutableSortedArray.of(valueOf),
 	);
 
 	let currentFilteringId = 0;
@@ -135,7 +135,7 @@
 					tasks.cancel();
 					return;
 				}
-				items = new MutableSortedArray(valueOf, ...newItems);
+				items = MutableSortedArray.of(valueOf, ...newItems);
 			});
 
 			tasks.onFinished((cancelled) => {
@@ -306,7 +306,7 @@
 				filteredItems.push(item);
 			}
 		}
-		items = new MutableSortedArray(valueOf, ...filteredItems);
+		items = MutableSortedArray.of(valueOf, ...filteredItems);
 
 		if (isNew) {
 			tick().then(() => {
@@ -316,22 +316,14 @@
 	});
 
 	const enqueueItemUpdate = (() => {
-		const queue: (() => void)[] = [];
-		let timer: null | ReturnType<typeof setTimeout> = null;
+		const tasks = TaskQueue.new();
+
+		tasks.onProgress(() => {
+			items = untrack(() => items.clone());
+		});
 
 		return (update: () => void) => {
-			queue.push(update);
-			if (timer != null) {
-				return;
-			}
-
-			timer = setTimeout(() => {
-				timer = null;
-				while (queue.length > 0) {
-					queue.shift()!();
-				}
-				items = items;
-			}, 250);
+			tasks.enqueue(update);
 		};
 	})();
 
@@ -606,8 +598,9 @@
 
 	$effect(() => {
 		if (properties === null) return;
-		const primaryProperty = properties.primary();
-		items = new MutableSortedArray(valueOf, ...untrack(() => items));
+		// update with selected property changes
+		properties.primary();
+		items = untrack(() => items.clone());
 		tick().then(() => {
 			timelineView?.zoomToFit();
 		});

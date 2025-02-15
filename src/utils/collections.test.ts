@@ -1,5 +1,5 @@
-import {MutableSortedArray} from "src/utils/collections";
-import {describe, it} from "vitest";
+import { MutableSortedArray } from "src/utils/collections";
+import { describe, it } from "vitest";
 
 if ("app" in globalThis) {
 	throw new Error("Cannot run unit tests in obsidian");
@@ -8,9 +8,9 @@ if ("app" in globalThis) {
 describe("SortedArray", () => {
 	for (let i = 0; i < 10; i++) {
 		it("adds items in order", () => {
-			const items = Array<{value: number}>(10);
+			const items = Array<{ value: number }>(10);
 			for (let i = 0; i < 10; i++) {
-				items[i] = {value: i};
+				items[i] = { value: i };
 			}
 			for (let i = 9; i >= 0; i--) {
 				const j = Math.floor(Math.random() * 10);
@@ -19,8 +19,8 @@ describe("SortedArray", () => {
 				items[i] = temp;
 			}
 
-			const sorted = new MutableSortedArray<{value: number}>(
-				it => it.value,
+			const sorted = MutableSortedArray.of<{ value: number }>(
+				(it) => it.value,
 			);
 
 			for (const item of items) {
@@ -47,12 +47,12 @@ describe("SortedArray", () => {
 	}
 	for (let i = 0; i < 10; i++) {
 		it("removes items in order", () => {
-			const items = Array<{value: number}>(10);
+			const items = Array<{ value: number }>(10);
 			for (let i = 0; i < 10; i++) {
-				items[i] = {value: i};
+				items[i] = { value: i };
 			}
-			const sorted = new MutableSortedArray<{value: number}>(
-				it => it.value,
+			const sorted = MutableSortedArray.of<{ value: number }>(
+				(it) => it.value,
 				...items,
 			);
 
