@@ -15,15 +15,6 @@ Obsidiann
 		disabled?: boolean;
 		checked?: boolean;
 	} = $props();
-
-	let wasChecked = $state(checked);
-	$effect(() => {
-		if (wasChecked !== checked) {
-			if (!disabled) {
-				checked = wasChecked;
-			}
-		}
-	});
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -32,7 +23,17 @@ Obsidiann
 	class:disabled
 	{tabindex}
 >
-	<input type="checkbox" tabindex="0" bind:checked={wasChecked} {disabled} />
+	<input
+		type="checkbox"
+		tabindex="0"
+		bind:checked={() => checked,
+		(value) => {
+			if (!disabled) {
+				checked = value;
+			}
+		}}
+		{disabled}
+	/>
 </div>
 
 <style>

@@ -11,8 +11,6 @@
 	import type { NotePropertyRepository } from "src/note/property/repository";
 	import type { MutableNoteRepository } from "src/note/repository";
 	import type { Note } from "src/note";
-	import { TimelinePropertySelector } from "src/timeline/property/TimelinePropertySelector";
-	import type { TimelineProperty } from "src/timeline/property/TimelineProperty";
 	import { TimelineItemQueryFilter } from "src/timeline/filter/TimelineItemQueryFilter";
 	import * as timelineGroup from "src/timeline/group/group";
 	import { MutableSortedArray } from "src/utils/collections";
@@ -20,6 +18,12 @@
 	import { Groups as TimelineGroups } from "src/timeline/group/TimelineGroupsList.svelte";
 	import { Group } from "src/timeline/group/GroupListItem.svelte";
 	import { TaskQueue } from "src/utils/tasks";
+	import { NotePropertyTypes } from "src/timeline/sorting/TimelineNoteSorterProperty";
+	import {
+		TimelineProperty,
+		TimelineProperties,
+		type ObservableTimelineProperty,
+	} from "src/timeline/property/Property.svelte";
 
 	class ReactiveNoteItem {
 		created = $state(0);
@@ -158,33 +162,64 @@
 			};
 		});
 	});
-	// timelineGroups.onChanged = saveGroups;
 
 	function openFile(event: Event | undefined, item: ReactiveNoteItem) {
 		dispatch("noteSelected", { note: item.note, event });
 	}
 
-	// @ts-ignore
-	let propertySelector: TimelinePropertySelector = $state();
-	function propertyValueOf(item: ReactiveNoteItem) {
-		const property = propertySelector?.selectedProperty();
-		if (!property) return null;
-		if (property.isCreatedProperty()) return item.created;
-		if (property.isModifiedProperty()) return item.modified;
-		const value = item.properties[property.name()];
-		if (value == null) return null;
-		if (typeof value === "number") return value;
-		if (typeof value === "string") {
-			const datetime = window.moment(value);
-			if (datetime.isValid()) {
-				return datetime.valueOf();
-			}
-			const parsed = parseFloat(value);
-			if (!isNaN(parsed)) return parsed;
-			return null;
-		}
-		return null;
-	}
+	const propertySettings = settings.namespace("property");
+	let properties = $state<null | TimelineProperties>(null);
+	onMount(async () => {
+		properties = await TimelineProperties.make(
+			notePropertyRepository.listPropertiesOfTypes.bind(
+				notePropertyRepository,
+				NotePropertyTypes,
+			),
+			get(propertySettings.make("property", "created")),
+			get(propertySettings.make("propertiesUseWholeNumbers", {})),
+			{
+				name: get(
+					propertySettings
+						.namespace("secondaryProperty")
+						.make("name", "modified"),
+				),
+				useAs: get(
+					propertySettings
+						.namespace("secondaryProperty")
+						.make("useAs", "end"),
+				),
+				inUse: get(
+					propertySettings
+						.namespace("secondaryProperty")
+						.make("inUse", false),
+				),
+			},
+		);
+	});
+	$effect(() => {
+		if (properties === null) return;
+		const saveState = properties.saveState();
+		propertySettings.make("property", "created").set(saveState.property);
+		propertySettings
+			.make("propertiesUseWholeNumbers", {})
+			.set(saveState.propertiesUseWholeNumbers);
+		const secondaryProp = propertySettings.namespace("secondaryProperty");
+		secondaryProp
+			.make("name", "modified")
+			.set(saveState.secondaryProperty.name);
+		secondaryProp
+			.make("inUse", false)
+			.set(saveState.secondaryProperty.inUse);
+		secondaryProp
+			.make("useAs", "end")
+			.set(saveState.secondaryProperty.useAs);
+	});
+
+	const propertyValueOf = $derived.by(() => {
+		if (properties === null) return () => 0;
+		const property = properties.primary();
+		return (item: ReactiveNoteItem) => property.valueOrNull(item);
+	});
 	function valueOf(item: ReactiveNoteItem) {
 		const value = propertyValueOf(item);
 		// todo: some other default?
@@ -192,21 +227,8 @@
 	}
 
 	async function createItem(item: { value: number }) {
-		const property = propertySelector.selectedProperty();
-		let creation;
-		if (property.isCreatedProperty()) {
-			creation = { created: item.value };
-		} else if (property.isModifiedProperty()) {
-			creation = { modified: item.value };
-		} else {
-			creation = {
-				properties: {
-					[property.name()]: property.sanitizeValue(item.value),
-				},
-			};
-		}
-
-		dispatch("createNote", creation);
+		if (properties === null) return;
+		dispatch("createNote", properties.createItem(item.value));
 	}
 
 	async function resizeItems(
@@ -217,7 +239,10 @@
 			endValue: number;
 		}[],
 	) {
-		if (!propertySelector.secondaryPropertyInUse()) return;
+		if (properties === null) return;
+		const primary = properties.primary();
+		const secondary = properties.secondary();
+		if (secondary === null) return;
 		const noteResizes = new Array<{
 			note: Note;
 			item: ReactiveNoteItem;
@@ -232,12 +257,12 @@
 			value: number,
 		) {
 			value = property.sanitizeValue(value);
-			if (property.isCreatedProperty()) {
+			if (property === TimelineProperty.Created) {
 				modification.created = value;
-			} else if (property.isModifiedProperty()) {
+			} else if (property === TimelineProperty.Modified) {
 				modification.modified = value;
 			} else {
-				modification.properties[property.name()] = value;
+				modification.properties[property.name] = value;
 			}
 		}
 
@@ -255,19 +280,11 @@
 				properties: {} as Record<string, number>,
 			};
 
-			setValue(modification, propertySelector.selectedProperty(), value);
-			if (propertySelector.secondaryPropertyInterpretation() === "end") {
-				setValue(
-					modification,
-					propertySelector.secondaryProperty(),
-					endValue,
-				);
+			setValue(modification, primary, value);
+			if (secondary.interpretedAs() === "end") {
+				setValue(modification, secondary.property(), endValue);
 			} else {
-				setValue(
-					modification,
-					propertySelector.secondaryProperty(),
-					length,
-				);
+				setValue(modification, secondary.property(), length);
 			}
 
 			noteResizes.push(modification);
@@ -282,56 +299,11 @@
 		}
 	}
 
-	const secondaryPropertyInterpretedAs = viewModel
-		.namespace("settings")
-		.namespace("property")
-		.namespace("secondaryProperty")
-		.make("useAs", "end");
-
 	let timelineView: ReturnType<typeof TimelineView> | undefined = $state();
-	// @ts-ignore
-	let display: RulerValueDisplay = $state();
+	const display: RulerValueDisplay = $derived(
+		(properties?.primary() ?? TimelineProperty.Created).displayedAs(),
+	);
 	onMount(async () => {
-		const orderSettings = viewModel
-			.namespace("settings")
-			.namespace("property");
-
-		const selectedPropertyName = orderSettings.make("property", "created");
-		const secondaryProperty = orderSettings.namespace("secondaryProperty");
-		const secondaryPropertyName = secondaryProperty.make(
-			"name",
-			"modified",
-		);
-		const secondaryPropertyInUse = secondaryProperty.make("inUse", false);
-		const propertyPreferences = orderSettings.make(
-			"propertiesUseWholeNumbers",
-			{},
-		);
-
-		propertySelector = await TimelinePropertySelector.sanitize(
-			notePropertyRepository,
-			{
-				selectedPropertyName: get(selectedPropertyName),
-				secondaryProperty: {
-					name: get(secondaryPropertyName),
-					inUse: get(secondaryPropertyInUse),
-					useAs: get(secondaryPropertyInterpretedAs),
-				},
-				propertyPreferences: get(propertyPreferences),
-			},
-			(state) => {
-				selectedPropertyName.set(state.selectedPropertyName);
-				secondaryPropertyName.set(state.secondaryProperty.name);
-				secondaryPropertyInUse.set(state.secondaryProperty.inUse);
-				secondaryPropertyInterpretedAs.set(
-					state.secondaryProperty.useAs,
-				);
-				propertyPreferences.set(state.propertyPreferences);
-			},
-		);
-
-		display = propertySelector.selectedProperty().displayedAs();
-
 		for (const note of noteRepository.listAll()) {
 			const item = new ReactiveNoteItem(note);
 			itemsById.set(note.id(), item);
@@ -477,43 +449,60 @@
 		};
 	});
 
-	function lengthOf(note: Note) {
-		if (!propertySelector.secondaryPropertyInUse()) {
-			return 0;
+	const itemLength = $derived.by(() => {
+		if (properties === null) return () => 0;
+		const secondary = properties.secondary();
+		if (secondary === null) return () => 0;
+		const secondaryProperty = secondary.property();
+		if (secondary.interpretedAs() === "length") {
+			return (note: ReactiveNoteItem) =>
+				secondaryProperty.valueOrNull(note) ?? 0;
+		} else {
+			const primary = properties.primary();
+			return (note: ReactiveNoteItem) => {
+				const start = primary.valueOrNull(note) ?? 0;
+				const end = secondaryProperty.valueOrNull(note) ?? start;
+				return end - start;
+			};
 		}
-		const secondaryProperty = propertySelector.secondaryProperty();
-		if ($secondaryPropertyInterpretedAs === "length") {
-			const length = secondaryProperty.selectValueFromNote(note);
-			if (length === null) return 0;
-			return length;
-		}
-		const start =
-			propertySelector.selectedProperty().selectValueFromNote(note) ?? 0;
-		const end = secondaryProperty.selectValueFromNote(note) ?? start;
-		const length = end - start;
-		return length;
-	}
+	});
 
 	function summarizeNote(note: Note) {
-		const primaryProperty = propertySelector.selectedProperty();
-		const primaryValue = primaryProperty.selectValueFromNote(note);
+		if (properties === null) return "";
+		const primaryProperty = properties.primary();
+		const primaryValue = primaryProperty.valueOrNull({
+			created: note.created(),
+			modified: note.modified(),
+			properties: note.properties(),
+		});
 		const primaryValueStr =
 			primaryValue === null ? "" : display.displayValue(primaryValue);
-		if (!propertySelector.secondaryPropertyInUse()) {
-			return `${note.name()}\n[${primaryProperty.name()}: ${primaryValueStr}]`;
+
+		const secondary = properties.secondary();
+
+		if (secondary === null) {
+			return `${note.name()}\n[${primaryProperty.name}: ${primaryValueStr}]`;
 		}
 
-		const secondaryProperty = propertySelector.secondaryProperty();
-		const secondaryValue = secondaryProperty.selectValueFromNote(note);
+		const secondaryProperty = secondary.property();
+		const secondaryValue = secondaryProperty.valueOrNull({
+			created: note.created(),
+			modified: note.modified(),
+			properties: note.properties(),
+		});
 
-		if (propertySelector.secondaryPropertyInterpretation() === "end") {
+		if (secondary.interpretedAs() === "end") {
 			const secondaryValueStr =
 				secondaryValue === null
 					? ""
 					: display.displayValue(secondaryValue);
 			const length =
 				(secondaryValue ?? primaryValue ?? 0) - (primaryValue ?? 0);
-			return `${note.name()}\n[${primaryProperty.name()}: ${primaryValueStr}] → [${secondaryProperty.name()}: ${secondaryValueStr}]\nlength: ${display.displayLength(length)}`;
+			return (
+				`${note.name()}` +
+				`\n[${primaryProperty.name}: ${primaryValueStr}] → [${secondaryProperty.name}: ${secondaryValueStr}]` +
+				`\nlength: ${display.displayLength(length)}`
+			);
 		}
 
 		const end = (primaryValue ?? 0) + (secondaryValue ?? primaryValue ?? 0);
@@ -522,7 +511,11 @@
 				? ""
 				: display.displayLength(secondaryValue);
 
-		return `${note.name()}\n[${primaryProperty.name()}: ${primaryValueStr}] → ${display.displayValue(end)}\n[${secondaryProperty.name()}: ${secondaryValueStr}]`;
+		return (
+			`${note.name()}` +
+			`\n[${primaryProperty.name}: ${primaryValueStr}] → ${display.displayValue(end)}` +
+			`\n[${secondaryProperty.name}: ${secondaryValueStr}]`
+		);
 	}
 
 	function summarizeItem(
@@ -531,15 +524,17 @@
 		length: number,
 		endValue: number,
 	) {
-		const primaryProperty = propertySelector.selectedProperty();
+		if (properties === null) return "";
+		const primaryProperty = properties.primary();
 		value = primaryProperty.sanitizeValue(value);
 		const primaryValueStr = display.displayValue(value);
-		if (!propertySelector.secondaryPropertyInUse()) {
-			return `${name}\n[${primaryProperty.name()}: ${primaryValueStr}]`;
+		const secondary = properties.secondary();
+		if (secondary === null) {
+			return `${name}\n[${primaryProperty.name}: ${primaryValueStr}]`;
 		}
 
-		const secondaryProperty = propertySelector.secondaryProperty();
-		if (propertySelector.secondaryPropertyInterpretation() === "length") {
+		const secondaryProperty = secondary.property();
+		if (secondary.interpretedAs() === "length") {
 			length = secondaryProperty.sanitizeValue(length);
 			endValue = value + length;
 		} else {
@@ -549,10 +544,10 @@
 		const lengthStr = display.displayLength(length);
 		const endValueStr = display.displayValue(endValue);
 
-		if (propertySelector.secondaryPropertyInterpretation() === "end") {
-			return `${name}\n[${primaryProperty.name()}: ${primaryValueStr}] → [${secondaryProperty.name()}: ${endValueStr}]\nlength: ${lengthStr}`;
+		if (secondary.interpretedAs() === "end") {
+			return `${name}\n[${primaryProperty.name}: ${primaryValueStr}] → [${secondaryProperty.name}: ${endValueStr}]\nlength: ${lengthStr}`;
 		}
-		return `${name}\n[${primaryProperty.name()}: ${primaryValueStr}] → ${endValueStr}\n[${secondaryProperty.name()}: ${lengthStr}]`;
+		return `${name}\n[${primaryProperty.name}: ${primaryValueStr}] → ${endValueStr}\n[${secondaryProperty.name}: ${lengthStr}]`;
 	}
 
 	export async function addFile(file: Note) {
@@ -618,52 +613,36 @@
 		timelineView?.zoomToFit();
 	}
 
-	function onPropertySelected(property: TimelineProperty) {
-		propertySelector = propertySelector;
-		items = new MutableSortedArray(valueOf, ...items);
-		display = property.displayedAs();
+	$effect(() => {
+		if (properties === null) return;
+		const primaryProperty = properties.primary();
+		items = new MutableSortedArray(valueOf, ...untrack(() => items));
 		tick().then(() => {
 			timelineView?.zoomToFit();
 		});
-	}
+	});
 
-	function onSecondaryPropertySelected(property: TimelineProperty) {
-		timelineView!.refresh();
-	}
+	// function onPropertySelected(property: TimelineProperty) {
+	// 	propertySelector = propertySelector;
+	// 	items = new MutableSortedArray(valueOf, ...items);
+	// 	display = property.displayedAs();
+	// 	tick().then(() => {
+	// 		timelineView?.zoomToFit();
+	// 	});
+	// }
 
 	function onPreviewNewItemValue(
 		item: ReactiveNoteItem,
 		value: number,
 	): number {
-		return propertySelector.selectedProperty().sanitizeValue(value);
+		if (properties === null) return value;
+		return properties.primary().sanitizeValue(value);
 	}
 
 	const selectItemValue = $derived.by(() => {
-		const property = propertySelector?.selectedProperty();
-		if (property == null) {
-			return () => null;
-		}
-		if (property.isCreatedProperty()) {
-			return (item: ReactiveNoteItem) => item.note.created();
-		}
-		if (property.isModifiedProperty()) {
-			return (item: ReactiveNoteItem) => item.note.modified();
-		}
-		return (item: ReactiveNoteItem) => {
-			const value = item.properties[property.name()];
-			if (value == null) return null;
-			if (typeof value === "number") return value;
-			if (typeof value === "string") {
-				const datetime = window.moment(value);
-				if (datetime.isValid()) {
-					return datetime.valueOf();
-				}
-				const parsed = parseFloat(value);
-				if (!isNaN(parsed)) return parsed;
-				return null;
-			}
-			return null;
-		};
+		if (properties === null) return () => null;
+		const primary = properties.primary();
+		return primary.valueOrNull.bind(primary);
 	});
 
 	const selectValue = $derived.by(() => {
@@ -675,14 +654,12 @@
 <TimelineView
 	items={Array.from(items)}
 	{selectValue}
-	selectLength={!propertySelector?.secondaryPropertyInUse()
-		? () => 0
-		: (item) => lengthOf(item.note)}
+	selectLength={itemLength}
 	previewItem={(name, value, length, endValue) => {
 		return summarizeItem(name, value, length, endValue);
 	}}
 	summarizeItem={(item) => summarizeNote(item.note)}
-	itemsResizable={propertySelector?.secondaryPropertyInUse() ?? false}
+	itemsResizable={properties?.secondary() !== null}
 	namespacedWritable={viewModel}
 	{display}
 	groups={timelineGroups}
@@ -703,27 +680,12 @@
 	openDialog={openModal}
 >
 	{#snippet additionalSettings()}
-		{#if propertySelector}
+		{#if properties !== null}
 			<TimelinePropertySection
 				collapsed={settings
 					.namespace("property")
 					.make("collapsed", true)}
-				selector={propertySelector}
-				on:propertySelected={(event) =>
-					onPropertySelected(event.detail)}
-				on:secondaryPropertySelected={({ detail }) =>
-					onSecondaryPropertySelected(detail)}
-				on:secondaryPropertyToggled={({ detail: inUse }) => {
-					for (const item of itemsById.values()) {
-						item;
-					}
-					timelineView!.refresh();
-				}}
-				on:secondaryPropertyReinterpreted={({
-					detail: interpretation,
-				}) => {
-					$secondaryPropertyInterpretedAs = interpretation;
-				}}
+				{properties}
 			/>
 		{/if}
 		<TimelineFilterSection

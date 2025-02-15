@@ -1,7 +1,15 @@
-import type {NotePropertyRepository} from "src/note/property/repository";
-import {isNumericNoteProperty, NotePropertyTypes, TimelineNoteSorterProperty} from "./TimelineNoteSorterProperty";
+import type { NotePropertyRepository } from "src/note/property/repository";
+import {
+	isNumericNoteProperty,
+	NotePropertyTypes,
+	TimelineNoteSorterProperty,
+} from "./TimelineNoteSorterProperty";
+import type { NoteProperty } from "src/note/property";
 
-async function propertyFromName(name: string, noteProperties: NotePropertyRepository) {
+async function propertyFromName(
+	name: string,
+	noteProperties: NotePropertyRepository,
+) {
 	if (name === TimelineNoteSorterProperty.Created.name()) {
 		return TimelineNoteSorterProperty.Created;
 	}
@@ -36,8 +44,14 @@ export class TimelineNoteSorterSelector {
 		saveSecondaryPropertyName: (name: string) => void,
 		saveSecondaryPropertyUse: (use: boolean) => void,
 	) {
-		const selectedProperty = await propertyFromName(selectedPropertyName, noteProperties);
-		const secondaryProperty = await propertyFromName(secondaryPropertyName, noteProperties);
+		const selectedProperty = await propertyFromName(
+			selectedPropertyName,
+			noteProperties,
+		);
+		const secondaryProperty = await propertyFromName(
+			secondaryPropertyName,
+			noteProperties,
+		);
 
 		return new TimelineNoteSorterSelector(
 			selectedProperty,
@@ -104,16 +118,34 @@ export class TimelineNoteSorterSelector {
 	}
 
 	#noteProperties;
-	async availableProperties() {
-		const noteProperties = await this.#noteProperties.listPropertiesOfTypes(NotePropertyTypes);
+	#cachedSorterProperties = new Map<string, TimelineNoteSorterProperty>();
+	#sorterProperty(property: NoteProperty<"number" | "date" | "datetime">) {
+		const cached = this.#cachedSorterProperties.get(property.name());
+		if (cached) {
+			TimelineNoteSorterProperty.update(cached, property);
+			return cached;
+		}
+		const sorterProperty =
+			TimelineNoteSorterProperty.fromNoteProperty(property);
+		this.#cachedSorterProperties.set(property.name(), sorterProperty);
+		return sorterProperty;
+	}
 
-		const properties: [TimelineNoteSorterProperty, TimelineNoteSorterProperty, ...TimelineNoteSorterProperty[]] = [
+	async availableProperties() {
+		const noteProperties =
+			await this.#noteProperties.listPropertiesOfTypes(NotePropertyTypes);
+
+		const properties: [
+			TimelineNoteSorterProperty,
+			TimelineNoteSorterProperty,
+			...TimelineNoteSorterProperty[],
+		] = [
 			TimelineNoteSorterProperty.Created,
 			TimelineNoteSorterProperty.Modified,
 		];
 
 		for (const property of noteProperties) {
-			properties.push(TimelineNoteSorterProperty.fromNoteProperty(property));
+			properties.push(this.#sorterProperty(property));
 		}
 
 		return properties;

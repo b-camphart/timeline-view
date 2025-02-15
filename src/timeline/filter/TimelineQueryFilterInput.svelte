@@ -6,10 +6,10 @@
 
 	interface Props {
 		filter: QueryFilterReaderWriter;
-		filtering: boolean;
+		filtering?: boolean;
 	}
 
-	let { filter, filtering }: Props = $props();
+	let { filter, filtering = false }: Props = $props();
 
 	let query: string = $state(filter.query());
 	run(() => {

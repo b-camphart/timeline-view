@@ -1,47 +1,31 @@
-<script module lang="ts">
-</script>
-
 <script lang="ts">
 	import CollapsableSection from "src/view/CollapsableSection.svelte";
-	import TimelineNoteSorterPropertySelect from "../sorting/TimelineNoteSorterPropertySelect.svelte";
-	import { createEventDispatcher } from "svelte";
-	import NumericPropertyIntToggle from "src/timeline/item/NumericPropertyIntToggle.svelte";
-	import type { TimelinePropertySelector } from "src/timeline/property/TimelinePropertySelector";
-	import type { TimelineProperty } from "src/timeline/property/TimelineProperty";
 	import type { Writable } from "svelte/store";
 	import ToggleInput from "src/view/inputs/ToggleInput.svelte";
-	import { TimelineNoteSorterPropertyType } from "src/timeline/sorting/TimelineNoteSorterProperty";
-
+	import TimelinePropertySelect from "src/timeline/property/TimelinePropertySelect.svelte";
+	import {
+		TimelineProperty,
+		type ObservableTimelineProperties,
+		type ObservableTimelineProperty,
+	} from "src/timeline/property/Property.svelte";
 	interface Props {
 		collapsed: Writable<boolean>;
-		selector: TimelinePropertySelector;
+		properties: ObservableTimelineProperties;
 	}
 
-	let { collapsed, selector }: Props = $props();
+	let { collapsed, properties }: Props = $props();
 
-	const dispatch = createEventDispatcher<{
-		propertySelected: TimelineProperty;
-		secondaryPropertySelected: TimelineProperty;
-		secondaryPropertyToggled: boolean;
-		secondaryPropertyReinterpreted: "length" | "end";
-	}>();
+	const secondary = $derived(properties.secondary());
 
 	const incompatibleTypes = $derived.by(() => {
-		if (!selector.secondaryPropertyInUse()) {
-			return false;
-		}
-		const primaryType = selector.timelineNoteSorterSelector
-			.selectedProperty()
-			.type();
-		const secondaryType = selector.timelineNoteSorterSelector
-			.secondaryProperty()
-			.type();
+		if (secondary === null) return false;
+
+		const primaryType = properties.primary().type();
+		const secondaryType = secondary.property().type();
 
 		return (
-			(primaryType === TimelineNoteSorterPropertyType.Number &&
-				secondaryType !== TimelineNoteSorterPropertyType.Number) ||
-			(primaryType !== TimelineNoteSorterPropertyType.Number &&
-				secondaryType === TimelineNoteSorterPropertyType.Number)
+			(primaryType === "number" && secondaryType !== "number") ||
+			(primaryType !== "number" && secondaryType === "number")
 		);
 	});
 </script>
@@ -54,6 +38,20 @@
 	{/if}
 {/snippet}
 
+{#snippet useIntToggle(tabIndex: number, property: ObservableTimelineProperty)}
+	<ToggleInput
+		class="numeric-property-int-toggle"
+		row
+		name="Use whole numbers"
+		hint="When creating a new note, or making modifications, round to the nearest whole number for this property value"
+		tabindex={tabIndex}
+		mod="mod-small"
+		bind:checked={() => property.usesInts(),
+		(useInts) => property.useInts?.(useInts)}
+		disabled={property.useInts === null}
+	/>
+{/snippet}
+
 <CollapsableSection
 	name="Properties"
 	bind:collapsed={$collapsed}
@@ -62,21 +60,18 @@
 	<section>
 		<h6>Order by</h6>
 		{@render incompatibilityWarning()}
-		<TimelineNoteSorterPropertySelect
+		<TimelinePropertySelect
 			tabindex={0}
-			property={selector.timelineNoteSorterSelector.selectedProperty()}
-			getProperties={() =>
-				selector.timelineNoteSorterSelector.availableProperties()}
-			on:selected={({ detail: property }) => {
-				selector.timelineNoteSorterSelector.selectProperty(property);
-				dispatch("propertySelected", selector.selectedProperty());
-			}}
+			alwaysAvailableProperties={[
+				TimelineProperty.Created,
+				TimelineProperty.Modified,
+			]}
+			property={properties.primary()}
+			getProperties={() => properties.options()}
+			onSelected={properties.setPrimaryProperty.bind(properties)}
 		/>
 
-		<NumericPropertyIntToggle
-			property={selector.selectedProperty()}
-			tabindex={1}
-		/>
+		{@render useIntToggle(1, properties.primary())}
 	</section>
 
 	<section>
@@ -86,46 +81,29 @@
 				mod="mod-small"
 				tabindex={2}
 				name="Secondary Property"
-				bind:checked={() => selector.secondaryPropertyInUse(),
-				(use) => {
-					selector.timelineNoteSorterSelector.toggleSecondaryProperty(
-						use,
-					);
-					dispatch("secondaryPropertyToggled", use);
-				}}
+				bind:checked={() => secondary !== null,
+				properties.enableSecondaryProperty.bind(properties)}
 			/>
 		</h6>
-		{#if selector.secondaryPropertyInUse()}
+		{#if secondary !== null}
 			{@render incompatibilityWarning()}
-			<TimelineNoteSorterPropertySelect
-				tabindex={3}
-				property={selector.timelineNoteSorterSelector.secondaryProperty()}
-				getProperties={() =>
-					selector.timelineNoteSorterSelector.availableProperties()}
-				on:selected={({ detail: property }) => {
-					selector.timelineNoteSorterSelector.selectSecondaryProperty(
-						property,
-					);
-					dispatch(
-						"secondaryPropertySelected",
-						selector.secondaryProperty(),
-					);
-				}}
+			<TimelinePropertySelect
+				tabindex={0}
+				alwaysAvailableProperties={[
+					TimelineProperty.Created,
+					TimelineProperty.Modified,
+				]}
+				property={secondary.property()}
+				getProperties={() => properties.options()}
+				onSelected={secondary.setProperty.bind(secondary)}
 			/>
 
-			<NumericPropertyIntToggle
-				property={selector.secondaryProperty()}
-				tabindex={4}
-			/>
+			{@render useIntToggle(4, secondary.property())}
 			<label>
 				Interpret as <select
 					class="dropdown"
-					bind:value={() =>
-						selector.secondaryPropertyInterpretation(),
-					(value: "length" | "end") => {
-						selector.interpretSecondaryPropertyAs(value);
-						dispatch("secondaryPropertyReinterpreted", value);
-					}}
+					bind:value={() => secondary.interpretedAs(),
+					secondary.interpretAs.bind(secondary)}
 				>
 					<option value="length">Length</option>
 					<option value="end">End</option>
@@ -157,5 +135,9 @@
 
 	.warning {
 		color: var(--text-warning);
+	}
+
+	section :global(.numeric-property-int-toggle) {
+		padding: var(--size-2-3) 0;
 	}
 </style>
