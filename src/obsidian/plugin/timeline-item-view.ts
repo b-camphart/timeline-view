@@ -1,27 +1,39 @@
 import * as obsidian from "obsidian";
-import {LUCID_ICON, OBSIDIAN_LEAF_VIEW_TYPE} from "./main";
-import type {ObsidianNoteRepository} from "src/note/obsidian-repository";
-import type {ObsidianNotePropertyRepository} from "src/note/property/obsidian-repository";
-import {get, writable} from "svelte/store";
-import type {Note} from "src/note";
-import {titleEl} from "../ItemVIew";
-import {preventOpenFileWhen, workspaceLeafExt} from "../WorkspaceLeaf";
-import {writableProperties} from "src/timeline/Persistence";
+import type { ObsidianNoteRepository } from "src/note/obsidian-repository";
+import type { ObsidianNotePropertyRepository } from "src/note/property/obsidian-repository";
+import { get, writable } from "svelte/store";
+import type { Note } from "src/note";
+import { titleEl } from "../ItemVIew";
+import { preventOpenFileWhen, workspaceLeafExt } from "../WorkspaceLeaf";
+import { writableProperties } from "src/timeline/Persistence";
 import NoteTimeline from "../timeline/NoteTimeline.svelte";
-import {openFileContextMenu, openMultipleFileContextMenu} from "../FileExporer";
-import {openNewLeafFromEvent} from "../Workspace";
-import {exists} from "src/utils/null";
+import {
+	openFileContextMenu,
+	openMultipleFileContextMenu,
+} from "../FileExporer";
+import { openNewLeafFromEvent } from "../Workspace";
+import { exists } from "src/utils/null";
 import * as json from "src/utils/json";
-import {openModal} from "src/obsidian/view/Modal";
-import {mount, unmount} from "svelte";
+import { openModal } from "src/obsidian/view/Modal";
+import { mount, unmount } from "svelte";
 
 export class TimelineItemView extends obsidian.ItemView {
+	static readonly #ICON = "waypoints";
+	static get ICON() {
+		return this.#ICON;
+	}
+
 	getIcon(): string {
-		return LUCID_ICON;
+		return TimelineItemView.ICON;
+	}
+
+	static readonly #TYPE = "VIEW_TYPE_TIMELINE_VIEW";
+	static get TYPE() {
+		return this.#TYPE;
 	}
 
 	getViewType(): string {
-		return OBSIDIAN_LEAF_VIEW_TYPE;
+		return TimelineItemView.TYPE;
 	}
 
 	private group: string | undefined;
@@ -43,36 +55,39 @@ export class TimelineItemView extends obsidian.ItemView {
 			this.component?.zoomToFit();
 		});
 
-		this.initialization = new Promise(resolve => {
+		this.initialization = new Promise((resolve) => {
 			this.completeInitialization = resolve;
 		});
 
 		// events
 		[
-			vault.on("create", file => {
+			vault.on("create", (file) => {
 				if (file instanceof obsidian.TFile) {
 					this.component?.addFile(this.notes.getNoteForFile(file));
 				}
 			}),
 			vault.on("rename", (file, oldPath) => {
 				if (file instanceof obsidian.TFile) {
-					this.component?.renameFile(this.notes.getNoteForFile(file), oldPath);
+					this.component?.renameFile(
+						this.notes.getNoteForFile(file),
+						oldPath,
+					);
 				}
 			}),
-			metadata.on("changed", file => {
+			metadata.on("changed", (file) => {
 				if (file instanceof obsidian.TFile) {
 					this.component?.modifyFile(this.notes.getNoteForFile(file));
 				}
 			}),
-			vault.on("delete", file => {
+			vault.on("delete", (file) => {
 				if (file instanceof obsidian.TFile) {
 					this.component?.deleteFile(this.notes.getNoteForFile(file));
 				}
 			}),
-			this.leaf.on("group-change", group => {
+			this.leaf.on("group-change", (group) => {
 				this.group = group;
 			}),
-			this.workspace.on("active-leaf-change", activeLeaf => {
+			this.workspace.on("active-leaf-change", (activeLeaf) => {
 				if (activeLeaf === this.leaf || !activeLeaf) {
 					return;
 				}
@@ -103,26 +118,36 @@ export class TimelineItemView extends obsidian.ItemView {
 					this.component?.focusOnNote(note);
 				}
 			}),
-		].forEach(eventRef => this.registerEvent(eventRef));
+		].forEach((eventRef) => this.registerEvent(eventRef));
 
 		preventOpenFileWhen(
 			this,
-			() => this.group != null && this.group.length > 0 && this.workspace.getGroupLeaves(this.group).length > 1,
+			() =>
+				this.group != null &&
+				this.group.length > 0 &&
+				this.workspace.getGroupLeaves(this.group).length > 1,
 		);
 	}
 
 	private $mode: EditMode = EditMode.Edit;
 	private mode = writable(this.$mode);
 
-	onPaneMenu(menu: obsidian.Menu, source: "more-options" | "tab-header" | string): void {
+	onPaneMenu(
+		menu: obsidian.Menu,
+		source: "more-options" | "tab-header" | string,
+	): void {
 		super.onPaneMenu(menu, source);
-		menu.addItem(item => {
+		menu.addItem((item) => {
 			item.setIcon("book-open")
 				.setChecked(this.$mode === EditMode.View)
 				.setSection("pane")
 				.setTitle("View-only timeline")
 				.onClick(() => {
-					this.mode.set(this.$mode === EditMode.View ? EditMode.Edit : EditMode.View);
+					this.mode.set(
+						this.$mode === EditMode.View
+							? EditMode.Edit
+							: EditMode.View,
+					);
 				});
 		});
 	}
@@ -140,7 +165,7 @@ export class TimelineItemView extends obsidian.ItemView {
 		if (!file) {
 			return false;
 		}
-		leavesInGroup.forEach(leaf => {
+		leavesInGroup.forEach((leaf) => {
 			if (leaf === this.leaf) return;
 			leaf.openFile(file);
 		});
@@ -149,7 +174,8 @@ export class TimelineItemView extends obsidian.ItemView {
 
 	private computeDisplayText() {
 		const property = this.state?.settings?.property?.property ?? "";
-		const secondaryProperty = this.state?.settings?.property?.secondaryProperty;
+		const secondaryProperty =
+			this.state?.settings?.property?.secondaryProperty;
 		const query = this.state?.settings?.filter?.query ?? "";
 
 		const prefix = `Timeline view [${property}] `;
@@ -157,7 +183,10 @@ export class TimelineItemView extends obsidian.ItemView {
 
 		if (secondaryProperty != null && secondaryProperty.inUse) {
 			if (secondaryProperty.useAs === "length") {
-				return `${prefix}[length: ${secondaryProperty.name}]` + queryDisplay;
+				return (
+					`${prefix}[length: ${secondaryProperty.name}]` +
+					queryDisplay
+				);
 			} else {
 				return `${prefix}→ [${secondaryProperty.name}]` + queryDisplay;
 			}
@@ -212,10 +241,13 @@ export class TimelineItemView extends obsidian.ItemView {
 
 		content.createEl("progress");
 
-		this.initialization?.then(state => {
+		this.initialization?.then((state) => {
 			delete this.initialization;
 			content.empty();
-			content.setAttribute("style", "padding:0;position: relative;overflow-x:hidden;overflow-y:hidden");
+			content.setAttribute(
+				"style",
+				"padding:0;position: relative;overflow-x:hidden;overflow-y:hidden",
+			);
 
 			const isNew = state.isNew;
 
@@ -231,14 +263,18 @@ export class TimelineItemView extends obsidian.ItemView {
 			} else if (get(persistedMode) === "view") {
 				this.mode.set(EditMode.View);
 			}
-			this.mode.subscribe(mode => persistedMode.set(mode));
-			const switchToViewMode = this.addAction("book-open", "Current view: editing\nClick to view-only", () =>
-				this.mode.set(EditMode.View),
+			this.mode.subscribe((mode) => persistedMode.set(mode));
+			const switchToViewMode = this.addAction(
+				"book-open",
+				"Current view: editing\nClick to view-only",
+				() => this.mode.set(EditMode.View),
 			);
-			const switchToEditMode = this.addAction("edit-3", "Current view: view-only\nClick to edit", () =>
-				this.mode.set(EditMode.Edit),
+			const switchToEditMode = this.addAction(
+				"edit-3",
+				"Current view: view-only\nClick to edit",
+				() => this.mode.set(EditMode.Edit),
 			);
-			this.mode.subscribe(newMode => {
+			this.mode.subscribe((newMode) => {
 				this.$mode = newMode;
 				switchToViewMode.toggle(newMode === EditMode.Edit);
 				switchToEditMode.toggle(newMode === EditMode.View);
@@ -259,36 +295,61 @@ export class TimelineItemView extends obsidian.ItemView {
 						if (notes.length === 1) {
 							const file = this.notes.getFileFromNote(notes[0]);
 							if (!file) return;
-							openFileContextMenu(e, file, this.workspace, this.fileManager);
+							openFileContextMenu(
+								e,
+								file,
+								this.workspace,
+								this.fileManager,
+							);
 						} else if (notes.length > 1) {
 							const files: obsidian.TFile[] = notes
-								.map(it => this.notes.getFileFromNote(it))
+								.map((it) => this.notes.getFileFromNote(it))
 								.filter(exists);
 							if (files.length === 0) return;
-							if (files.length === 1) openFileContextMenu(e, files[0], this.workspace, this.fileManager);
-							else openMultipleFileContextMenu(e, files, this.workspace, this.fileManager);
+							if (files.length === 1)
+								openFileContextMenu(
+									e,
+									files[0],
+									this.workspace,
+									this.fileManager,
+								);
+							else
+								openMultipleFileContextMenu(
+									e,
+									files,
+									this.workspace,
+									this.fileManager,
+								);
 						}
 					},
-					openModal: open => {
+					openModal: (open) => {
 						openModal(this.app, open);
 					},
-					onResizeNotes: async mods => {
-						await Promise.all(mods.map(mod => this.notes.modifyNote(mod.note, mod)));
+					onResizeNotes: async (mods) => {
+						await Promise.all(
+							mods.map((mod) =>
+								this.notes.modifyNote(mod.note, mod),
+							),
+						);
 					},
 				},
 				events: {
-					noteSelected: event => {
-						const file = this.notes.getFileFromNote(event.detail.note);
+					noteSelected: (event) => {
+						const file = this.notes.getFileFromNote(
+							event.detail.note,
+						);
 						if (!file) return;
 						const cause = event.detail.event;
-						openNewLeafFromEvent(this.workspace, cause).openFile(file);
+						openNewLeafFromEvent(this.workspace, cause).openFile(
+							file,
+						);
 					},
-					noteFocused: event => {
+					noteFocused: (event) => {
 						if (event.detail) {
 							this.openNoteInLinkedLeaf(event.detail);
 						}
 					},
-					createNote: async event => {
+					createNote: async (event) => {
 						const note = await this.notes.createNote(event.detail);
 						if (!this.openNoteInLinkedLeaf(note)) {
 							const file = this.notes.getFileFromNote(note);
@@ -341,7 +402,10 @@ const timelineItemViewStateSchema = json.expectObject({
 			secondaryProperty: json.expectObject({
 				name: json.expectString("created"),
 				inUse: json.expectBoolean(false),
-				useAs: json.expectEnum({length: "length" as const, end: "end" as const}, "length"),
+				useAs: json.expectEnum(
+					{ length: "length" as const, end: "end" as const },
+					"length",
+				),
 			}),
 		}),
 		filter: json.expectObject({
@@ -364,4 +428,6 @@ const timelineItemViewStateSchema = json.expectObject({
 	}),
 });
 
-export type TimelineItemViewState = json.Parsed<typeof timelineItemViewStateSchema>;
+export type TimelineItemViewState = json.Parsed<
+	typeof timelineItemViewStateSchema
+>;
