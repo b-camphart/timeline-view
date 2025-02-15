@@ -1,4 +1,6 @@
 <script lang="ts" module>
+	import * as json from "src/utils/json";
+
 	export class Group {
 		#query = $state("");
 		query() {
@@ -16,11 +18,29 @@
 			this.#color = color;
 		}
 
+		saveState() {
+			return {
+				query: this.#query,
+				color: this.#color,
+			};
+		}
+
 		constructor(query: string, color: string) {
 			this.#query = query;
 			this.#color = color;
 		}
+
+		static #schema = json.expectObject({
+			query: json.expectString(""),
+			color: json.expectString(""),
+		});
+		static fromSavedState(savedState: unknown) {
+			const parsed = Group.#schema.parseOrDefault(savedState);
+			return new Group(parsed.query, parsed.color);
+		}
 	}
+
+	export type SavedGroup = ReturnType<Group["saveState"]>;
 </script>
 
 <script lang="ts">

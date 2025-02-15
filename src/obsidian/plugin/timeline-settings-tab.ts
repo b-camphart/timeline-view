@@ -13,11 +13,12 @@ import { TimelineNoteSorterSelector } from "src/timeline/sorting/TimelineNoteSor
 import TimelineQueryFilterInput from "src/timeline/filter/TimelineQueryFilterInput.svelte";
 import { TimelineItemQueryFilter } from "src/timeline/filter/TimelineItemQueryFilter";
 import type { ObsidianNoteRepository } from "src/note/obsidian-repository";
-import Groups from "src/timeline/group/TimelineGroupsList.svelte";
-import { TimelineGroups } from "src/timeline/group/groups";
-import { TimelineGroup } from "src/timeline/group/group";
+import GroupList, {
+	Groups,
+} from "src/timeline/group/TimelineGroupsList.svelte";
 import { mount } from "svelte";
 import { TimelineNoteSorterPropertyType } from "src/timeline/sorting/TimelineNoteSorterProperty";
+import { Group } from "src/timeline/group/GroupListItem.svelte";
 
 export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 	#plugin;
@@ -103,35 +104,27 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 		);
 	}
 
-	async groups(): Promise<TimelineGroups> {
+	#groupState: null | {
+		readonly groups: Groups;
+		readonly dispose: () => void;
+	} = null;
+	async groups(): Promise<Groups> {
+		if (this.#groupState) return this.#groupState.groups;
+
 		const loadedSettings = await this.#getSettings();
 
-		const updateGroups = () => {
-			this.#updateSettings((settings) => {
-				settings.openWith.groups = groups.groups().map((g) => {
-					return {
-						query: g.query(),
-						color: g.color(),
-					};
-				});
-			});
-		};
-
-		const makeGroup = (query: string, color: string) => {
-			const group = new TimelineGroup(this.#notes, query, color);
-			group.onChanged = updateGroups;
-			return group;
-		};
-
-		const groups = new TimelineGroups(
-			loadedSettings.openWith.groups.map(({ query, color }) =>
-				makeGroup(query, color),
-			),
-			(color) => makeGroup("", color),
+		const groups = new Groups(
+			loadedSettings.openWith.groups.map(Group.fromSavedState),
 		);
-		groups.onChanged = updateGroups;
+		const dispose = groups.observe(() => {
+			const saveState = groups.saveState();
+			this.#updateSettings((settings) => {
+				settings.openWith.groups = saveState;
+			});
+		});
+		this.#groupState = { groups, dispose };
 
-		return groups;
+		return this.#groupState.groups;
 	}
 
 	usePreviousState(): boolean {
@@ -297,7 +290,7 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 				"The default set of groups to use in the timeline when it's first opened.",
 			);
 
-		mount(Groups, {
+		mount(GroupList, {
 			target: new obsidian.Setting(containerEl).controlEl,
 			props: {
 				groups,
@@ -306,6 +299,7 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 	}
 
 	hide() {
+		this.#groupState?.dispose();
 		this.containerEl.empty();
 		super.hide();
 	}

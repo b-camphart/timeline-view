@@ -12,7 +12,6 @@
 	import type { MutableNoteRepository } from "src/note/repository";
 	import type { Note } from "src/note";
 	import { TimelineItemQueryFilter } from "src/timeline/filter/TimelineItemQueryFilter";
-	import * as timelineGroup from "src/timeline/group/group";
 	import { MutableSortedArray } from "src/utils/collections";
 	import type { Reactive } from "src/svelte/reactive";
 	import { Groups as TimelineGroups } from "src/timeline/group/TimelineGroupsList.svelte";
@@ -22,7 +21,6 @@
 	import {
 		TimelineProperty,
 		TimelineProperties,
-		type ObservableTimelineProperty,
 	} from "src/timeline/property/Property.svelte";
 
 	class ReactiveNoteItem {
@@ -150,17 +148,10 @@
 	const savedGroups = settings.namespace("groups").make("groups", []);
 
 	const timelineGroups = new TimelineGroups(
-		get(savedGroups)
-			.map((group) => timelineGroup.schema.parseOrDefault(group))
-			.map(({ query, color }) => new Group(query, color)),
+		get(savedGroups).map(Group.fromSavedState),
 	);
 	$effect(() => {
-		$savedGroups = timelineGroups.list().map((group) => {
-			return {
-				color: group.color(),
-				query: group.query(),
-			};
-		});
+		$savedGroups = timelineGroups.saveState();
 	});
 
 	function openFile(event: Event | undefined, item: ReactiveNoteItem) {

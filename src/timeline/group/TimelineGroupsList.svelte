@@ -45,6 +45,16 @@
 			this.#groups.splice(index, 1);
 		}
 
+		observe(cb: (groups: Groups) => void) {
+			return $effect.root(() => {
+				$effect(() => cb(this));
+			});
+		}
+
+		saveState() {
+			return this.list().map((it) => it.saveState());
+		}
+
 		constructor(groups: readonly TimelineGroup[]) {
 			this.#groups = groups.slice();
 		}

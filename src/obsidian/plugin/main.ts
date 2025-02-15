@@ -84,12 +84,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 							query: timeline.filter.query(),
 						},
 						groups: {
-							groups: groups.groups().map((group) => {
-								return {
-									query: group.query(),
-									color: group.color(),
-								};
-							}),
+							groups: groups.saveState(),
 						},
 					},
 					focalValue: timeline.focalValue,
