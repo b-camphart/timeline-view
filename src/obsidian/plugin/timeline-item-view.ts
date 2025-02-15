@@ -84,16 +84,12 @@ export class TimelineItemView extends obsidian.ItemView {
 					this.component?.deleteFile(this.notes.getNoteForFile(file));
 				}
 			}),
-			this.leaf.on("group-change", (group) => {
-				this.group = group;
-			}),
 			this.workspace.on("active-leaf-change", (activeLeaf) => {
 				if (activeLeaf === this.leaf || !activeLeaf) {
 					return;
 				}
-				if (!this.group) {
-					return;
-				}
+
+				if (this.leaf.isDeferred) return;
 
 				const state = activeLeaf.getViewState().state;
 				if (!state) {
@@ -104,29 +100,20 @@ export class TimelineItemView extends obsidian.ItemView {
 					return;
 				}
 
-				const leavesInGroup = this.workspace.getGroupLeaves(this.group);
-				if (!leavesInGroup.includes(activeLeaf)) {
-					return;
-				}
-
 				const file = vault.getAbstractFileByPath(state.file);
 				if (file instanceof obsidian.TFile) {
-					const note = this.notes.getNoteForFile(file);
-					if (!note) {
-						return;
-					}
-					this.component?.focusOnNote(note);
+					this.showFile(file);
 				}
 			}),
 		].forEach((eventRef) => this.registerEvent(eventRef));
+	}
 
-		preventOpenFileWhen(
-			this,
-			() =>
-				this.group != null &&
-				this.group.length > 0 &&
-				this.workspace.getGroupLeaves(this.group).length > 1,
-		);
+	showFile(file: obsidian.TFile) {
+		const note = this.notes.getNoteForFile(file);
+		if (!note) {
+			return;
+		}
+		this.component?.focusOnNote(note);
 	}
 
 	private $mode: EditMode = EditMode.Edit;
@@ -150,26 +137,6 @@ export class TimelineItemView extends obsidian.ItemView {
 					);
 				});
 		});
-	}
-
-	private openNoteInLinkedLeaf(note: Note): boolean {
-		if (!this.group) {
-			return false;
-		}
-		const leavesInGroup = this.workspace.getGroupLeaves(this.group);
-		if (leavesInGroup.length === 1) {
-			return false;
-		}
-
-		const file = this.notes.getFileFromNote(note);
-		if (!file) {
-			return false;
-		}
-		leavesInGroup.forEach((leaf) => {
-			if (leaf === this.leaf) return;
-			leaf.openFile(file);
-		});
-		return true;
 	}
 
 	private computeDisplayText() {
@@ -344,18 +311,17 @@ export class TimelineItemView extends obsidian.ItemView {
 							file,
 						);
 					},
-					noteFocused: (event) => {
-						if (event.detail) {
-							this.openNoteInLinkedLeaf(event.detail);
-						}
-					},
+					noteFocused: (event) => {},
 					createNote: async (event) => {
-						const note = await this.notes.createNote(event.detail);
-						if (!this.openNoteInLinkedLeaf(note)) {
-							const file = this.notes.getFileFromNote(note);
-							if (!file) return;
-							this.workspace.getLeaf(true).openFile(file);
-						}
+						const note = await this.notes.createNote(
+							event.detail.details,
+						);
+						const file = this.notes.getFileFromNote(note);
+						if (!file) return;
+						openNewLeafFromEvent(
+							this.workspace,
+							event.detail.event,
+						).openFile(file);
 					},
 				} satisfies Events<NoteTimeline["$$events_def"]>,
 			});

@@ -92,9 +92,12 @@
 		noteSelected: { note: Note; event?: Event };
 		noteFocused: Note | undefined;
 		createNote: {
-			created?: number;
-			modified?: number;
-			properties?: Record<string, number>;
+			details: {
+				created?: number;
+				modified?: number;
+				properties?: Record<string, number>;
+			};
+			event?: Event;
 		};
 	}>();
 
@@ -217,9 +220,12 @@
 		return value ?? 0;
 	}
 
-	async function createItem(item: { value: number }) {
+	async function createItem(item: { value: number }, cause: Event) {
 		if (properties === null) return;
-		dispatch("createNote", properties.createItem(item.value));
+		dispatch("createNote", {
+			details: properties.createItem(item.value),
+			event: cause,
+		});
 	}
 
 	async function resizeItems(
@@ -652,7 +658,7 @@
 	bind:this={timelineView}
 	onSelected={(item, cause) => openFile(cause, item)}
 	onFocused={(item) => dispatch("noteFocused", item.note)}
-	onCreate={(value) => createItem({ value })}
+	onCreate={(value, cause) => createItem({ value }, cause)}
 	onItemsResized={resizeItems}
 	{onPreviewNewItemValue}
 	oncontextmenu={(e, triggerItems) => {

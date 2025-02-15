@@ -192,24 +192,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 		});
 
 		this.registerEvent(
-			this.app.workspace.on("file-menu", (menu, file, info) => {
-				if (info === "more-options") {
-					menu.addItem((item) => {
-						item.setSection("view.linked");
-						item.setTitle("Open timeline view");
-						item.setIcon(timelineItemView.TimelineItemView.ICON);
-						item.onClick(() => {
-							openTimelineView(
-								this.app.workspace.getLeaf(
-									"split",
-									"horizontal",
-								),
-								this.app.workspace.getMostRecentLeaf() ??
-									undefined,
-							);
-						});
-					});
-				}
+			this.app.workspace.on("file-menu", (menu, file, info, leaf) => {
 				if (
 					file instanceof obsidian.TFolder &&
 					info === "file-explorer-context-menu"

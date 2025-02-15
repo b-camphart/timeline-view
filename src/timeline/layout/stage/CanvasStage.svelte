@@ -49,7 +49,7 @@
 		zoomOut: ZoomEvent;
 		select: { item: SourceItem; causedBy: Event };
 		focus: SourceItem;
-		create: { value: number };
+		create: { value: number; cause: Event };
 	}>();
 
 	interface Props {
@@ -804,7 +804,7 @@
 		const valueFromLeft = scale.toValue(event.offsetX);
 		const value = leftValue + valueFromLeft;
 
-		dispatch("create", { value });
+		dispatch("create", { value, cause: event });
 	}
 
 	class HoveredItem {

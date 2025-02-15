@@ -69,7 +69,7 @@
 		): Promise<void>;
 		onSelected(item: Item, causedBy: Event): void;
 		onFocused(item: Item): void;
-		onCreate(value: number): void;
+		onCreate(value: number, cause: Event): void;
 		oncontextmenu?(e: MouseEvent, items: Item[]): void;
 		additionalSettings: Snippet<[]>;
 	}
@@ -316,7 +316,7 @@
 		on:select={({ detail }) =>
 			onSelected(detail.item.source, detail.causedBy)}
 		on:focus={({ detail }) => onFocused(detail.source)}
-		on:create={({ detail }) => onCreate(detail.value)}
+		on:create={({ detail }) => onCreate(detail.value, detail.cause)}
 		onItemsChanged={resizeItems}
 		onPreviewNewItemValue={(item, value) =>
 			onPreviewNewItemValue(item.source, value)}
