@@ -68,6 +68,14 @@
 		viewModel: NamespacedWritableFactory<ObsidianNoteTimelineViewModel>;
 		isNew?: boolean;
 		oncontextmenu?: (e: MouseEvent, notes: Note[]) => void;
+		onCreateNote(
+			details: {
+				created?: number;
+				modified?: number;
+				properties?: Record<string, number>;
+			},
+			event?: Event,
+		): Promise<Note>;
 		onResizeNotes?(
 			mods: {
 				note: Note;
@@ -85,20 +93,13 @@
 		viewModel,
 		isNew = false,
 		oncontextmenu = () => {},
+		onCreateNote,
 		onResizeNotes = async () => {},
 	}: Props = $props();
 
 	const dispatch = createEventDispatcher<{
 		noteSelected: { note: Note; event?: Event };
 		noteFocused: Note | undefined;
-		createNote: {
-			details: {
-				created?: number;
-				modified?: number;
-				properties?: Record<string, number>;
-			};
-			event?: Event;
-		};
 	}>();
 
 	const settings = viewModel.namespace("settings");
@@ -222,10 +223,10 @@
 
 	async function createItem(item: { value: number }, cause: Event) {
 		if (properties === null) return;
-		dispatch("createNote", {
-			details: properties.createItem(item.value),
-			event: cause,
-		});
+		const note = await onCreateNote(
+			properties.createItem(item.value),
+			cause,
+		);
 	}
 
 	async function resizeItems(

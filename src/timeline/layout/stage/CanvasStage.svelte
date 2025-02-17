@@ -162,7 +162,11 @@
 	});
 	$effect(() => {
 		const currentFocus = focus;
-		if (currentFocus != null && currentFocus.index > items.length) {
+		if (
+			currentFocus != null &&
+			(currentFocus.index >= items.length ||
+				items.find((it) => it.id === currentFocus.id) === undefined)
+		) {
 			focus = null;
 		}
 	});
@@ -183,6 +187,16 @@
 			(it) => (max = Math.max(max, it.layoutBottom + layoutPadding)),
 		);
 		return max;
+	});
+	$effect(() => {
+		const currentFocus = focus;
+		if (currentFocus !== null) {
+			// updated when items are re-arranged
+			layout.items;
+			const element = untrack(() => currentFocus.element);
+			verticalScrollToFocusItem(element);
+			horizontalScrollToFocusItem(element);
+		}
 	});
 	const maxScrollTop = $derived(Math.max(0, scrollHeight - viewport.height));
 	let scrollTop = $state(0);
@@ -840,6 +854,10 @@
 
 	class Focus {
 		#element: Item = $state(undefined as any as Item);
+		get id() {
+			return this.#element.id;
+		}
+		/** updates when items scroll */
 		get element() {
 			// update when items scroll
 			scrolled.items;
@@ -857,9 +875,23 @@
 	let focus: Focus | null = $state(null);
 	function verticalScrollToFocusItem(element: Item) {
 		if (element.offsetTop < 0) {
-			scrollVertically(element.offsetTop);
+			scrollVertically(
+				element.layoutTop - viewport.padding.top - itemStyle.margin.top,
+			);
 		} else if (element.offsetBottom > viewport.height) {
-			scrollVertically(element.offsetBottom - viewport.height);
+			scrollVertically(
+				element.layoutBottom -
+					viewport.height +
+					viewport.padding.bottom +
+					itemStyle.margin.bottom,
+			);
+		}
+	}
+	function horizontalScrollToFocusItem(element: Item) {
+		if (element.offsetLeft < 0) {
+			dispatch("scrollToValue", element.item.value());
+		} else if (element.offsetRight > viewport.width) {
+			dispatch("scrollToValue", element.item.value());
 		}
 	}
 	function focusOn(element: Item, index: number, skipEvent: boolean = false) {
@@ -869,12 +901,7 @@
 		focus = new Focus(index, element);
 
 		verticalScrollToFocusItem(element);
-
-		if (focus.element.offsetLeft < 0) {
-			dispatch("scrollToValue", focus.element.item.value());
-		} else if (focus.element.offsetRight > viewport.width) {
-			dispatch("scrollToValue", focus.element.item.value());
-		}
+		horizontalScrollToFocusItem(element);
 	}
 	function focusNextItem(back: boolean = false) {
 		const index =

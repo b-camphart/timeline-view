@@ -292,6 +292,20 @@ export class TimelineItemView extends obsidian.ItemView {
 					openModal: (open) => {
 						openModal(this.app, open);
 					},
+					onCreateNote: async (details, cause) => {
+						const note = await this.notes.createNote(details);
+						const file = this.notes.getFileFromNote(note);
+
+						if (file) {
+							setTimeout(() => {
+								openNewLeafFromEvent(
+									this.workspace,
+									cause,
+								).openFile(file);
+							}, 250);
+						}
+						return note;
+					},
 					onResizeNotes: async (mods) => {
 						await Promise.all(
 							mods.map((mod) =>
@@ -312,17 +326,6 @@ export class TimelineItemView extends obsidian.ItemView {
 						);
 					},
 					noteFocused: (event) => {},
-					createNote: async (event) => {
-						const note = await this.notes.createNote(
-							event.detail.details,
-						);
-						const file = this.notes.getFileFromNote(note);
-						if (!file) return;
-						openNewLeafFromEvent(
-							this.workspace,
-							event.detail.event,
-						).openFile(file);
-					},
 				} satisfies Events<NoteTimeline["$$events_def"]>,
 			});
 		});
