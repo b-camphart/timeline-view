@@ -35,4 +35,7 @@ export class Selection<T extends { id: string }> {
 			this.#items.set(item.id, item);
 		}
 	}
+	remove(item: T) {
+		this.#items.delete(item.id);
+	}
 }

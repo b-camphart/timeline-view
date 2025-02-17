@@ -648,6 +648,22 @@
 
 	let selectionArea = $state<null | OffsetBox>(null);
 	const selection = new Selection<Item>();
+	$effect(() => {
+		if (selection.length() === 0) return;
+		if (selection.length() === 1) {
+			const selectedItem = selection.items()[0];
+			if (!items.includes(selectedItem)) {
+				selection.clear();
+			}
+			return;
+		}
+		const ids = new Set(items.map((it) => it.id));
+		for (const item of selection.items()) {
+			if (!ids.has(item.id)) {
+				selection.remove(item);
+			}
+		}
+	});
 	const selectedBounds = $derived.by(() => {
 		if (selection.length() <= 1) return null;
 		let offsetRight = -Infinity;
