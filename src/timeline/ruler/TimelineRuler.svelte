@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from "svelte";
-	import { type RulerValueDisplay } from "../../Timeline";
+	import { type RulerValueDisplay } from "src/timeline/Timeline";
 	import RulerLabel from "./RulerLabel.svelte";
 	import type { Scale } from "src/timeline/scale";
 	import Playhead from "./Playhead.svelte";

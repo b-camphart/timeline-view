@@ -1,8 +1,8 @@
 <script lang="ts" generics="T extends TimelineItemSource">
 	import { type TimelineNavigation } from "./controls/TimelineNavigation";
-	import { writable as makeWritable, writable } from "svelte/store";
+	import { writable as makeWritable } from "svelte/store";
 	import { timelineNavigation } from "./controls/TimelineNavigation";
-	import TimelineRuler from "./layout/ruler/TimelineRuler.svelte";
+	import TimelineRuler from "src/timeline/ruler/TimelineRuler.svelte";
 	import type { NamespacedWritableFactory } from "./Persistence";
 	import CanvasStage from "./layout/stage/CanvasStage.svelte";
 	import type { TimelineViewModel } from "./viewModel";
@@ -24,9 +24,7 @@
 	} from "src/timeline/item/TimelineItem.svelte";
 	import Controls from "src/timeline/controls/Controls.svelte";
 	import ControlGroup from "src/timeline/controls/ControlGroup.svelte";
-	import ControlItem, {
-		controlItem,
-	} from "src/timeline/controls/ControlItem.svelte";
+	import { controlItem } from "src/timeline/controls/ControlItem.svelte";
 
 	type Item = T;
 
