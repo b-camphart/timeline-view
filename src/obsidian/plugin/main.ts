@@ -14,14 +14,14 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 		const notes = new note.ObsidianNoteRepository(
 			this.app.vault,
 			this.app.metadataCache,
-			this.app.fileManager,
+			this.app.fileManager
 		);
 		const properties = new property.ObsidianNotePropertyRepository(
 			() =>
 				this.app.vault.adapter.read(
-					obsidian.normalizePath(".obsidian/types.json"),
+					obsidian.normalizePath(".obsidian/types.json")
 				),
-			() => MetadataTypeManager.getMetadataTypeManager(this.app),
+			() => MetadataTypeManager.getMetadataTypeManager(this.app)
 		);
 
 		const timelineSettings =
@@ -29,14 +29,14 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 				this.app,
 				this,
 				properties,
-				notes,
+				notes
 			);
 		this.addSettingTab(timelineSettings);
 
 		const assignTimelineViewToLeaf = (
 			leaf: obsidian.WorkspaceLeaf,
 			timeline: timelineItemView.TimelineItemViewState,
-			group?: obsidian.WorkspaceLeaf,
+			group?: obsidian.WorkspaceLeaf
 		) => {
 			leaf.setViewState({
 				type: timelineItemView.TimelineItemView.TYPE,
@@ -51,7 +51,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 			group?: obsidian.WorkspaceLeaf,
 			overrides?: {
 				filterQuery?: string;
-			},
+			}
 		) => {
 			const sorter = (
 				await timelineSettings.noteOrder()
@@ -64,9 +64,9 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 				sorter,
 				overrides?.filterQuery
 					? notes.getInclusiveNoteFilterForQuery(
-							overrides.filterQuery,
-						)
-					: filter.noteFilter(),
+							overrides.filterQuery
+					  )
+					: filter.noteFilter()
 			);
 			assignTimelineViewToLeaf(
 				leaf,
@@ -90,7 +90,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 					focalValue: timeline.focalValue,
 					isNew: true,
 				},
-				group,
+				group
 			);
 		};
 
@@ -101,7 +101,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 			openTimelineView(
 				this.app.workspace.getLeaf(true),
 				undefined,
-				overrides,
+				overrides
 			);
 		};
 
@@ -113,7 +113,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 				this.app.workspace,
 				this.app.fileManager,
 				notes,
-				properties,
+				properties
 			);
 			return view;
 		});
@@ -133,14 +133,14 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 					if (previousState != null) {
 						menu.addItem((item) => {
 							item.setTitle(
-								"Re-open closed timeline view",
+								"Re-open closed timeline view"
 							).onClick(() => {
 								assignTimelineViewToLeaf(
 									this.app.workspace.getLeaf(true),
 									{
 										...previousState,
 										isNew: false,
-									},
+									}
 								);
 							});
 						});
@@ -156,13 +156,13 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 							{
 								...previousState,
 								isNew: false,
-							},
+							}
 						);
 					} else {
 						openTimelineViewInNewLeaf();
 					}
 				}
-			},
+			}
 		);
 		this.addCommand({
 			id: "open-timeline-view",
@@ -207,7 +207,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 							});
 					});
 				}
-			}),
+			})
 		);
 
 		this.registerDomEvent(window, "auxclick", (event) => {
@@ -215,7 +215,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 			if (!(event.target instanceof HTMLElement)) return;
 
 			const tagDom = event.target.matchParent(
-				"div.tree-item-self.tag-pane-tag.is-clickable",
+				"div.tree-item-self.tag-pane-tag.is-clickable"
 			);
 			if (!(tagDom instanceof HTMLElement)) return;
 
@@ -228,7 +228,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 			if (tagDomObj == null) return;
 
 			const tag = Object.entries(tagDomObj).find(
-				([_, value]) => value.selfEl === tagDom,
+				([_, value]) => value.selfEl === tagDom
 			);
 			if (tag == null) return;
 
@@ -266,7 +266,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 							});
 						});
 				});
-			}),
+			})
 		);
 
 		this.registerEvent(
@@ -286,7 +286,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 					}).addItem((item) => {
 						item.setSection("timeline")
 							.setTitle(
-								"Save as default filter for timeline views",
+								"Save as default filter for timeline views"
 							)
 							.setIcon(timelineItemView.TimelineItemView.ICON)
 							.onClick(async () => {
@@ -295,8 +295,8 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 								filter.filterByQuery(view.searchQuery.query);
 							});
 					});
-				},
-			),
+				}
+			)
 		);
 
 		if (import.meta.env.MODE === "development") {
@@ -311,7 +311,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 							.remove(file.path)
 							.then(() => location.reload());
 					}
-				}),
+				})
 			);
 		}
 	}

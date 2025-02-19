@@ -11,6 +11,9 @@ importers:
       obsidian-search:
         specifier: 0.1.1
         version: 0.1.1
+      obsidian-style-settings:
+        specifier: mgmeyers/obsidian-style-settings
+        version: https://codeload.github.com/mgmeyers/obsidian-style-settings/tar.gz/dfa9f7c81f9345b9bca47c128339e0e00ecd2aee
     devDependencies:
       '@sveltejs/vite-plugin-svelte':
         specifier: latest
@@ -33,6 +36,9 @@ importers:
       esbuild:
         specifier: latest
         version: 0.24.0
+      hot-reload:
+        specifier: pjeby/hot-reload
+        version: https://codeload.github.com/pjeby/hot-reload/tar.gz/11aa12e1998efb522abeb7aaa0afca86ef5fc212
       obsidian:
         specifier: latest
         version: 1.7.2(@codemirror/state@6.4.1)(@codemirror/view@6.34.3)
@@ -678,6 +684,10 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@simonwep/pickr@https://github.com/nothingislost/pickr/archive/a17739f7aa1871b44da778cbb79ae76dae77d839.tar.gz':
+    resolution: {tarball: https://github.com/nothingislost/pickr/archive/a17739f7aa1871b44da778cbb79ae76dae77d839.tar.gz}
+    version: 1.8.4
+
   '@sveltejs/vite-plugin-svelte-inspector@4.0.1':
     resolution: {integrity: sha512-J/Nmb2Q2y7mck2hyCX4ckVHcR5tu2J+MtBEQqpDrrgELZ2uvraQcK/ioCV61AqkdXFgriksOKIceDcQmqnGhVw==}
     engines: {node: ^18.0.0 || ^20.0.0 || >=22}
@@ -696,11 +706,17 @@ packages:
   '@tsconfig/svelte@5.0.4':
     resolution: {integrity: sha512-BV9NplVgLmSi4mwKzD8BD/NQ8erOY/nUE/GpgWe2ckx+wIQF5RyRirn/QsSSCPeulVpc3RA/iJt6DpfTIZps0Q==}
 
+  '@types/chroma-js@2.4.5':
+    resolution: {integrity: sha512-6ISjhzJViaPCy2q2e6PgK+8HcHQDQ0V2LDiKmYAh+jJlLqDa6HbwDh0wOevHY0kHHUx0iZwjSRbVD47WOUx5EQ==}
+
   '@types/codemirror@5.60.8':
     resolution: {integrity: sha512-VjFgDF/eB+Aklcy15TtOTLQeMjTo07k7KAjql8OK5Dirr7a6sJY4T1uVBDuTVG9VEmn1uUsohOpYnVfgC6/jyw==}
 
   '@types/estree@1.0.6':
     resolution: {integrity: sha512-AYnb1nQyY49te+VRAVgmzfcgjYS91mY5P0TKUDCLEM+gNnA+3T6rWITXRLYCpahpqSQbN5cE+gHpnPyXjHWxcw==}
+
+  '@types/js-yaml@4.0.9':
+    resolution: {integrity: sha512-k4MGaQl5TGo/iipqb2UDG2UwjXziSWkh0uysQelTlJpX1qGlpUZYm8PnO4DxG1qBomtJUdYJ6qR6xdIah10JLg==}
 
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
@@ -872,6 +888,9 @@ packages:
     resolution: {integrity: sha512-/b57FK+bblSU+dfewfFe0rT1YjVDfOmeLQwCAuC+vwvgLkXboATqqmy+Ipux6JrF6L5joe5CBnFOw+gLWH6yKg==}
     engines: {node: '>= 14.16.0'}
 
+  chroma-js@2.6.0:
+    resolution: {integrity: sha512-BLHvCB9s8Z1EV4ethr6xnkl/P2YRFOGqfgvuMG/MyCbZPrTA+NeiByY6XvgF0zP4/2deU2CXnWyMa3zu1LqQ3A==}
+
   color-convert@2.0.1:
     resolution: {integrity: sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==}
     engines: {node: '>=7.0.0'}
@@ -885,6 +904,9 @@ packages:
 
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
+
+  core-js@3.40.0:
+    resolution: {integrity: sha512-7vsMc/Lty6AGnn7uFpYT56QesI5D2Y/UkgKounk87OP9Z2H9Z8kj6jzcSGAxFmUtDOS0ntK6lbQz+Nsa0Jj6mQ==}
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -924,6 +946,14 @@ packages:
   delayed-stream@1.0.0:
     resolution: {integrity: sha512-ZySD7Nf91aLB0RxL4KGrKHBXl7Eds1DAmEdcoVawXnLD7SDhpNgtuII2aAkg7a7QS41jxPSZ17p4VdGnMHk3MQ==}
     engines: {node: '>=0.4.0'}
+
+  detect-indent@7.0.1:
+    resolution: {integrity: sha512-Mc7QhQ8s+cLrnUfU/Ji94vG/r8M26m8f++vyres4ZoojaRDpZ1eSIh/EpzLNwlWuvzSZ3UbDFspjFvTDXe6e/g==}
+    engines: {node: '>=12.20'}
+
+  dotenv@10.0.0:
+    resolution: {integrity: sha512-rlBi9d8jpv9Sf1klPjNfFAuWDjKLwTIJJ/VxtoTwIR6hnZxcEOQCZg2oIL3MWBYw5GpUDKOEnND7LXTbIpQ03Q==}
+    engines: {node: '>=10'}
 
   entities@4.5.0:
     resolution: {integrity: sha512-V0hjH4dGPh9Ao5p0MoRY6BVqtwCjhz6vI5LT8AJ55H+4g9/4vbHx1I54fS0XuclLhDHArPQCiMjDxjaL8fPxhw==}
@@ -1058,6 +1088,9 @@ packages:
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
 
+  fuzzysort@2.0.4:
+    resolution: {integrity: sha512-Api1mJL+Ad7W7vnDZnWq5pGaXJjyencT+iKGia2PlHUcSsSzWwIQ3S1isiMpwpavjYtGd2FzhUIhnnhOULZgDw==}
+
   get-tsconfig@4.8.1:
     resolution: {integrity: sha512-k9PN+cFBmaLWtVz29SkUoqU5O0slLuHJXt/2P+tMVFT+phsSGXGkp9t3rQIqdz0e+06EHNGs3oM6ZX1s2zHxRg==}
 
@@ -1079,6 +1112,10 @@ packages:
   has-flag@4.0.0:
     resolution: {integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==}
     engines: {node: '>=8'}
+
+  hot-reload@https://codeload.github.com/pjeby/hot-reload/tar.gz/11aa12e1998efb522abeb7aaa0afca86ef5fc212:
+    resolution: {tarball: https://codeload.github.com/pjeby/hot-reload/tar.gz/11aa12e1998efb522abeb7aaa0afca86ef5fc212}
+    version: 0.0.0
 
   html-encoding-sniffer@4.0.0:
     resolution: {integrity: sha512-Y22oTqIU4uuPgEemfz7NDJz6OeKf12Lsu+QC+s3BVpda64lTiMYCyGwg5ki4vFxkMwQdeZDl2adZoqUgdFuTgQ==}
@@ -1216,6 +1253,9 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
+  nanopop@2.4.2:
+    resolution: {integrity: sha512-NzOgmMQ+elxxHeIha+OG/Pv3Oc3p4RU2aBhwWwAqDpXrdTbtRylbRLQztLy8dMMwfl6pclznBdfUhccEn9ZIzw==}
+
   natural-compare@1.4.0:
     resolution: {integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==}
 
@@ -1224,6 +1264,10 @@ packages:
 
   obsidian-search@0.1.1:
     resolution: {integrity: sha512-gN7/DRweV31qZwZYDYgSOz6a45lG01LnAnX37cuM0cMRBMhD5/8UdJ3wm/ojmEoi2H/SmRMYyA+h9kaQYnhY9g==}
+
+  obsidian-style-settings@https://codeload.github.com/mgmeyers/obsidian-style-settings/tar.gz/dfa9f7c81f9345b9bca47c128339e0e00ecd2aee:
+    resolution: {tarball: https://codeload.github.com/mgmeyers/obsidian-style-settings/tar.gz/dfa9f7c81f9345b9bca47c128339e0e00ecd2aee}
+    version: 1.0.8
 
   obsidian@1.7.2:
     resolution: {integrity: sha512-k9hN9brdknJC+afKr5FQzDRuEFGDKbDjfCazJwpgibwCAoZNYHYV8p/s3mM8I6AsnKrPKNXf8xGuMZ4enWelZQ==}
@@ -2023,6 +2067,11 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.28.1':
     optional: true
 
+  '@simonwep/pickr@https://github.com/nothingislost/pickr/archive/a17739f7aa1871b44da778cbb79ae76dae77d839.tar.gz':
+    dependencies:
+      core-js: 3.40.0
+      nanopop: 2.4.2
+
   '@sveltejs/vite-plugin-svelte-inspector@4.0.1(@sveltejs/vite-plugin-svelte@5.0.2(svelte@5.14.2)(vite@6.0.3(@types/node@22.10.2)(tsx@4.19.2)))(svelte@5.14.2)(vite@6.0.3(@types/node@22.10.2)(tsx@4.19.2))':
     dependencies:
       '@sveltejs/vite-plugin-svelte': 5.0.2(svelte@5.14.2)(vite@6.0.3(@types/node@22.10.2)(tsx@4.19.2))
@@ -2047,11 +2096,15 @@ snapshots:
 
   '@tsconfig/svelte@5.0.4': {}
 
+  '@types/chroma-js@2.4.5': {}
+
   '@types/codemirror@5.60.8':
     dependencies:
       '@types/tern': 0.23.9
 
   '@types/estree@1.0.6': {}
+
+  '@types/js-yaml@4.0.9': {}
 
   '@types/json-schema@7.0.15': {}
 
@@ -2255,6 +2308,8 @@ snapshots:
     dependencies:
       readdirp: 4.0.2
 
+  chroma-js@2.6.0: {}
+
   color-convert@2.0.1:
     dependencies:
       color-name: 1.1.4
@@ -2267,6 +2322,8 @@ snapshots:
     optional: true
 
   concat-map@0.0.1: {}
+
+  core-js@3.40.0: {}
 
   cross-spawn@7.0.6:
     dependencies:
@@ -2300,6 +2357,10 @@ snapshots:
 
   delayed-stream@1.0.0:
     optional: true
+
+  detect-indent@7.0.1: {}
+
+  dotenv@10.0.0: {}
 
   entities@4.5.0:
     optional: true
@@ -2519,6 +2580,8 @@ snapshots:
   fsevents@2.3.3:
     optional: true
 
+  fuzzysort@2.0.4: {}
+
   get-tsconfig@4.8.1:
     dependencies:
       resolve-pkg-maps: 1.0.0
@@ -2536,6 +2599,8 @@ snapshots:
   graphemer@1.4.0: {}
 
   has-flag@4.0.0: {}
+
+  hot-reload@https://codeload.github.com/pjeby/hot-reload/tar.gz/11aa12e1998efb522abeb7aaa0afca86ef5fc212: {}
 
   html-encoding-sniffer@4.0.0:
     dependencies:
@@ -2684,12 +2749,25 @@ snapshots:
 
   nanoid@3.3.8: {}
 
+  nanopop@2.4.2: {}
+
   natural-compare@1.4.0: {}
 
   nwsapi@2.2.16:
     optional: true
 
   obsidian-search@0.1.1: {}
+
+  obsidian-style-settings@https://codeload.github.com/mgmeyers/obsidian-style-settings/tar.gz/dfa9f7c81f9345b9bca47c128339e0e00ecd2aee:
+    dependencies:
+      '@simonwep/pickr': https://github.com/nothingislost/pickr/archive/a17739f7aa1871b44da778cbb79ae76dae77d839.tar.gz
+      '@types/chroma-js': 2.4.5
+      '@types/js-yaml': 4.0.9
+      chroma-js: 2.6.0
+      detect-indent: 7.0.1
+      dotenv: 10.0.0
+      fuzzysort: 2.0.4
+      js-yaml: 4.1.0
 
   obsidian@1.7.2(@codemirror/state@6.4.1)(@codemirror/view@6.34.3):
     dependencies:

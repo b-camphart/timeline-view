@@ -5,12 +5,12 @@
 	"main": "main.js",
 	"scripts": {
 		"check": "svelte-check",
-		"dev": "vite build --mode development --watch",
 		"test:unit": "vitest --config ./test/vitest.config.ts",
 		"bench:unit": "vitest bench --config ./test/vitest.config.ts",
 		"test:view": "node component_tests",
 		"dev:component": "vite -c component_tests/vite.config.js",
-		"build": "npm run obsidian:version && vite build && git add styles.css versions.json manifest.json",
+		"build:dev": "tsx build.ts dev",
+		"build": "pnpm obsidian:version && tsx build.ts",
 		"obsidian:version": "tsx src/obsidian/plugin/version-bump.ts && git add src/obsidian/plugin/versions.ts"
 	},
 	"type": "module",
@@ -27,6 +27,7 @@
 		"@types/node": "latest",
 		"@typescript-eslint/eslint-plugin": "^8.22.0",
 		"@typescript-eslint/parser": "^8.22.0",
+		"hot-reload": "pjeby/hot-reload",
 		"builtin-modules": "latest",
 		"esbuild": "latest",
 		"obsidian": "latest",
@@ -38,5 +39,8 @@
 		"typescript": "latest",
 		"vite": "latest",
 		"vitest": "latest"
+	},
+	"peerDependencies": {
+		"obsidian-style-settings": "mgmeyers/obsidian-style-settings"
 	}
 }

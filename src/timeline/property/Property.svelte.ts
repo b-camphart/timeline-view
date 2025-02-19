@@ -40,6 +40,15 @@ export class TimelineProperty {
 	type() {
 		return this.#type;
 	}
+	#setType(type: Type) {
+		this.#type = type;
+
+		if (type === Type.Number) {
+			this.#changePreference = this.#useInts;
+		} else {
+			this.#changePreference = null;
+		}
+	}
 
 	#usesInts = $state(true);
 	/** what the property actually uses */
@@ -67,14 +76,7 @@ export class TimelineProperty {
 		) {
 			return;
 		}
-
-		property.#type = type;
-
-		if (type === Type.Number) {
-			property.#changePreference = property.#useInts;
-		} else {
-			property.#changePreference = null;
-		}
+		property.#setType(type);
 	}
 
 	displayedAs() {
