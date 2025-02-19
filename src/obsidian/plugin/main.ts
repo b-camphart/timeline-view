@@ -298,21 +298,5 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 				}
 			)
 		);
-
-		if (import.meta.env.MODE === "development") {
-			if (await this.app.vault.adapter.exists("___reload.md")) {
-				await this.app.vault.adapter.remove("___reload.md");
-			}
-
-			this.registerEvent(
-				this.app.workspace.on("file-open", (file) => {
-					if (file?.path === "___reload.md") {
-						this.app.vault.adapter
-							.remove(file.path)
-							.then(() => location.reload());
-					}
-				})
-			);
-		}
 	}
 }
