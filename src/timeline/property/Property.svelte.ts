@@ -154,8 +154,10 @@ export class TimelineProperties {
 		return this.#primary;
 	}
 
+	onPrimaryPropertyChanged: null | (() => void) = null;
 	setPrimaryProperty(property: TimelineProperty) {
 		this.#primary = property;
+		this.onPrimaryPropertyChanged?.();
 	}
 
 	#secondaryProperty = $state<TimelineProperty>(TimelineProperty.Modified);

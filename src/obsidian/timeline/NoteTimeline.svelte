@@ -621,12 +621,12 @@
 
 	$effect(() => {
 		if (properties === null) return;
-		// update with selected property changes
-		properties.primary();
-		items = untrack(() => items.clone());
-		tick().then(() => {
-			timelineView?.zoomToFit();
-		});
+		properties.onPrimaryPropertyChanged = () => {
+			items = untrack(() => items.clone());
+			tick().then(() => {
+				timelineView?.zoomToFit();
+			});
+		};
 	});
 
 	// function onPropertySelected(property: TimelineProperty) {
