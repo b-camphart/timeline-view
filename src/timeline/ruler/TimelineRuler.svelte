@@ -147,6 +147,8 @@
 	{/if}
 	<RulerLabel
 		bind:this={measuringLabel}
+		{displayType}
+		value={0}
 		text={"MMM DD, YYYY HH:mm:ss.SSS AM"}
 		position={0}
 		style="position:relative;"
@@ -154,12 +156,16 @@
 	/>
 	{#each labels as labelValue}
 		<RulerLabel
+			{displayType}
+			value={labelValue}
 			text={formatLabel(displayType, stepValue, labelValue)}
 			position={scale.toPixels(labelValue - focalValue) + width / 2}
 		/>
 	{/each}
 	{#each secondaryLabels as labelValue}
 		<RulerNotch
+			{displayType}
+			value={labelValue}
 			position={scale.toPixels(labelValue - focalValue) + width / 2}
 		/>
 	{/each}

@@ -1,22 +1,31 @@
 <script lang="ts">
+	import { DisplayType } from "src/timeline/ruler/labels";
+
 	interface Props {
+		displayType: DisplayType;
 		position: number;
+		value: number;
 	}
 
-	let { position }: Props = $props();
+	let { displayType, position, value }: Props = $props();
 </script>
 
-<div class="timeline-view--ruler-notch" style="left: {position}px;"></div>
+<div
+	class="timeline-view--ruler-notch"
+	style:--position="{position}px"
+	data-value={displayType === DisplayType.Numeric
+		? value.toLocaleString()
+		: window.moment(value).toLocaleString()}
+></div>
 
 <style>
 	.timeline-view--ruler-notch {
+		left: var(--position);
 		border-left: var(--border-color) var(--border-width) solid;
+		--height: 8px;
+		height: var(--height);
 
-		padding: var(--padding);
-		font-size: var(--font-size);
-		font-weight: var(--font-weight);
-		bottom: -4px;
-		height: 8px;
+		bottom: calc(var(--height) / -2);
 	}
 
 	div {
