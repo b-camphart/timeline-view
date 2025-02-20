@@ -585,10 +585,9 @@
 		const keep = await filter.noteFilter().matches(file);
 
 		enqueueItemUpdate(() => {
-			items.remove(item);
 			item.replaceNote(file);
-			if (keep) {
-				items.add(item);
+			if (!keep) {
+				items.remove(item);
 			}
 		});
 	}
