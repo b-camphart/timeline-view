@@ -186,7 +186,15 @@ if (Array.isArray(fullOutput)) {
 	for (let i = 0; i < fullOutput.length; i++) {
 		for (const chunk of fullOutput[i].output) {
 			if (chunk.type === "chunk") {
-				writes.push(write(`${dirPath}/main.js`, chunk.code));
+				let code = chunk.code;
+				if (dev) {
+					// fix svelte bug
+					code = code.replace(
+						`typeof value === "object" && STATE_SYMBOL in value`,
+						`typeof value === "object" && value !== null && STATE_SYMBOL in value`
+					);
+				}
+				writes.push(write(`${dirPath}/main.js`, code));
 			} else if (
 				chunk.type === "asset" &&
 				typeof chunk.source === "string"
