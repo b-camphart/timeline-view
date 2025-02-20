@@ -1,4 +1,5 @@
 import type { Reactive } from "src/svelte/reactive";
+import { DisplayType } from "src/timeline/ruler/labels";
 import {
 	timelineDateValueDisplay,
 	timelineNumericValueDisplay,
@@ -24,11 +25,7 @@ export function timelinePropertyType(from: string) {
 }
 
 export class TimelineProperty {
-	constructor(
-		readonly name: string,
-		type: Type,
-		usesInts: boolean,
-	) {
+	constructor(readonly name: string, type: Type, usesInts: boolean) {
 		this.#type = type;
 		this.#usesInts = usesInts;
 		if (type === Type.Number) {
@@ -81,9 +78,9 @@ export class TimelineProperty {
 
 	displayedAs() {
 		if (this.#type === Type.Number) {
-			return timelineNumericValueDisplay();
+			return DisplayType.Numeric;
 		}
-		return timelineDateValueDisplay();
+		return DisplayType.Date;
 	}
 
 	valueOrNull(from: {
@@ -199,7 +196,7 @@ export class TimelineProperties {
 			const name = knownProperty.name();
 			const type = timelinePropertyType(knownProperty.type());
 			const existingIndex = this.properties.findIndex(
-				(p) => p.name === knownProperty.name(),
+				(p) => p.name === knownProperty.name()
 			);
 			if (existingIndex >= 0) {
 				const existing = this.properties[existingIndex];
@@ -271,7 +268,7 @@ export class TimelineProperties {
 			name: string;
 			inUse: boolean;
 			useAs: "length" | "end";
-		},
+		}
 	) {
 		const properties = [
 			TimelineProperty.Created,
@@ -294,7 +291,7 @@ export class TimelineProperties {
 					break;
 				default:
 					console.warn(
-						`[Timeline View] Unknown property type: ${type}`,
+						`[Timeline View] Unknown property type: ${type}`
 					);
 					continue;
 			}
@@ -315,7 +312,7 @@ export class TimelineProperties {
 			primary,
 			secondary,
 			secondaryProperty.useAs,
-			secondaryProperty.inUse,
+			secondaryProperty.inUse
 		);
 	}
 
@@ -330,7 +327,7 @@ export class TimelineProperties {
 		primary: TimelineProperty,
 		secondary: TimelineProperty,
 		secondaryInterpretation: "length" | "end",
-		secondaryPropertyInUse: boolean,
+		secondaryPropertyInUse: boolean
 	) {
 		this.#primary = primary;
 		this.#secondaryProperty = secondary;
@@ -340,7 +337,7 @@ export class TimelineProperties {
 }
 
 export interface ObservableTimelineProperties<
-	Property extends ObservableTimelineProperty = ObservableTimelineProperty,
+	Property extends ObservableTimelineProperty = ObservableTimelineProperty
 > {
 	readonly primary: Reactive<Property>;
 

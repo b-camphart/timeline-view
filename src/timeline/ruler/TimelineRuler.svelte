@@ -1,20 +1,25 @@
 <script lang="ts">
 	import { createEventDispatcher } from "svelte";
-	import { type RulerValueDisplay } from "src/timeline/Timeline";
 	import RulerLabel from "./RulerLabel.svelte";
 	import type { Scale } from "src/timeline/scale";
 	import Playhead from "./Playhead.svelte";
+	import {
+		DisplayType,
+		formatLabel,
+		generateLabels,
+		step,
+	} from "src/timeline/ruler/labels";
 
 	let width: number = $state(0);
 	interface Props {
-		display: RulerValueDisplay | undefined;
+		displayType: DisplayType;
 		scale: Scale;
 		focalValue: number;
 		clientHeight?: number;
 	}
 
 	let {
-		display,
+		displayType,
 		scale,
 		focalValue,
 		clientHeight: height = $bindable(0),
@@ -24,40 +29,40 @@
 		mouseMeasurement: { value: string; x: number } | undefined;
 	}>();
 
-	function getLabelCount(stepWidth: number, fullWidth: number) {
-		if (stepWidth === 0) {
-			return 0;
-		}
-		return Math.ceil(fullWidth / stepWidth) + 1;
-	}
+	// function getLabelCount(stepWidth: number, fullWidth: number) {
+	// 	if (stepWidth === 0) {
+	// 		return 0;
+	// 	}
+	// 	return Math.ceil(fullWidth / stepWidth) + 1;
+	// }
 
-	function getFirstLabelValue(
-		focalValue: number,
-		scale: Scale,
-		labelStepValue: number,
-		width: number,
-	) {
-		const valueOnLeftSide = focalValue - scale.toValue(width / 2);
-		if (labelStepValue === 0) {
-			return valueOnLeftSide;
-		}
-		return Math.floor(valueOnLeftSide / labelStepValue) * labelStepValue;
-	}
+	// function getFirstLabelValue(
+	// 	focalValue: number,
+	// 	scale: Scale,
+	// 	labelStepValue: number,
+	// 	width: number,
+	// ) {
+	// 	const valueOnLeftSide = focalValue - scale.toValue(width / 2);
+	// 	if (labelStepValue === 0) {
+	// 		return valueOnLeftSide;
+	// 	}
+	// 	return Math.floor(valueOnLeftSide / labelStepValue) * labelStepValue;
+	// }
 
-	let labelStepValue = $derived(
-		display?.getSmallestLabelStepValue(scale) ?? 0,
-	);
-	let labelStepWidth = $derived(scale.toPixels(labelStepValue));
+	// let labelStepValue = $derived(
+	// 	display?.getSmallestLabelStepValue(scale) ?? 0,
+	// );
+	// let labelStepWidth = $derived(scale.toPixels(labelStepValue));
 
-	let labelCount = $derived(getLabelCount(labelStepWidth, width));
+	// let labelCount = $derived(getLabelCount(labelStepWidth, width));
 
-	let firstLabelValue = $derived(
-		getFirstLabelValue(focalValue, scale, labelStepValue, width),
-	);
+	// let firstLabelValue = $derived(
+	// 	getFirstLabelValue(focalValue, scale, labelStepValue, width),
+	// );
 
-	let labels = $derived(
-		display?.labels(labelCount, labelStepValue, firstLabelValue) ?? [],
-	);
+	// let labels = $derived(
+	// 	display?.labels(labelCount, labelStepValue, firstLabelValue) ?? [],
+	// );
 
 	function positionOf(label: { value: number }) {}
 
@@ -75,21 +80,41 @@
 		if (Object.is(value, -0)) {
 			value = 0;
 		}
-		if (display) {
-			mousePosition = { value: display.displayValue(value), x };
-			dispatch("mouseMeasurement", mousePosition);
-		}
+		mousePosition = {
+			value: formatLabel(displayType, scale.toValue(1), value),
+			x,
+		};
+		dispatch("mouseMeasurement", mousePosition);
 	}
 
 	function stopMeasureMouseLocation(event: MouseEvent) {
 		mousePosition = undefined;
 		dispatch("mouseMeasurement", mousePosition);
 	}
+
+	let measuringLabel = $state<RulerLabel>();
+	const minLabelSize = $derived(measuringLabel?.size() ?? 192);
+
+	const stepValue = $derived(step(displayType, minLabelSize, scale));
+	const labels = $derived.by(() => {
+		$inspect.trace("generating labels");
+		const valueOfWidth = scale.toValue(width);
+		return generateLabels(
+			displayType,
+			stepValue,
+			focalValue - valueOfWidth / 2,
+			focalValue + valueOfWidth / 2,
+		);
+	});
+
+	export function minValueStep() {
+		return stepValue;
+	}
 </script>
 
 <div
 	class="timeline-view--ruler"
-	style="--label-width:{labelStepWidth}px;"
+	data-min-value-step={stepValue}
 	bind:clientWidth={width}
 	bind:clientHeight={height}
 	onmousemove={onMeasureMouseLocation}
@@ -104,15 +129,16 @@
 		<Playhead x={mousePosition.x} label={mousePosition.value} />
 	{/if}
 	<RulerLabel
-		text={"1234567890-:/APM"}
+		bind:this={measuringLabel}
+		text={"MMM DD, YYYY HH:mm:ss.SSS AM"}
 		position={0}
 		style="position:relative;"
 		hidden
 	/>
-	{#each labels as label (label.value)}
+	{#each labels as labelValue}
 		<RulerLabel
-			text={label.text}
-			position={scale.toPixels(label.value - focalValue) + width / 2}
+			text={formatLabel(displayType, stepValue, labelValue)}
+			position={scale.toPixels(labelValue - focalValue) + width / 2}
 		/>
 	{/each}
 </div>
