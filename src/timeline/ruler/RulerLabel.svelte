@@ -1,26 +1,47 @@
 <script lang="ts">
+	import { DisplayType } from "src/timeline/ruler/labels";
+
 	interface Props {
+		displayType: DisplayType;
+		value: number;
 		text: string;
 		position: number;
 		style?: string;
 		hidden?: true;
 	}
 
-	let { text, position, hidden, style = "" }: Props = $props();
+	let {
+		displayType,
+		value,
+		text,
+		position,
+		hidden,
+		style = "",
+	}: Props = $props();
+
+	let width = $state(0);
+	export function size() {
+		return width;
+	}
 </script>
 
 <div
 	class="timeline-view--ruler-label"
+	bind:offsetWidth={width}
 	aria-hidden={hidden}
-	data-value={text}
-	style="left: {position}px;{style}"
+	data-value={value}
+	data-value-text={displayType === DisplayType.Numeric
+		? value.toLocaleString()
+		: window.moment(value).toLocaleString()}
+	style="--position:{position}px;{style}"
 >
 	{text}
 </div>
 
 <style>
 	.timeline-view--ruler-label {
-		border-right: var(--border-color) var(--border-width) solid;
+		left: var(--position);
+		border-left: var(--border-color) var(--border-width) solid;
 
 		padding: var(--padding);
 		font-size: var(--font-size);
@@ -29,8 +50,7 @@
 
 	div {
 		box-sizing: border-box !important;
-
-		width: var(--label-width) !important;
+		width: fit-content;
 	}
 	div[aria-hidden] {
 		visibility: hidden;

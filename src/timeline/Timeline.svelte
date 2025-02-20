@@ -25,13 +25,14 @@
 	import Controls from "src/timeline/controls/Controls.svelte";
 	import ControlGroup from "src/timeline/controls/ControlGroup.svelte";
 	import { controlItem } from "src/timeline/controls/ControlItem.svelte";
+	import type { DisplayType } from "src/timeline/ruler/labels";
 
 	type Item = T;
 
 	interface Props {
 		namespacedWritable: NamespacedWritableFactory<TimelineViewModel>;
 		groups: TimelineGroups;
-		display: RulerValueDisplay;
+		rulerDisplayType: DisplayType;
 		controlBindings: {};
 
 		items: ReadonlyArray<Item>;
@@ -75,7 +76,7 @@
 	const {
 		namespacedWritable,
 		groups,
-		display,
+		rulerDisplayType,
 
 		items: inputItems,
 		selectValue,
@@ -248,6 +249,10 @@
 		}
 	});
 
+	let ruler = $state<TimelineRuler>();
+	export function minRulerStep() {
+		return ruler?.minValueStep() ?? 0;
+	}
 	let rulerHeight = $state(0);
 	const mode = namespacedWritable?.make("mode", "edit");
 
@@ -284,7 +289,8 @@
 	style:--plotarea-client-width="{plotarea?.clientWidth() ?? 0}px"
 >
 	<TimelineRuler
-		{display}
+		bind:this={ruler}
+		displayType={rulerDisplayType}
 		scale={$scale}
 		focalValue={$focalValue}
 		bind:clientHeight={rulerHeight}

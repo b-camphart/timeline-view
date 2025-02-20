@@ -22,6 +22,12 @@
 		TimelineProperty,
 		TimelineProperties,
 	} from "src/timeline/property/Property.svelte";
+	import {
+		DisplayType,
+		formatDuration,
+		formatLabel,
+		formatValueLength,
+	} from "src/timeline/ruler/labels";
 
 	class ReactiveNoteItem {
 		created = $state(0);
@@ -298,9 +304,23 @@
 	}
 
 	let timelineView: ReturnType<typeof TimelineView> | undefined = $state();
-	const display: RulerValueDisplay = $derived(
+	const rulerDisplayType = $derived(
 		(properties?.primary() ?? TimelineProperty.Created).displayedAs(),
 	);
+	const rulerValueStep = $derived(timelineView?.minRulerStep() ?? 0);
+	const formatValue = $derived.by(() => {
+		const displayType = rulerDisplayType;
+		return (value: number) => formatLabel(displayType, 0, value);
+	});
+	const formatLength = $derived.by(() => {
+		const displayType = rulerDisplayType;
+		const step = rulerValueStep;
+		if (displayType === DisplayType.Numeric) {
+			return (value: number) => formatValueLength(value);
+		} else {
+			return (duration: number) => formatDuration(duration, step);
+		}
+	});
 	onMount(async () => {
 		for (const note of noteRepository.listAll()) {
 			const item = new ReactiveNoteItem(note);
@@ -466,7 +486,7 @@
 			properties: note.properties(),
 		});
 		const primaryValueStr =
-			primaryValue === null ? "" : display.displayValue(primaryValue);
+			primaryValue === null ? "" : formatValue(primaryValue);
 
 		const secondary = properties.secondary();
 
@@ -483,27 +503,23 @@
 
 		if (secondary.interpretedAs() === "end") {
 			const secondaryValueStr =
-				secondaryValue === null
-					? ""
-					: display.displayValue(secondaryValue);
+				secondaryValue === null ? "" : formatValue(secondaryValue);
 			const length =
 				(secondaryValue ?? primaryValue ?? 0) - (primaryValue ?? 0);
 			return (
 				`${note.name()}` +
 				`\n[${primaryProperty.name}: ${primaryValueStr}] → [${secondaryProperty.name}: ${secondaryValueStr}]` +
-				`\nlength: ${display.displayLength(length)}`
+				`\nlength: ${formatLength(length)}`
 			);
 		}
 
 		const end = (primaryValue ?? 0) + (secondaryValue ?? primaryValue ?? 0);
 		const secondaryValueStr =
-			secondaryValue === null
-				? ""
-				: display.displayLength(secondaryValue);
+			secondaryValue === null ? "" : formatLength(secondaryValue);
 
 		return (
 			`${note.name()}` +
-			`\n[${primaryProperty.name}: ${primaryValueStr}] → ${display.displayValue(end)}` +
+			`\n[${primaryProperty.name}: ${primaryValueStr}] → ${formatValue(end)}` +
 			`\n[${secondaryProperty.name}: ${secondaryValueStr}]`
 		);
 	}
@@ -517,7 +533,7 @@
 		if (properties === null) return "";
 		const primaryProperty = properties.primary();
 		value = primaryProperty.sanitizeValue(value);
-		const primaryValueStr = display.displayValue(value);
+		const primaryValueStr = formatValue(value);
 		const secondary = properties.secondary();
 		if (secondary === null) {
 			return `${name}\n[${primaryProperty.name}: ${primaryValueStr}]`;
@@ -531,8 +547,8 @@
 			endValue = secondaryProperty.sanitizeValue(endValue);
 			length = endValue - value;
 		}
-		const lengthStr = display.displayLength(length);
-		const endValueStr = display.displayValue(endValue);
+		const lengthStr = formatLength(length);
+		const endValueStr = formatValue(endValue);
 
 		if (secondary.interpretedAs() === "end") {
 			return `${name}\n[${primaryProperty.name}: ${primaryValueStr}] → [${secondaryProperty.name}: ${endValueStr}]\nlength: ${lengthStr}`;
@@ -652,7 +668,7 @@
 	summarizeItem={(item) => summarizeNote(item.note)}
 	itemsResizable={properties?.secondary() !== null}
 	namespacedWritable={viewModel}
-	{display}
+	{rulerDisplayType}
 	groups={timelineGroups}
 	pendingGroupUpdates={itemRecolorQueueLength}
 	controlBindings={{}}
