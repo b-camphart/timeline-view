@@ -9,6 +9,7 @@
 		generateLabels,
 		step,
 	} from "src/timeline/ruler/labels";
+	import RulerNotch from "src/timeline/ruler/RulerNotch.svelte";
 
 	let width: number = $state(0);
 	interface Props {
@@ -97,11 +98,27 @@
 
 	const stepValue = $derived(step(displayType, minLabelSize, scale));
 	const labels = $derived.by(() => {
-		$inspect.trace("generating labels");
 		const valueOfWidth = scale.toValue(width);
 		return generateLabels(
 			displayType,
 			stepValue,
+			focalValue - valueOfWidth / 2,
+			focalValue + valueOfWidth / 2,
+		);
+	});
+	const secondaryStepValue = $derived(
+		step(displayType, minLabelSize / 10, scale, {
+			disallowMultiples: true,
+		}),
+	);
+	const secondaryLabels = $derived.by(() => {
+		if (secondaryStepValue === stepValue) {
+			return [];
+		}
+		const valueOfWidth = scale.toValue(width);
+		return generateLabels(
+			displayType,
+			secondaryStepValue,
 			focalValue - valueOfWidth / 2,
 			focalValue + valueOfWidth / 2,
 		);
@@ -138,6 +155,11 @@
 	{#each labels as labelValue}
 		<RulerLabel
 			text={formatLabel(displayType, stepValue, labelValue)}
+			position={scale.toPixels(labelValue - focalValue) + width / 2}
+		/>
+	{/each}
+	{#each secondaryLabels as labelValue}
+		<RulerNotch
 			position={scale.toPixels(labelValue - focalValue) + width / 2}
 		/>
 	{/each}

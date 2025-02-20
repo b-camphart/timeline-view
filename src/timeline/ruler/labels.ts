@@ -5,12 +5,21 @@ export const enum DisplayType {
 	Date,
 }
 
-export function step(type: DisplayType, minLabelSize: number, scale: Scale) {
+export function step(
+	type: DisplayType,
+	minLabelSize: number,
+	scale: Scale,
+	options?: { disallowMultiples?: boolean }
+) {
 	switch (type) {
 		case DisplayType.Numeric:
-			return valueStep(minLabelSize, scale);
+			return valueStep(minLabelSize, scale, options?.disallowMultiples);
 		case DisplayType.Date:
-			return durationStep(minLabelSize, scale);
+			return durationStep(
+				minLabelSize,
+				scale,
+				options?.disallowMultiples
+			);
 	}
 }
 
@@ -18,11 +27,22 @@ export function step(type: DisplayType, minLabelSize: number, scale: Scale) {
  * @param minLabelSize the smallest size, in pixels, that a label can be
  * @param scale the current timeline scale
  */
-export function valueStep(minLabelSize: number, scale: Scale) {
+export function valueStep(
+	minLabelSize: number,
+	scale: Scale,
+	disallowMultiples: boolean = false
+) {
 	const minStepValue = scale.toValue(minLabelSize);
 
 	const orderOfMagnitude = Math.floor(Math.log10(minStepValue));
 	const magnitudeBase = Math.pow(10, orderOfMagnitude);
+	if (magnitudeBase >= minStepValue) {
+		return magnitudeBase;
+	}
+	if (disallowMultiples) {
+		return magnitudeBase * 10;
+	}
+
 	let multiple = magnitudeBase * 2.5;
 	// check if whole number since we're multiplying by 2.5
 	if (multiple >= minStepValue && Math.trunc(multiple) === multiple) {
@@ -46,7 +66,11 @@ const Week = 7 * Day;
 const Month = 28 * Day;
 /** the smallest possible year duration */
 const Year = 365 * Day;
-export function durationStep(minLabelSize: number, scale: Scale) {
+export function durationStep(
+	minLabelSize: number,
+	scale: Scale,
+	disallowMultiples: boolean = false
+) {
 	const minStepValue = scale.toValue(minLabelSize);
 
 	if (Second >= minStepValue) {
@@ -55,6 +79,7 @@ export function durationStep(minLabelSize: number, scale: Scale) {
 	} else if (Minute >= minStepValue) {
 		// maybe use multiples of seconds, or use minutes
 		if (Second >= minStepValue) return Second;
+		if (disallowMultiples) return Minute;
 		if (2 * Second >= minStepValue) return 2 * Second;
 		if (5 * Second >= minStepValue) return 5 * Second;
 		if (10 * Second >= minStepValue) return 10 * Second;
@@ -63,12 +88,15 @@ export function durationStep(minLabelSize: number, scale: Scale) {
 	} else if (Hour >= minStepValue) {
 		// maybe use multiples of minutes, or use hours
 		if (Minute >= minStepValue) return Minute;
+		if (disallowMultiples) return Hour;
 		if (2 * Minute >= minStepValue) return 2 * Minute;
 		if (5 * Minute >= minStepValue) return 5 * Minute;
 		if (10 * Minute >= minStepValue) return 10 * Minute;
 		if (30 * Minute >= minStepValue) return 30 * Minute;
 		return Hour;
 	} else if (Day >= minStepValue) {
+		if (Hour >= minStepValue) return Hour;
+		if (disallowMultiples) return Day;
 		// maybe use multiples of hours, or use days
 		if (2 * Hour >= minStepValue) return 2 * Hour;
 		if (3 * Hour >= minStepValue) return 3 * Hour;
@@ -76,15 +104,20 @@ export function durationStep(minLabelSize: number, scale: Scale) {
 		if (12 * Hour >= minStepValue) return 12 * Hour;
 		return Day;
 	} else if (Week >= minStepValue || Month >= minStepValue) {
-		if (2 * Day >= minStepValue) return 2 * Day;
-		if (3 * Day >= minStepValue) return 3 * Day;
-		if (4 * Day >= minStepValue) return 4 * Day;
-		if (Week >= minStepValue) return Week;
+		if (!disallowMultiples) {
+			if (2 * Day >= minStepValue) return 2 * Day;
+			if (3 * Day >= minStepValue) return 3 * Day;
+			if (4 * Day >= minStepValue) return 4 * Day;
+			if (Week >= minStepValue) return Week;
+		}
+		if (disallowMultiples) return Month;
 		if (14 * Day >= minStepValue) return 14 * Day;
 		return Month;
 	} else if (Year >= minStepValue) {
-		if (3 * Month >= minStepValue) return 3 * Month;
-		if (6 * Month >= minStepValue) return 6 * Month;
+		if (!disallowMultiples) {
+			if (3 * Month >= minStepValue) return 3 * Month;
+			if (6 * Month >= minStepValue) return 6 * Month;
+		}
 		return Year;
 	}
 
@@ -92,6 +125,12 @@ export function durationStep(minLabelSize: number, scale: Scale) {
 	const minYearCount = minStepValue / Year;
 	const orderOfMagnitude = Math.floor(Math.log10(minYearCount));
 	const magnitudeBase = Math.pow(10, orderOfMagnitude);
+	if (magnitudeBase >= minYearCount) {
+		return magnitudeBase * Year;
+	}
+	if (disallowMultiples) {
+		return magnitudeBase * 10 * Year;
+	}
 	let multiple = magnitudeBase * 2;
 	if (multiple >= minYearCount) {
 		return multiple * Year;
@@ -174,17 +213,15 @@ export function firstLabelDatetime(
 	if (durationStep < Month) {
 		// working with a multiple of days
 		const multiple = Math.floor(durationStep / Day);
-		const currentDate = datetimeAtStart.date();
 		const startOfMonth = datetimeAtStart.startOf("month");
 
 		let firstLabel = startOfMonth;
-		do {
-			const nextJump = firstLabel.clone().add(multiple, "day");
-			if (nextJump.valueOf() > millisecondsAtStartEdge) {
-				return firstLabel.valueOf();
-			}
+		let nextJump = firstLabel.clone().add(multiple, "day");
+		while (nextJump.valueOf() < millisecondsAtStartEdge) {
 			firstLabel = nextJump;
-		} while (true);
+			nextJump = firstLabel.clone().add(multiple, "day");
+		}
+		return firstLabel.valueOf();
 	}
 
 	if (durationStep < Year) {
