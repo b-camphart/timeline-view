@@ -5,7 +5,7 @@
 	import { createEventDispatcher, onMount, tick, untrack } from "svelte";
 	import { get } from "svelte/store";
 	import TimelinePropertySection from "./property/TimelinePropertySection.svelte";
-	import type { ObsidianNoteTimelineViewModel } from "../obsidian/timeline/viewModel";
+	import type { TimelineViewModel } from "src/timeline/viewModel";
 	import TimelineFilterSection from "./filter/TimelineFilterSection.svelte";
 	import type { NotePropertyRepository } from "src/note/property/repository";
 	import type { MutableNoteRepository } from "src/note/repository";
@@ -70,7 +70,7 @@
 		noteRepository: MutableNoteRepository;
 		notePropertyRepository: NotePropertyRepository;
 		openModal: (open: (element: obsidian.Modal) => () => void) => void;
-		viewModel: NamespacedWritableFactory<ObsidianNoteTimelineViewModel>;
+		viewModel: NamespacedWritableFactory<TimelineViewModel>;
 		isNew?: boolean;
 		oncontextmenu?: (e: MouseEvent, notes: Note[]) => void;
 		onCreateNote(
@@ -702,7 +702,7 @@
 
 <style>
 	@import "../obsidian/style-settings/settings.css";
-	@import "../obsidian/timeline/variables.css";
+	@import "./variables.css";
 
 	:global(body) {
 		--timeline-item-color-hover: var(--graph-node-focused);
