@@ -5,7 +5,7 @@ import { get, writable } from "svelte/store";
 import { titleEl } from "../ItemVIew";
 import { workspaceLeafExt } from "../WorkspaceLeaf";
 import { writableProperties } from "src/timeline/Persistence";
-import NoteTimeline from "../timeline/NoteTimeline.svelte";
+import NoteTimeline from "src/timeline/NoteTimeline.svelte";
 import {
 	openFileContextMenu,
 	openMultipleFileContextMenu,

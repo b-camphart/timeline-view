@@ -1,13 +1,12 @@
 <script lang="ts">
 	import * as obsidian from "obsidian";
-	import TimelineView from "../../timeline/Timeline.svelte";
-	import type { RulerValueDisplay } from "../../timeline/Timeline";
-	import { type NamespacedWritableFactory } from "../../timeline/Persistence";
+	import TimelineView from "./Timeline.svelte";
+	import { type NamespacedWritableFactory } from "./Persistence";
 	import { createEventDispatcher, onMount, tick, untrack } from "svelte";
 	import { get } from "svelte/store";
-	import TimelinePropertySection from "../../timeline/property/TimelinePropertySection.svelte";
-	import type { ObsidianNoteTimelineViewModel } from "./viewModel";
-	import TimelineFilterSection from "../../timeline/filter/TimelineFilterSection.svelte";
+	import TimelinePropertySection from "./property/TimelinePropertySection.svelte";
+	import type { ObsidianNoteTimelineViewModel } from "../obsidian/timeline/viewModel";
+	import TimelineFilterSection from "./filter/TimelineFilterSection.svelte";
 	import type { NotePropertyRepository } from "src/note/property/repository";
 	import type { MutableNoteRepository } from "src/note/repository";
 	import type { Note } from "src/note";
@@ -702,8 +701,8 @@
 </TimelineView>
 
 <style>
-	@import "../style-settings/settings.css";
-	@import "./variables.css";
+	@import "../obsidian/style-settings/settings.css";
+	@import "../obsidian/timeline/variables.css";
 
 	:global(body) {
 		--timeline-item-color-hover: var(--graph-node-focused);
