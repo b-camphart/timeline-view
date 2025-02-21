@@ -12,6 +12,7 @@ import manifest from "./src/obsidian/plugin/manifest";
 import versions from "./src/obsidian/plugin/versions";
 
 const dev = process.argv[2] === "dev";
+const preview = process.argv[2] === "preview";
 
 const manifestJSON = JSON.stringify(manifest, null, "\t");
 
@@ -32,7 +33,7 @@ const fullOutput = await build({
 			entry: "src/obsidian/plugin/main.ts",
 			formats: ["cjs"],
 		},
-		minify: !dev,
+		minify: !dev && !preview,
 		target: tsconfig.compilerOptions.target,
 		rollupOptions: {
 			external: ["obsidian"],
@@ -105,7 +106,7 @@ if (Array.isArray(fullOutput)) {
 	const testVaultPath = "testVault";
 	let dirPath = ".";
 	const writes: Promise<void>[] = [];
-	if (dev) {
+	if (dev || preview) {
 		dirPath = testVaultPath + "/.obsidian/plugins/timeline-view";
 		if (fs.mkdirSync(dirPath, { recursive: true })) {
 			console.log("created test vault directory at ", dirPath);
@@ -206,11 +207,11 @@ if (Array.isArray(fullOutput)) {
 
 	await Promise.all(writes);
 
-	if (!dev) {
-		exec("git add manifest.json versions.json");
-	} else {
+	if (dev || preview) {
 		exec(
 			`start "" "obsidian://open?path=${process.cwd()}/${testVaultPath}"`
 		);
+	} else {
+		exec("git add manifest.json versions.json");
 	}
 }

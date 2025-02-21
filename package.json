@@ -10,6 +10,7 @@
 		"test:view": "node component_tests",
 		"dev:component": "vite -c component_tests/vite.config.js",
 		"build:dev": "tsx build.ts dev",
+		"build:preview": "tsx build.ts preview",
 		"build": "pnpm obsidian:version && tsx build.ts",
 		"obsidian:version": "tsx src/obsidian/plugin/version-bump.ts && git add src/obsidian/plugin/versions.ts"
 	},
