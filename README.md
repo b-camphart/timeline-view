@@ -6,21 +6,22 @@ Transform the way you explore your notes with the Obsidian Timeline View Plugin!
 
 ## 🌟 Key Features
 
-- [**Custom Ordering:**](#ordering-by-any-numeric-property) Choose a property in your notes and instantly see them ordered in a visual timeline or number line.
-- [**Quick Note Creation:**](#-quick-note-creation) Double-click anywhere on the timeline or number line to create a new note with the property value set based on where you clicked.
-- [**Drag & Drop Reordering:**](#-drag--drop-reordering) Easily move notes around, with multi-select support, to update their property values on the fly.
-- [**Filtering:**](#-filter) Refine your view with filters using Obsidian’s search syntax.
-- [**Grouping with Color:**](#-group-notes-with-colors) Group notes by Obsidian search query, similar to Obsidian's graph view, for a more colorful visualization.
+-   [**Custom Ordering:**](#ordering-by-any-numeric-property) Choose a property in your notes and instantly see them ordered in a visual timeline or number line.
+-   [**Item Lengths & Resizing:**](#item-lengths) Assign a secondary property and choose whether it represents **a length or an end value**. Resize items directly in the timeline.
+-   [**Quick Note Creation:**](#-quick-note-creation) Double-click anywhere on the timeline or number line to create a new note with the property value set based on where you clicked.
+-   [**Drag & Drop Reordering:**](#-drag--drop-reordering) Easily move notes around, with multi-select support, to update their property values on the fly.
+-   [**Filtering:**](#-filter) Refine your view with filters using Obsidian’s search syntax.
+-   [**Grouping with Color:**](#-group-notes-with-colors) Group notes by Obsidian search query, similar to Obsidian's graph view, for a more colorful visualization.
 
 # Screenshots
-
-#### Light Theme
-
-![Light Theme Overview](docs/resources/Light-Theme%20Overview.PNG)
 
 #### Dark Theme
 
 ![Dark Theme Overview](docs/resources/Dark-Theme%20Overview.PNG)
+
+#### Light Theme
+
+![Light Theme Overview](docs/resources/Light-Theme%20Overview.PNG)
 
 The view should work with any theme you apply.
 
@@ -46,13 +47,33 @@ Double-click anywhere on the timeline to instantly create a new note. The proper
 
 Easily update the property value of a note by dragging and dropping it on the timeline.
 
-- Move a single note:
+-   Move a single note:
 
     ![drag and drop single note](docs/resources/move-single-note-example.gif)
 
-- Or move a selection of notes to change their values together.
+-   Or move a selection of notes to change their values together.
 
     ![drag and drop multiple notes](docs/resources/move-multiple-notes-example.gif)
+
+### Item Lengths
+
+You can assign a secondary property to represent the length or end value of each note. By default, the plugin uses the note's modification time as the "end" value, but this can be customized.
+
+It will flawlessly handle negative lengths and end values that are less than the primary value.
+
+![Secondary property](docs/resources/secondary%20property.PNG)
+
+### Resizing
+
+With a secondary property selected, you can change the length or end value of a note by dragging the edge of it.
+
+-   Resizing a single note:
+
+    ![resize single note](docs/resources/resize%20single%20note.mp4)
+
+-   Resizing multiple notes together:
+
+    ![resize multiple notes](docs/resources/resize%20multiple%20notes.mp4)
 
 ### 🔍 Filter
 
@@ -70,15 +91,14 @@ You can also set a default filter in the plugin settings to apply to every new t
 
 Use the same query syntax as filtering to group notes by color, similar to Obsidian's graph view. This makes it easy to visually distinguish different groups of notes on your timeline.
 
-### 🔗 Link to Tab
+### 🔗 Focus on Notes from Other Tabs
 
-Open the timeline as a "linked view" from within an existing tab, or link it to another tab after opening. Once linked, navigating to a new note automatically focuses and scrolls the timeline to that note.
+The timeline view will now **automatically focus on notes** when they are selected in another tab.
 
-![Open linked timeline view](docs/resources/open%20linked%20timeline%20view.PNG)
+-   If a note that exists in the timeline is focused in another Obsidian tab, the timeline will **scroll to and highlight** that note.
+-   This makes it easier to keep track of where a note appears in your timeline while working in other views.
 
-Additionally, clicking on a note in the linked timeline will open it in the linked tab.
-
-![linked timeline tab](docs/resources/linked%20timeline%20tab.PNG)
+![Focused note](docs/resources/focused%20note%20from%20other%20tab.PNG)
 
 # For Theme Developers
 
@@ -86,11 +106,11 @@ You can find details about the css variables and classes [here](/docs/Theme%20De
 
 # Roadmap
 
-- [x] Filter based on obsidian query
-- [x] Color groups based on obsidian query
-- [x] [Create new note with property based on filter and position in timeline](https://github.com/b-camphart/plot-point-timeline/issues/4)
-- [ ] [Manual Vertical Positioning of Notes](https://github.com/b-camphart/plot-point-timeline/issues/1)
-- [ ] [Vertical Layout](https://github.com/b-camphart/plot-point-timeline/issues/2)
-- [ ] [Embeds?](https://github.com/b-camphart/plot-point-timeline/issues/6)
-- [ ] [Mobile support](https://github.com/b-camphart/plot-point-timeline/issues/7)
-- [ ] Duration/length and/or end property
+-   [x] Filter based on obsidian query
+-   [x] Color groups based on obsidian query
+-   [x] [Create new note with property based on filter and position in timeline](https://github.com/b-camphart/plot-point-timeline/issues/4)
+-   [ ] [Manual Vertical Positioning of Notes](https://github.com/b-camphart/plot-point-timeline/issues/1)
+-   [ ] [Vertical Layout](https://github.com/b-camphart/plot-point-timeline/issues/2)
+-   [ ] [Embeds?](https://github.com/b-camphart/plot-point-timeline/issues/6)
+-   [ ] [Mobile support](https://github.com/b-camphart/plot-point-timeline/issues/7)
+-   [ ] Duration/length and/or end property
