@@ -8,11 +8,6 @@
 	}
 
 	let { focus }: Props = $props();
-
-	$effect(() => {
-		console.log("focus.offsetLeft", focus.offsetLeft);
-		console.log("focus.offsetWidth", focus.offsetWidth);
-	});
 </script>
 
 <div
