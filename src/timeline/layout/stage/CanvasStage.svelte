@@ -334,6 +334,9 @@
 	function handleScroll(event: WheelEvent) {
 		if (event.shiftKey) {
 			dispatch("scrollX", scale.toValue(event.deltaY));
+			if (event.deltaX !== 0) {
+				scrollVertically(scrollTop + event.deltaX);
+			}
 		} else if (event.ctrlKey) {
 			const mouseOffsetX =
 				event.clientX - stageCSSTarget!.getBoundingClientRect().left;
@@ -355,7 +358,10 @@
 				});
 			}
 		} else {
-			scrollVertically(scrollTop + event.deltaY / 16);
+			scrollVertically(scrollTop + event.deltaY);
+			if (event.deltaX !== 0) {
+				dispatch("scrollX", scale.toValue(event.deltaX));
+			}
 		}
 	}
 
@@ -1040,6 +1046,7 @@
 		bind:this={canvas}
 		tabindex={0}
 		onwheelcapture={(e) => {
+			console.log("wheel", e);
 			e.stopPropagation();
 			handleScroll(e);
 		}}
