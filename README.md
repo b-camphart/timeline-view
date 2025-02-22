@@ -69,11 +69,12 @@ With a secondary property selected, you can change the length or end value of a 
 
 -   Resizing a single note:
 
-    ![resize single note](docs/resources/resize%20single%20note.mp4)
+    ![resize single note](docs/resources/resize%20single%20note.gif)
 
 -   Resizing multiple notes together:
 
-    ![resize multiple notes](docs/resources/resize%20multiple%20notes.mp4)
+    ![resize multiple notes](docs/resources/resize%20multiple%20notes.gif)
+    (if you have groups dependent on the value of one of the properties, modifying a note can easily change the group it belongs to)
 
 ### 🔍 Filter
 
