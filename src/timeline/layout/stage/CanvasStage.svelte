@@ -167,7 +167,18 @@
 			(currentFocus.index >= items.length ||
 				items.find((it) => it.id === currentFocus.id) === undefined)
 		) {
-			focus = null;
+			if (currentFocus.index >= items.length) {
+				focus = null;
+				return;
+			}
+			const index = items.findIndex((it) => it.id === currentFocus.id);
+			if (index === -1) {
+				focus = null;
+				return;
+			}
+			if (index !== currentFocus.index) {
+				currentFocus.index = index;
+			}
 		}
 	});
 
@@ -191,9 +202,8 @@
 	$effect(() => {
 		const currentFocus = focus;
 		if (currentFocus !== null) {
-			// updated when items are re-arranged
-			layout.items;
-			const element = untrack(() => currentFocus.element);
+			const element = layout.items[currentFocus.index];
+			if (element == null) return;
 			verticalScrollToFocusItem(element);
 			horizontalScrollToFocusItem(element);
 		}
@@ -875,23 +885,18 @@
 	let hover = $state<HoveredItem | typeof WithinSelection | null>(null);
 
 	class Focus {
-		#element: Item = $state(undefined as any as Item);
+		#id: string | null = null;
 		get id() {
-			return this.#element.id;
+			return this.#id;
 		}
 		/** updates when items scroll */
-		get element() {
-			// update when items scroll
-			scrolled.items;
-			return this.#element;
+		get element(): Item | null {
+			return scrolled.items[this.index] ?? null;
 		}
-		set element(element: Item) {
-			this.#element = element;
-		}
-		index: number;
+		index: number = $state(-1);
 		constructor(index: number, element: Item) {
-			this.element = element;
 			this.index = index;
+			this.#id = element.id;
 		}
 	}
 	let focus: Focus | null = $state(null);
@@ -1118,7 +1123,10 @@
 		{/if}
 	{/if}
 	{#if focus != null}
-		<FocusedItem focus={focus.element} />
+		{@const element = focus.element}
+		{#if element !== null}
+			<FocusedItem focus={element} />
+		{/if}
 	{/if}
 	<Scrollbars
 		bind:this={scrollbars}
