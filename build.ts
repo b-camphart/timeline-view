@@ -33,7 +33,7 @@ const fullOutput = await build({
 			entry: "src/obsidian/plugin/main.ts",
 			formats: ["cjs"],
 		},
-		minify: !dev && !preview,
+		minify: !dev,
 		target: tsconfig.compilerOptions.target,
 		rollupOptions: {
 			external: ["obsidian"],
