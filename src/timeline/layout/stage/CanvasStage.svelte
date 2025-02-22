@@ -1,20 +1,14 @@
-<script lang="ts">
-	import { run, stopPropagation } from "svelte/legacy";
-
-	import { createEventDispatcher, onMount } from "svelte";
+<script
+	lang="ts"
+	generics="T extends TimelineItemSource, SourceItem extends PlotAreaSourceItem<T>"
+>
+	import { createEventDispatcher, untrack } from "svelte";
+	import { renderLayout } from "./draw";
 	import {
-		layoutPoints,
-		renderLayout,
-		type BackgroundColor,
-	} from "./CanvasStage";
-	import type { TimelineItem, ValueDisplay } from "../../Timeline";
-	import {
-		TimelineItemElement,
-		TimelineLayoutItem,
-		TimelineItemElementStyle,
+		boxContainsPoint,
+		type OffsetBox,
 	} from "src/timeline/layout/stage/TimelineItemElement";
 	import { type Scale } from "src/timeline/scale";
-	import Scrollbar from "src/view/controls/Scrollbar.svelte";
 	import type { ChangeEvent } from "src/view/controls/Scrollbar";
 	import Hover from "./Hover.svelte";
 	import FocusedItem from "./FocusedItem.svelte";
@@ -22,8 +16,25 @@
 	import SelectionArea from "./CanvasSelectionArea.svelte";
 	import SelectedBounds from "./SelectedBounds.svelte";
 	import DraggedItem from "./DraggedItem.svelte";
-	import type { SortedArray } from "src/utils/collections";
+	import { DragPreviewElement } from "src/timeline/layout/stage/drag.svelte";
+	import { on } from "svelte/events";
+	import { layoutItems, scaleItems } from "src/timeline/layout/stage/layout";
+	import {
+		PlotAreaItem,
+		type PlotAreaSourceItem,
+	} from "src/timeline/layout/stage/item";
+	import type { TimelineItemSource } from "src/timeline/item/TimelineItem.svelte";
+	import { Selection } from "src/timeline/layout/stage/selection.svelte";
+	import CssProp from "src/view/CSSProp.svelte";
+	import CssColorProp from "src/view/CSSColorProp.svelte";
 	import Background from "src/timeline/layout/stage/Background.svelte";
+	import Padding from "src/timeline/layout/stage/Padding.svelte";
+	import type { FitBounds } from "src/timeline/controls/navigation/zoomToFit";
+	import { OverlayColor } from "src/color";
+	import { scrollItems } from "src/timeline/layout/stage/scroll";
+	import Scrollbars from "src/timeline/layout/stage/Scrollbars.svelte";
+
+	type Item = PlotAreaItem<T, SourceItem>;
 
 	type ZoomEvent = {
 		keepValue: number;
@@ -35,57 +46,54 @@
 		scrollToValue: number;
 		zoomIn: ZoomEvent;
 		zoomOut: ZoomEvent;
-		select: { item: TimelineItem; causedBy: Event };
-		focus: TimelineItem;
-		create: { value: number };
-		/** Cancelable.  Called just before 'on:itemMoved' */
-		moveItems: { item: TimelineItem; value: number }[];
+		select: { item: SourceItem; causedBy: Event };
+		focus: SourceItem;
+		create: { value: number; cause: Event };
 	}>();
 
 	interface Props {
-		display: ValueDisplay;
-		sortedItems: SortedArray<TimelineItem>;
+		sortedItems: readonly SourceItem[];
 		scale: Scale;
 		focalValue: number;
-		width?: number;
-		clientWidth?: number;
-		clientHeight?: number;
+		// todo: replace flags with object of methods. ie: null | { onMove?(): void; onResize?(): void }
 		editable: boolean;
-		onPreviewNewItemValue?: (item: TimelineItem, value: number) => number;
-		oncontextmenu?: (e: MouseEvent, items: TimelineItem[]) => void;
+		itemsResizable: boolean;
+		summarizeItem: (item: SourceItem) => string;
+		previewItem: (
+			item: SourceItem,
+			name: string,
+			value: number,
+			length: number,
+			endValue: number,
+		) => string;
+		onPreviewNewItemValue?: (item: SourceItem, value: number) => number;
+		oncontextmenu?: (e: MouseEvent, items: SourceItem[]) => void;
+		onItemsChanged?(
+			items: {
+				item: SourceItem;
+				value: number;
+				length: number;
+				endValue: number;
+			}[],
+		): Promise<void>;
 	}
 
 	let {
-		display,
-		sortedItems,
+		sortedItems: timelineItems,
 		scale,
 		focalValue,
-		width = $bindable(0),
-		clientWidth = $bindable(0),
-		clientHeight = $bindable(0),
 		editable,
+		itemsResizable,
+		summarizeItem,
+		previewItem,
 		onPreviewNewItemValue = (_, value) => value,
 		oncontextmenu = () => {},
+		onItemsChanged = async () => {},
 	}: Props = $props();
 
 	let canvas: HTMLCanvasElement | undefined = $state();
-	const pointElements: {
-		base: HTMLDivElement | undefined;
-		nextCol: HTMLDivElement | undefined;
-		selected: HTMLDivElement | undefined;
-		focused: HTMLDivElement | undefined;
-		nextRow: HTMLDivElement | undefined;
-	} = $state({
-		base: undefined,
-		nextCol: undefined,
-		selected: undefined,
-		focused: undefined,
-		nextRow: undefined,
-	});
 	let stageCSSTarget: HTMLDivElement | undefined = $state();
 
-	let innerWidth = $state(0);
-	let innerHeight = $state(0);
 	const viewport = $state({
 		width: 0,
 		height: 0,
@@ -97,96 +105,247 @@
 		},
 	});
 
-	let itemVSpacing = 0;
-	let itemRowCenterOffset = 0;
-	const item = $state({
-		width: 0,
-		height: 0,
+	const itemStyle = $state({
+		size: 16,
+		radius: 8,
+
+		color: "darkgray",
+
+		selected: {
+			borderWidth: 2,
+			color: "black",
+			borderColor: "black",
+		},
+
 		margin: {
 			horizontal: 0,
 			vertical: 0,
+
+			top: 2,
+			right: 2,
+			bottom: 2,
+			left: 2,
 		},
 	});
+	const selectedColorOverlay = $derived(
+		new OverlayColor(itemStyle.selected.color),
+	);
 
-	let layoutNeeded = true;
-	let scrollNeeded = $state(true);
-	let redrawNeeded = true;
+	export function fitBounds(): FitBounds {
+		return {
+			size: viewport.width,
+			padding: {
+				start: viewport.padding.left,
+				end: viewport.padding.right,
+			},
+			items: {
+				size: itemStyle.size,
+				margin: {
+					start: itemStyle.margin.left,
+					end: itemStyle.margin.right,
+				},
+			},
+		};
+	}
 
-	const resizeObserver = new ResizeObserver((a) => {
+	const items = $derived.by(() => {
+		const plotAreaItems = timelineItems.map(PlotAreaItem.from);
+		return plotAreaItems as Item[];
+	});
+	const scaled = $derived.by(() => {
+		scaleItems(scale, items);
+		return {
+			items,
+			_: Math.random(),
+		};
+	});
+	$effect(() => {
+		const currentFocus = focus;
 		if (
-			canvas == null ||
-			Object.values(pointElements).some((el) => el == null) ||
-			stageCSSTarget == null
+			currentFocus != null &&
+			(currentFocus.index >= items.length ||
+				items.find((it) => it.id === currentFocus.id) === undefined)
 		) {
-			return;
+			if (currentFocus.index >= items.length) {
+				focus = null;
+				return;
+			}
+			const index = items.findIndex((it) => it.id === currentFocus.id);
+			if (index === -1) {
+				focus = null;
+				return;
+			}
+			if (index !== currentFocus.index) {
+				currentFocus.index = index;
+			}
 		}
+	});
 
-		// if it's completely minimized, no use recalculating everything, since
-		// none of it will be visible anyway.  Also, avoids resetting the
-		// scroll height to 0.
-		if (
-			stageCSSTarget.offsetHeight === 0 &&
-			stageCSSTarget.offsetWidth === 0
-		) {
-			return;
+	const layout = $derived.by(() => {
+		const plotAreaItems = scaled.items;
+		layoutItems(itemStyle.size, itemStyle.margin, plotAreaItems);
+		return {
+			items: plotAreaItems,
+			_: Math.random(),
+		};
+	});
+	const scrollHeight = $derived.by(() => {
+		const padding = viewport.padding;
+		let max = padding.top;
+		const layoutPadding = padding.top + padding.bottom;
+		layout.items.forEach(
+			(it) => (max = Math.max(max, it.layoutBottom + layoutPadding)),
+		);
+		return max;
+	});
+	$effect(() => {
+		const currentFocus = focus;
+		if (currentFocus !== null) {
+			const element = layout.items[currentFocus.index];
+			if (element == null) return;
+			verticalScrollToFocusItem(element);
+			horizontalScrollToFocusItem(element);
 		}
-
-		item.width = Math.round(pointElements.base!.clientWidth);
-		item.height = Math.round(pointElements.base!.clientHeight);
-		item.margin.horizontal = Math.round(
-			Math.max(
-				0,
-				pointElements.nextCol!.offsetLeft -
-					(pointElements.base!.offsetLeft + item.width),
-			),
-		);
-		item.margin.vertical = Math.round(
-			Math.max(
-				0,
-				pointElements.nextRow!.offsetTop -
-					(pointElements.base!.offsetTop + item.height),
-			),
-		);
-		itemVSpacing = item.height + item.margin.vertical;
-
-		(viewport.padding.top = Math.max(
+	});
+	const maxScrollTop = $derived(Math.max(0, scrollHeight - viewport.height));
+	let scrollTop = $state(0);
+	function scrollVertically(value: number) {
+		scrollTop = Math.max(
 			0,
-			pointElements.base!.offsetTop - item.margin.vertical,
-		)),
-			(viewport.padding.left = Math.max(
-				0,
-				pointElements.base!.offsetLeft - item.margin.horizontal,
-			)),
-			(viewport.padding.right =
-				stageCSSTarget.clientWidth -
-				viewport.padding.left -
-				innerWidth),
-			(viewport.padding.bottom =
-				stageCSSTarget.clientHeight -
-				viewport.padding.top -
-				innerHeight),
-			(viewport.width = stageCSSTarget.clientWidth);
-		viewport.height = stageCSSTarget.clientHeight;
-		itemRowCenterOffset =
-			viewport.padding.top + item.height / 2 + item.margin.vertical / 2;
+			Math.min(
+				untrack(() => maxScrollTop),
+				value,
+			),
+		);
+	}
+	$effect(() => {
+		if (untrack(() => scrollTop) > maxScrollTop) {
+			scrollVertically(maxScrollTop);
+		}
+	});
+	const scrollLeft = $derived(
+		scale.toPixels(focalValue) - viewport.width / 2,
+	);
+	const scrolled = $derived.by(() => {
+		const layoutItems = layout.items;
+		const top = scrollTop - viewport.padding.top;
+		const left = scrollLeft;
+		scrollItems(layoutItems, top, left);
+		return {
+			items: layoutItems,
+			_: Math.random(),
+		};
+	});
 
-		const reportedWidth =
-			viewport.width -
-			viewport.padding.left -
-			viewport.padding.right -
-			item.width -
-			item.margin.horizontal;
+	const styled = $derived.by(() => {
+		const currentItems = items;
+		const itemColor = itemStyle.color;
 
-		if (width != reportedWidth) {
-			width = reportedWidth;
+		if (selection.isEmpty()) {
+			currentItems.forEach((it) => {
+				const prefColor = it.color();
+				it.backgroundColor = prefColor ?? itemColor;
+				it.borderColor = prefColor ?? itemColor;
+				it.strokeWidth = 0;
+			});
+			return { items: currentItems, _: Math.random() };
 		}
 
-		layoutNeeded = true;
+		const selectedItemColor = selectedColorOverlay;
+		const selectedItemBorder = {
+			color: itemStyle.selected.borderColor,
+			width: itemStyle.selected.borderWidth,
+		};
+
+		currentItems.forEach((it) => {
+			const prefColor = it.color();
+			if (selection.hasId(it.id)) {
+				it.backgroundColor = selectedItemColor.blend(
+					prefColor ?? itemColor,
+				);
+				it.borderColor = selectedItemBorder.color;
+				it.strokeWidth = selectedItemBorder.width;
+			} else {
+				it.backgroundColor = prefColor ?? itemColor;
+				it.borderColor = prefColor ?? itemColor;
+				it.strokeWidth = 0;
+			}
+		});
+		return { items: currentItems, _: Math.random() };
+	});
+
+	$effect(() => {
+		const currentCanvas = canvas;
+		if (currentCanvas === undefined) return;
+
+		const viewportWidth = viewport.width;
+		const viewportHeight = viewport.height;
+
+		const scrolledItems = scrolled.items;
+		// re-style should trigger a redraw
+		styled.items;
+		const previewItems = dragPreview?.arr() ?? null;
+		const radius = itemStyle.radius;
+
+		const handle = requestAnimationFrame(function draw() {
+			const renderContext = currentCanvas.getContext("2d");
+			if (renderContext == null) return;
+
+			const ratio = activeWindow.devicePixelRatio || 1;
+			if (
+				currentCanvas.width != viewportWidth * ratio ||
+				currentCanvas.height != viewportHeight * ratio
+			) {
+				currentCanvas.width = viewportWidth * ratio;
+				currentCanvas.height = viewportHeight * ratio;
+				currentCanvas.style.width = viewportWidth + "px";
+				currentCanvas.style.height = viewportHeight + "px";
+				renderContext.scale(ratio, ratio);
+			}
+
+			renderLayout(
+				renderContext,
+				viewport,
+				radius,
+				scrolledItems,
+				previewItems,
+			);
+		});
+		return () => {
+			cancelAnimationFrame(handle);
+		};
+	});
+
+	const elements = $derived(scrolled.items);
+	$effect(() => {
+		const currentHover = hover;
+		if (currentHover instanceof HoveredItem) {
+			const scrolledItems = scrolled.items;
+			if (
+				currentHover.element.offsetContains(
+					currentHover.pos[0],
+					currentHover.pos[1],
+				)
+			) {
+				return;
+			}
+			const hoveredItem = scrolledItems.find((it) =>
+				it.offsetContains(currentHover.pos[0], currentHover.pos[1]),
+			);
+			if (hoveredItem === undefined) {
+				hover = null;
+			} else {
+				currentHover.element = hoveredItem;
+			}
+		}
 	});
 
 	function handleScroll(event: WheelEvent) {
 		if (event.shiftKey) {
 			dispatch("scrollX", scale.toValue(event.deltaY));
+			if (event.deltaX !== 0) {
+				scrollVertically(scrollTop + event.deltaX);
+			}
 		} else if (event.ctrlKey) {
 			const mouseOffsetX =
 				event.clientX - stageCSSTarget!.getBoundingClientRect().left;
@@ -208,229 +367,148 @@
 				});
 			}
 		} else {
-			const newScroll = Math.max(0, scrollTop + event.deltaY / 16);
-			if (scrollTop != newScroll) {
-				scrollTop = newScroll;
-				scrollNeeded = true;
+			scrollVertically(scrollTop + event.deltaY);
+			if (event.deltaX !== 0) {
+				dispatch("scrollX", scale.toValue(event.deltaX));
 			}
 		}
 	}
 
 	let focusCausedByClick = $state(false);
-	let mouseDownOn: TimelineItemElement | null = null;
-
-	class DragPreviewElement {
-		constructor(
-			private element: TimelineItemElement,
-			public value: number,
-			public offsetCenterX: number,
-			public readonly backgroundColor: BackgroundColor | undefined,
-			public readonly borderColor: BackgroundColor | undefined,
-			public readonly strokeWidth: number | undefined,
-		) {}
-
-		get item() {
-			return this.element.layoutItem.item;
-		}
-
-		get offsetCenterY() {
-			return this.offsetTop + this.element.offsetHeight / 2;
-		}
-		get offsetLeft() {
-			return this.offsetCenterX - this.element.offsetWidth / 2;
-		}
-
-		get offsetTop() {
-			return this.element.offsetTop;
-		}
-
-		get offsetRight() {
-			return this.offsetCenterX + this.element.offsetWidth / 2;
-		}
-
-		get offsetBottom() {
-			return this.offsetTop + this.element.offsetHeight;
-		}
-		get offsetWidth() {
-			return this.element.offsetWidth;
-		}
-		get offsetHeight() {
-			return this.element.offsetHeight;
-		}
-	}
+	let mouseDownOn: Item | null = null;
 
 	class DragPreview {
-		private items: Set<TimelineItem> = new Set();
-		private elements: Array<DragPreviewElement> = [];
+		private elements: DragPreviewElement<Item>[] = $state([]);
 
-		constructor() {}
-
-		add(element: DragPreviewElement) {
-			this.elements.push(element);
-			this.items.add(element.item);
-		}
-
-		[Symbol.iterator]() {
-			return this.elements[Symbol.iterator]();
-		}
-
-		movedItems() {
-			return this.elements.map((element, index) => {
-				return element;
+		constructor(
+			items: Item[],
+			private readonly onFinished: (
+				modifications: {
+					item: SourceItem;
+					value: number;
+					length: number;
+					endValue: number;
+				}[],
+			) => Promise<void>,
+		) {
+			this.elements = items.map((selectedItem) => {
+				selectedItem.hide();
+				return new DragPreviewElement(
+					selectedItem,
+					selectedItem.item.startValue(),
+					selectedItem.item.length(),
+					selectedItem.item.startValue() + selectedItem.item.length(),
+					selectedItem.offsetLeft + selectedItem.minSize / 2,
+					selectedItem.backgroundColor,
+					selectedItem.borderColor,
+					selectedItem.strokeWidth,
+				);
 			});
 		}
 
-		has(item: TimelineItem) {
-			return this.items.has(item);
+		forEach(cb: (element: DragPreviewElement<Item>) => void) {
+			this.elements.forEach(cb);
+			this.elements = this.elements.slice();
 		}
 
-		getCount() {
-			return this.items.size;
+		singleOrNull(): DragPreviewElement<Item> | null {
+			return this.elements.length === 1 ? this.elements[0] : null;
 		}
 
-		at(index: number) {
-			return this.elements[index];
+		arr(): readonly DragPreviewElement<Item>[] {
+			return this.elements;
+		}
+
+		async finish() {
+			try {
+				await this.onFinished(this.movedItems());
+			} finally {
+				this.elements.forEach((it) => it.base.show());
+			}
+		}
+
+		movedItems(): {
+			item: SourceItem;
+			value: number;
+			length: number;
+			endValue: number;
+		}[] {
+			return this.elements.map((it) => {
+				return {
+					value: it.value,
+					length: it.length,
+					endValue: it.endValue,
+					item: it.base.item,
+				};
+			});
 		}
 	}
 
 	let dragPreview: DragPreview | null = $state(null);
-	$effect(() => {
-		// when dragPreview changes, we need to force a redraw
-		dragPreview;
-		scrollNeeded = true;
-	});
 
-	function clearSelection() {
-		if (selection.selectedItems.size > 0) {
-			redrawNeeded = true;
-		}
-		selection.selectedItems = new Map();
-		selection.bounds = null;
-		selection = selection;
-	}
-	function selectElement(element: TimelineItemElement) {
-		if (selection.selectedItems.has(element.layoutItem.item.id())) return;
-		clearSelection();
-		selection.selectedItems = new Map([
-			[element.layoutItem.item.id(), element],
-		]);
-		redrawNeeded = true;
-		selection = selection;
-	}
-	function selectElements(elements: TimelineItemElement[]) {
-		clearSelection();
-		selection.selectedItems = new Map(
-			elements.map((it) => [it.layoutItem.item.id(), it]),
-		);
-		if (selection.selectedItems.size > 1) {
-			selection.bounds = selectionBounds(
-				selection.selectedItems.values(),
-			);
-		}
-		redrawNeeded = true;
-		selection = selection;
-	}
 	function shouldExtendSelection(event: MouseEvent) {
 		return (Platform.isMacOS && event.metaKey) || event.ctrlKey;
 	}
-	function includeElementInSelection(element: TimelineItemElement) {
-		selection.selectedItems.set(element.layoutItem.item.id(), element);
-		if (selection.selectedItems.size > 1) {
-			selection.bounds = selectionBounds(
-				selection.selectedItems.values(),
-			);
-		}
-		redrawNeeded = true;
-		selection = selection;
-	}
-	function includeElementsInSelection(elements: TimelineItemElement[]) {
-		for (const element of elements) {
-			selection.selectedItems.set(element.layoutItem.item.id(), element);
-		}
-		if (selection.selectedItems.size > 1) {
-			selection.bounds = selectionBounds(
-				selection.selectedItems.values(),
-			);
-		}
-		selection = selection;
-		redrawNeeded = true;
-	}
+
 	function createSelectionArea(
 		x: number,
 		y: number,
 		width: number,
 		height: number,
 	) {
-		selection.area = {
+		selectionArea = {
 			offsetLeft: x,
 			offsetTop: y,
 			offsetWidth: width,
 			offsetHeight: height,
 		};
 	}
-	function selectionBounds(elements: Iterable<TimelineItemElement>) {
-		let minX = Number.POSITIVE_INFINITY;
-		let minY = Number.POSITIVE_INFINITY;
-		let maxX = Number.NEGATIVE_INFINITY;
-		let maxY = Number.NEGATIVE_INFINITY;
-		for (const element of elements) {
-			if (element.offsetLeft < minX) {
-				minX = element.offsetLeft;
-			}
-			if (element.offsetTop < minY) {
-				minY = element.offsetTop;
-			}
-			if (element.offsetRight > maxX) {
-				maxX = element.offsetRight;
-			}
-			if (element.offsetBottom > maxY) {
-				maxY = element.offsetBottom;
-			}
-		}
-
-		return {
-			offsetLeft: minX,
-			offsetTop: minY,
-			offsetWidth: maxX - minX,
-			offsetHeight: maxY - minY,
-		};
-	}
 
 	function handleMouseDown(event: MouseEvent) {
 		focusCausedByClick = true;
-		if (hover == null || hover.element == null) {
+
+		if (!(hover instanceof HoveredItem) || hover.element == null) {
 			focus = null;
+
+			if (
+				selectedBounds !== null &&
+				boxContainsPoint(selectedBounds, event.offsetX, event.offsetY)
+			) {
+				if (prepareDragSelection(event)) {
+					return;
+				}
+			}
+
 			if (!shouldExtendSelection(event)) {
-				clearSelection();
+				selection.clear();
 			}
 			prepareMultiSelectDraw(event);
 			return;
 		}
 		if (event.button === 2) {
-			focusOn(hover.element, elements.arr.indexOf(hover.element));
+			focusOn(hover.element, elements.indexOf(hover.element));
 			return;
 		}
 		mouseDownOn = hover.element;
-		if (!selection.selectedItems.has(mouseDownOn.layoutItem.item.id())) {
+		if (!selection.hasId(mouseDownOn.id)) {
 			if (shouldExtendSelection(event)) {
-				includeElementInSelection(mouseDownOn);
+				selection.addAll([mouseDownOn]);
 			} else {
-				selectElement(mouseDownOn);
+				selection.replaceWith([mouseDownOn]);
 			}
 		}
 
-		prepareDragSelection(event);
+		if (hover.side === "middle") {
+			prepareDragSelection(event);
+		} else {
+			prepareResizeSelection(event, hover.side === "right");
+		}
 	}
 
 	function prepareDragSelection(event: MouseEvent) {
-		const selectedItems = Array.from(selection.selectedItems.values());
-		if (selectedItems.length === 0) {
-			return;
-		}
+		if (selection.isEmpty()) return false;
+		const selectedItems = selection.items(items);
 
-		const startItemBackground = selectedItems[0].backgroundColor;
-		const startItemBorder = selectedItems[0].borderColor;
-		const startItemBorderWidth = selectedItems[0].strokeWidth;
 		const startViewportBounds = stageCSSTarget!.getBoundingClientRect();
 
 		const startMouseValue =
@@ -449,35 +527,32 @@
 				scale.toValue(stageCSSTarget!.getBoundingClientRect().left) +
 				scale.toValue(event.clientX);
 
-			dragPreview = dragPreview ?? new DragPreview();
-			for (let i = 0; i < selectedItems.length; i++) {
-				const item = selectedItems[i];
+			const deltaValue = mouseValue - startMouseValue;
+
+			if (dragPreview === null) {
+				dragPreview = new DragPreview(selectedItems, onItemsChanged);
+			}
+			dragPreview.forEach((previousPreview) => {
+				const item = previousPreview.base;
 				const newItemValue = onPreviewNewItemValue(
-					selectedItems[i].layoutItem.item,
-					selectedItems[i].layoutItem.item.value() +
-						(mouseValue - startMouseValue),
+					item.item,
+					item.value() + deltaValue,
+				);
+				const newEndValue = onPreviewNewItemValue(
+					item.item,
+					newItemValue + item.item.length(),
 				);
 				const offsetCenterX =
 					scale.toPixels(newItemValue - focalValue) +
 					viewport.width / 2;
 
-				if (dragPreview.at(i) != null) {
-					dragPreview.at(i).value = newItemValue;
-					dragPreview.at(i).offsetCenterX = offsetCenterX;
-				} else {
-					dragPreview.add(
-						new DragPreviewElement(
-							item,
-							newItemValue,
-							offsetCenterX,
-							startItemBackground,
-							startItemBorder,
-							startItemBorderWidth,
-						),
-					);
-				}
-			}
-			dragPreview = dragPreview;
+				previousPreview.value = newItemValue;
+				previousPreview.endValue = newEndValue;
+				previousPreview.length = newEndValue - newItemValue;
+				previousPreview.offsetCenterX = offsetCenterX;
+				previousPreview.offsetLeft = offsetCenterX - item.minSize / 2;
+				previousPreview.offsetRight = offsetCenterX + item.offsetWidth;
+			});
 
 			if (mouseX < startViewportBounds.left + viewport.padding.left) {
 				const delta =
@@ -493,51 +568,137 @@
 				dispatch("scrollX", scale.toValue(delta));
 			}
 		}
-		function releaseItemListener() {
-			if (dragPreview != null) {
-				dispatch("moveItems", dragPreview.movedItems(), {
-					cancelable: true,
-				});
+		async function releaseItemListener() {
+			try {
+				await dragPreview?.finish();
+			} finally {
+				dragPreview = null;
 			}
-			dragPreview = null;
 			window.removeEventListener("mousemove", dragItemListener);
 			window.removeEventListener("mouseup", releaseItemListener);
 		}
 		if (editable) {
 			window.addEventListener("mouseup", releaseItemListener);
 			window.addEventListener("mousemove", dragItemListener);
+			return true;
 		}
+		return false;
 	}
 
-	let selection: {
-		area: null | {
-			offsetLeft: number;
-			offsetTop: number;
-			offsetWidth: number;
-			offsetHeight: number;
+	function prepareResizeSelection(
+		event: Pick<MouseEvent, "clientX">,
+		pureResize: boolean,
+	) {
+		if (!editable || selection.isEmpty()) return;
+		const selectedItems = selection.items(items);
+
+		const startMouseValue =
+			focalValue -
+			scale.toValue(viewport.width / 2) -
+			scale.toValue(stageCSSTarget!.getBoundingClientRect().left) +
+			scale.toValue(event.clientX);
+
+		function resizeSelection(event: Pick<MouseEvent, "clientX">) {
+			const mouseValue =
+				focalValue -
+				scale.toValue(viewport.width / 2) -
+				scale.toValue(stageCSSTarget!.getBoundingClientRect().left) +
+				scale.toValue(event.clientX);
+
+			const deltaValue = mouseValue - startMouseValue;
+
+			if (dragPreview === null) {
+				dragPreview = new DragPreview(selectedItems, onItemsChanged);
+			}
+			if (pureResize) {
+				dragPreview.forEach((previewItem) => {
+					const selectedItem = previewItem.base;
+
+					previewItem.length =
+						selectedItem.item.length() + deltaValue;
+					previewItem.endValue =
+						previewItem.value + previewItem.length;
+					previewItem.offsetWidth =
+						scale.toPixels(previewItem.length) +
+						selectedItem.minSize;
+					previewItem.offsetRight =
+						previewItem.offsetLeft + previewItem.offsetWidth;
+				});
+			} else {
+				dragPreview.forEach((previewItem) => {
+					const selectedItem = previewItem.base;
+
+					previewItem.value =
+						selectedItem.item.startValue() + deltaValue;
+					previewItem.length =
+						previewItem.endValue - previewItem.value;
+
+					previewItem.offsetWidth =
+						scale.toPixels(previewItem.length) +
+						selectedItem.minSize;
+					previewItem.offsetLeft =
+						previewItem.offsetRight - previewItem.offsetWidth;
+				});
+			}
+		}
+
+		const removeMouseMoveListener = on(
+			window,
+			"mousemove",
+			resizeSelection,
+		);
+		on(
+			window,
+			"mouseup",
+			async () => {
+				removeMouseMoveListener();
+				try {
+					await dragPreview?.finish();
+				} finally {
+					dragPreview = null;
+				}
+			},
+			{ once: true },
+		);
+	}
+
+	let selectionArea = $state<null | OffsetBox>(null);
+	const selection = new Selection<Item>();
+	$effect(() => selection.updateItems(items));
+	const selectedBounds = $derived.by(() => {
+		if (selection.length() <= 1) return null;
+		let offsetRight = -Infinity;
+		let offsetBottom = -Infinity;
+		const bounds = {
+			offsetLeft: Infinity,
+			offsetTop: Infinity,
+			offsetWidth: 0,
+			offsetHeight: 0,
 		};
-		selectedItems: Map<string, TimelineItemElement>;
-		bounds: null | {
-			offsetLeft: number;
-			offsetTop: number;
-			offsetWidth: number;
-			offsetHeight: number;
-		};
-	} = $state({ area: null, bounds: null, selectedItems: new Map() });
+
+		for (const item of selection.items(scrolled.items)) {
+			bounds.offsetLeft = Math.min(bounds.offsetLeft, item.offsetLeft);
+			bounds.offsetTop = Math.min(bounds.offsetTop, item.offsetTop);
+			offsetRight = Math.max(offsetRight, item.offsetRight);
+			offsetBottom = Math.max(offsetBottom, item.offsetBottom);
+		}
+		bounds.offsetWidth = offsetRight - bounds.offsetLeft;
+		bounds.offsetHeight = offsetBottom - bounds.offsetTop;
+		return bounds;
+	});
 
 	function prepareMultiSelectDraw(event: MouseEvent) {
 		const startViewportBounds = stageCSSTarget!.getBoundingClientRect();
 		const startX = event.clientX - startViewportBounds.left;
-		const startY = event.clientY - startViewportBounds.top;
 		const startFocalValue = focalValue;
-		const startScrollTop = scrollTop;
+		const pageStartY = event.clientY - startViewportBounds.top + scrollTop;
 
 		let isDragging = false;
 
 		function dragSelectionArea(event: MouseEvent) {
 			const scrolledStartX =
 				startX - scale.toPixels(focalValue - startFocalValue);
-			const scrolledStartY = startY - scrollTop - startScrollTop;
+			const scrolledStartY = pageStartY - scrollTop;
 			const endX = event.clientX - startViewportBounds.left;
 			const endY = event.clientY - startViewportBounds.top;
 
@@ -555,25 +716,25 @@
 
 			isDragging = true;
 
-			const selectedItems: TimelineItemElement[] = [];
+			const selectedItems: Item[] = [];
 			// find all items in the selection area
-			for (let i = 0; i < elements.arr.length; i++) {
-				const element = elements.arr[i];
+			for (let i = 0; i < elements.length; i++) {
+				const element = elements[i];
 				if (element.offsetLeft > maxX) {
 					// no more of these ordered elements can intersect the
 					// selection area
 					break;
 				}
-				if (element.intersects(minX, minY, width, height)) {
+				if (element.offsetIntersects(minX, minY, width, height)) {
 					selectedItems.push(element);
 				}
 			}
 
 			createSelectionArea(minX, minY, width, height);
 			if (shouldExtendSelection(event)) {
-				includeElementsInSelection(selectedItems);
+				selection.addAll(selectedItems);
 			} else {
-				selectElements(selectedItems);
+				selection.replaceWith(selectedItems);
 			}
 
 			if (
@@ -600,17 +761,16 @@
 				const delta =
 					event.clientY -
 					(startViewportBounds.top + viewport.padding.top);
-				scrollTop += delta;
+				scrollVertically(scrollTop + delta);
 			} else if (event.clientY > startViewportBounds.bottom) {
 				const delta =
 					event.clientY -
 					(startViewportBounds.bottom - viewport.padding.bottom);
-				scrollTop += delta;
+				scrollVertically(scrollTop + delta);
 			}
 		}
 		function releaseSelectionArea() {
-			selection.area = null;
-			selection = selection;
+			selectionArea = null;
 			window.removeEventListener("mousemove", dragSelectionArea);
 			window.removeEventListener("mouseup", releaseSelectionArea);
 		}
@@ -620,10 +780,20 @@
 
 	function handleMouseUp(event: MouseEvent) {
 		if (event.button === 2) {
-			if (hover == null || hover.element == null) {
+			if (
+				selectedBounds !== null &&
+				boxContainsPoint(selectedBounds, event.offsetX, event.offsetY)
+			) {
+				oncontextmenu(
+					event,
+					selection.items(items).map((it) => it.item),
+				);
 				return;
 			}
-			oncontextmenu(event, [hover.element.layoutItem.item]);
+			if (!(hover instanceof HoveredItem) || hover.element == null) {
+				return;
+			}
+			oncontextmenu(event, [hover.element.item]);
 			return;
 		}
 		if (mouseDownOn == null) {
@@ -631,7 +801,7 @@
 		}
 		const mouseWasDownOn = mouseDownOn;
 		mouseDownOn = null;
-		if (hover == null || hover.element == null) {
+		if (!(hover instanceof HoveredItem) || hover.element == null) {
 			return;
 		}
 		if (hover.element !== mouseWasDownOn) {
@@ -639,7 +809,7 @@
 		}
 
 		focus = null;
-		const hoveredItem = hover.element.layoutItem.item;
+		const hoveredItem = hover.element.item;
 		hover = null;
 
 		if (!shouldExtendSelection(event)) {
@@ -662,74 +832,101 @@
 		const valueFromLeft = scale.toValue(event.offsetX);
 		const value = leftValue + valueFromLeft;
 
-		dispatch("create", { value });
+		dispatch("create", { value, cause: event });
 	}
 
-	let elements = {
-		arr: [] as TimelineItemElement[],
-		getCount() {
-			return this.arr.length;
-		},
-		[Symbol.iterator]() {
-			return this.arr[Symbol.iterator]();
-		},
-	};
-	let hover: {
-		element: TimelineItemElement;
+	class HoveredItem {
+		#element: Item = $state(undefined as any as Item);
+		get element() {
+			// update when items scroll
+			scrolled.items;
+			return this.#element;
+		}
+		set element(element: Item) {
+			this.#element = element;
+		}
+		side: "middle" | "left" | "right";
+		/**
+		 * keeps track of the moues position that caused the hover so it can
+		 * be checked again when the timeline is scaled/scrolled
+		 */
 		pos: [number, number];
-	} | null = $state(null);
-	let focus: {
-		element: TimelineItemElement;
-		index: number;
-	} | null = $state(null);
-	function verticalScrollToFocusItem(element: TimelineItemElement) {
-		if (element.offsetTop < 0) {
-			scrollTop = element.layoutItem.top();
-			scrollNeeded = true;
-		} else if (element.offsetBottom > viewport.height) {
-			scrollTop = element.layoutItem.bottom() - viewport.height;
-			scrollNeeded = true;
+		constructor(
+			element: Item,
+			side: "middle" | "left" | "right",
+			pos: [number, number],
+		) {
+			this.element = element;
+			this.side = side;
+			this.pos = pos;
 		}
 	}
-	function focusOn(
-		element: TimelineItemElement,
-		index: number,
-		skipEvent: boolean = false,
-	) {
-		if (!skipEvent) {
-			dispatch("focus", element.layoutItem.item);
+
+	const WithinSelection = Symbol();
+
+	let hover = $state<HoveredItem | typeof WithinSelection | null>(null);
+
+	class Focus {
+		#id: string | null = null;
+		get id() {
+			return this.#id;
 		}
-		focus = {
-			element,
-			index,
-		};
-		redrawNeeded = true;
+		/** updates when items scroll */
+		get element(): Item | null {
+			return scrolled.items[this.index] ?? null;
+		}
+		index: number = $state(-1);
+		constructor(index: number, element: Item) {
+			this.index = index;
+			this.#id = element.id;
+		}
+	}
+	let focus: Focus | null = $state(null);
+	function verticalScrollToFocusItem(element: Item) {
+		if (element.offsetTop < 0) {
+			scrollVertically(
+				element.layoutTop - viewport.padding.top - itemStyle.margin.top,
+			);
+		} else if (element.offsetBottom > viewport.height) {
+			scrollVertically(
+				element.layoutBottom -
+					viewport.height +
+					viewport.padding.bottom +
+					itemStyle.margin.bottom,
+			);
+		}
+	}
+	function horizontalScrollToFocusItem(element: Item) {
+		if (element.offsetLeft < 0) {
+			dispatch("scrollToValue", element.item.startValue());
+		} else if (element.offsetRight > viewport.width) {
+			dispatch("scrollToValue", element.item.startValue());
+		}
+	}
+	function focusOn(element: Item, index: number, skipEvent: boolean = false) {
+		if (!skipEvent) {
+			dispatch("focus", element.item);
+		}
+		focus = new Focus(index, element);
 
 		verticalScrollToFocusItem(element);
-
-		if (focus.element.offsetLeft < 0) {
-			dispatch("scrollToValue", focus.element.layoutItem.item.value());
-		} else if (focus.element.offsetRight > viewport.width) {
-			dispatch("scrollToValue", focus.element.layoutItem.item.value());
-		}
+		horizontalScrollToFocusItem(element);
 	}
 	function focusNextItem(back: boolean = false) {
 		const index =
 			focus == null ? 0 : back ? focus.index - 1 : focus.index + 1;
-		if (index < elements.arr.length && index >= 0) {
-			focusOn(elements.arr[index], index);
+		if (index < elements.length && index >= 0) {
+			focusOn(elements[index], index);
 			return true;
 		} else {
 			focus = null;
 			return false;
 		}
 	}
-	export function focusOnItem(item: TimelineItem) {
-		const index = elements.arr.findIndex(
-			(element) => element.layoutItem.item === item,
-		);
+	export function focusOnId(id: string) {
+		const index = elements.findIndex((element) => element.item.id === id);
 		if (index >= 0) {
-			focusOn(elements.arr[index], index, true);
+			focusOn(elements[index], index, true);
 		}
 	}
 
@@ -742,15 +939,41 @@
 		if (
 			!scrollbarDragging &&
 			dragPreview == null &&
-			selection.area == null
+			selectionArea == null
 		) {
-			for (let i = 0; i < elements.arr.length; i++) {
-				const element = elements.arr[i];
-				if (element.contains(event.offsetX, event.offsetY)) {
-					hover = {
-						element: element,
-						pos: [event.offsetX, event.offsetY],
-					};
+			for (let i = 0; i < elements.length; i++) {
+				const element = elements[i];
+				if (element.offsetContains(event.offsetX, event.offsetY)) {
+					let side: "middle" | "left" | "right" = "middle";
+					if (itemsResizable) {
+						if (
+							event.offsetX <
+							element.offsetLeft + element.minSize / 4
+						) {
+							side = "left";
+						} else if (
+							event.offsetX >=
+							element.offsetRight - element.minSize / 4
+						) {
+							side = "right";
+						}
+					}
+					hover = new HoveredItem(element, side, [
+						event.offsetX,
+						event.offsetY,
+					]);
+					return;
+				}
+			}
+			if (selectedBounds != null) {
+				if (
+					boxContainsPoint(
+						selectedBounds,
+						event.offsetX,
+						event.offsetY,
+					)
+				) {
+					hover = WithinSelection;
 					return;
 				}
 			}
@@ -758,72 +981,11 @@
 		hover = null;
 	}
 
-	function onPointsOrScaleChanged(
-		points: SortedArray<TimelineItem>,
-		scale: Scale,
-	) {
-		if (focus) {
-			const index = points.items.findIndex(
-				(item) => item === focus!.element.layoutItem.item,
-			);
-			if (index >= 0) {
-				focus = {
-					index,
-					element: elements.arr[index],
-				};
-			} else {
-				focus = null;
-			}
-		}
-		layoutNeeded = true;
+	let scrollbars = $state<Scrollbars | null>(null);
+
+	export function clientWidth() {
+		return scrollbars?.getClientWidth() ?? 0;
 	}
-	run(() => {
-		onPointsOrScaleChanged(sortedItems, scale);
-	});
-
-	function onFocalValueChanged(_: number) {
-		scrollNeeded = true;
-	}
-	run(() => {
-		onFocalValueChanged(focalValue);
-	});
-
-	export function invalidateColors() {
-		redrawNeeded = true;
-	}
-
-	let scrollTop = $state(0);
-	function onScrollTopChanged(_: number) {
-		scrollNeeded = true;
-	}
-	run(() => {
-		onScrollTopChanged(scrollTop);
-	});
-
-	let scrollHeight = $state(0);
-	let visibleVAmount = $state(0);
-
-	let scrollbarMeasurerFullWidth: number = $state(0);
-	let scrollbarMeasurerInnerWidth: number = $state(0);
-	let scrollbarWidth = $derived(
-		scrollbarMeasurerFullWidth - scrollbarMeasurerInnerWidth,
-	);
-	run(() => {
-		clientWidth = viewport.width - scrollbarWidth;
-	});
-	let scrollbarMeasurerFullHeight: number = $state(0);
-	let scrollbarMeasurerInnerHeight: number = $state(0);
-	let scrollbarHeight = $derived(
-		scrollbarMeasurerFullHeight - scrollbarMeasurerInnerHeight,
-	);
-	run(() => {
-		clientHeight = viewport.height - scrollbarHeight;
-	});
-
-	let hScrollValue = $state(0);
-	let visibleHAmount = $state(viewport.width);
-	let minHScrollValue = $state(0);
-	let maxHScrollValue = $state(0);
 
 	function handleHScroll(event: ChangeEvent) {
 		dispatch(
@@ -834,238 +996,39 @@
 	}
 
 	function handleVScroll(event: ChangeEvent) {
-		scrollTop = event.detail.value;
+		scrollVertically(event.detail.value);
 	}
 
-	onMount(() => {
-		if (
-			canvas == null ||
-			Object.values(pointElements).some((el) => el == null) ||
-			stageCSSTarget == null
-		) {
-			return;
-		}
-
-		resizeObserver.observe(canvas);
-		Object.values(pointElements).forEach((element) =>
-			resizeObserver.observe(element!),
-		);
-		resizeObserver.observe(stageCSSTarget);
-
-		function draw(
-			layout: TimelineLayoutItem[] = [],
-			pointStyle?: TimelineItemElementStyle,
-		) {
-			if (canvas == null) return;
-			const renderContext = canvas.getContext("2d");
-			if (renderContext == null) return;
-
-			if (layoutNeeded) {
-				layout = layoutPoints(
-					viewport,
-					item,
-					scale,
-					sortedItems.items,
-					layout,
-				);
-
-				if (layout.length > 0) {
-					scrollHeight = 0;
-					for (const bounds of layout) {
-						scrollHeight = Math.max(
-							scrollHeight,
-							bounds.bottom() +
-								item.margin.vertical +
-								viewport.padding.bottom,
-						);
-					}
-				} else {
-					scrollHeight = 0;
-				}
-				if (focus != null) {
-					if (focus.index > layout.length) {
-						focus = null;
-					}
-				}
-			}
-
-			if (scrollNeeded || layoutNeeded) {
-				if (elements.arr.length > layout.length) {
-					elements.arr = elements.arr.slice(0, layout.length);
-				}
-
-				const scrollLeft =
-					scale.toPixels(focalValue) - viewport.width / 2;
-
-				scrollTop = Math.max(
-					0,
-					Math.min(scrollTop, scrollHeight - viewport.height),
-				);
-				visibleVAmount = viewport.height;
-
-				for (let i = 0; i < layout.length; i++) {
-					const item = layout[i];
-
-					const element =
-						elements.arr[i] ?? new TimelineItemElement(item);
-					element.layoutItem = item;
-					element.offsetCenterX = item.centerX - scrollLeft;
-					element.offsetCenterY = item.centerY - scrollTop;
-					element.offsetLeft = element.offsetCenterX - item.radius;
-					element.offsetTop = element.offsetCenterY - item.radius;
-					element.offsetWidth = item.radius * 2;
-					element.offsetHeight = item.radius * 2;
-					element.offsetRight =
-						element.offsetLeft + element.offsetWidth;
-					element.offsetBottom =
-						element.offsetTop + element.offsetHeight;
-
-					if (selection.selectedItems.has(item.item.id())) {
-						selection.selectedItems.set(item.item.id(), element);
-					}
-
-					elements.arr[i] = element;
-				}
-
-				selection.bounds = selectionBounds(
-					selection.selectedItems.values(),
-				);
-
-				visibleHAmount = scale.toValue(viewport.width);
-				hScrollValue = focalValue - scale.toValue(viewport.width / 2);
-
-				const leftMostValue =
-					(sortedItems.items[0]?.value() ?? 0) -
-					scale.toValue(viewport.padding.left + item.width / 2);
-
-				const rightMostValue =
-					(sortedItems.items[sortedItems.length - 1]?.value() ?? 0) -
-					scale.toValue(viewport.padding.left + item.width / 2);
-
-				minHScrollValue = Math.min(
-					focalValue - scale.toValue(viewport.width / 2),
-					leftMostValue,
-				);
-
-				maxHScrollValue = Math.max(
-					focalValue + scale.toValue(viewport.width / 2),
-					rightMostValue,
-				);
-
-				if (hover != null) {
-					detectHover({
-						offsetX: hover.pos[0],
-						offsetY: hover.pos[1],
-					});
-				}
-				if (focus) {
-					focus.element = elements.arr[focus.index];
-					if (!focus.element) {
-						focus = null;
-					} else {
-						if (layoutNeeded) {
-							verticalScrollToFocusItem(focus.element);
-						}
-						focus = focus;
-					}
-				}
-				selection.bounds = selectionBounds(
-					selection.selectedItems.values(),
-				);
-				selection = selection;
-			}
-
-			const currentPointStyle = new TimelineItemElementStyle(
-				getComputedStyle(pointElements.base!),
-			);
-			if (
-				redrawNeeded ||
-				scrollNeeded ||
-				layoutNeeded ||
-				!currentPointStyle.equals(pointStyle)
-			) {
-				let dragPreviewed = dragPreview != null;
-				const hasSelectedItems = selection.selectedItems.size > 0;
-
-				elements.arr.forEach((el) => (el.style = currentPointStyle));
-
-				if (hasSelectedItems || dragPreviewed) {
-					const selectedStyle = new TimelineItemElementStyle(
-						getComputedStyle(pointElements.selected!),
-					);
-
-					for (let i = 0; i < elements.arr.length; i++) {
-						const element = elements.arr[i];
-						if (
-							dragPreviewed &&
-							dragPreview!.has(element.layoutItem.item)
-						) {
-							element.visible = false;
-							continue;
-						}
-
-						if (
-							hasSelectedItems &&
-							selection.selectedItems.has(
-								element.layoutItem.item.id(),
-							)
-						) {
-							element.style = selectedStyle;
-						}
-					}
-				}
-
-				const ratio = activeWindow.devicePixelRatio || 1;
-				if (
-					canvas.width != viewport.width * ratio ||
-					canvas.height != viewport.height * ratio
-				) {
-					canvas.width = viewport.width * ratio;
-					canvas.height = viewport.height * ratio;
-					canvas.style.width = viewport.width + "px";
-					canvas.style.height = viewport.height + "px";
-					renderContext.scale(ratio, ratio);
-				}
-
-				renderLayout(renderContext, viewport, elements, dragPreview);
-			}
-			layoutNeeded = false;
-			scrollNeeded = false;
-			redrawNeeded = false;
-
-			requestAnimationFrame(() => draw(layout, currentPointStyle));
-		}
-
-		requestAnimationFrame(() => draw());
-	});
+	const id = "timeline-view--plotarea-" + Math.random().toString(36).slice(2);
 </script>
 
 <div
-	id="stage"
+	{id}
+	class="timeline-view--plotarea"
+	bind:offsetWidth={viewport.width}
+	bind:offsetHeight={viewport.height}
 	bind:this={stageCSSTarget}
-	class:has-hover={hover != null}
-	class:editable
+	aria-readonly={!editable}
+	class:hovered={hover != null}
+	data-hover-over-selection={hover === WithinSelection}
+	data-hover-side={hover instanceof HoveredItem ? hover.side : undefined}
+	style:--cross-axis-scroll="{scrollTop}px"
 >
-	<Background {scrollTop} itemDimensions={item} {viewport} />
-	<div style="display: flex;flex-direction: row;">
-		<div class="timeline-item" bind:this={pointElements.base}></div>
-		<div class="timeline-item" bind:this={pointElements.nextCol}></div>
-		<div
-			class="timeline-item selected"
-			bind:this={pointElements.selected}
-		></div>
-		<div
-			class="timeline-item focused"
-			bind:this={pointElements.focused}
-		></div>
-	</div>
-	<div class="timeline-item" bind:this={pointElements.nextRow}></div>
-	<div
-		class="bottom-right-padding-measure"
-		bind:offsetWidth={innerWidth}
-		bind:offsetHeight={innerHeight}
-	></div>
-	<SelectionArea area={selection?.area} />
+	<Background />
+	<Padding
+		onOffsetChange={(box) => {
+			viewport.padding.top = box.top;
+			viewport.padding.left = box.left;
+			viewport.padding.right = box.right;
+			viewport.padding.bottom = box.bottom;
+		}}
+	/>
+	<SelectionArea area={selectionArea} />
+	<SelectedBounds
+		dragging={dragPreview != null}
+		bounds={selectedBounds}
+		selectedItemCount={selection.length()}
+	/>
 	<canvas
 		bind:this={canvas}
 		tabindex={0}
@@ -1094,28 +1057,22 @@
 					dispatch("scrollX", scale.toValue(10));
 					break;
 				case "ArrowUp":
-					scrollTop = Math.max(0, scrollTop - 10);
+					scrollVertically(scrollTop - 10);
 					break;
 				case "ArrowDown":
-					scrollTop = Math.min(
-						scrollHeight - viewport.height,
-						scrollTop + 10,
-					);
+					scrollVertically(scrollTop + 10);
 					break;
 				case "PageUp":
-					scrollTop = Math.max(0, scrollTop - viewport.height);
+					scrollVertically(scrollTop - viewport.height);
 					break;
 				case "PageDown":
-					scrollTop = Math.min(
-						scrollHeight - viewport.height,
-						scrollTop + viewport.height,
-					);
+					scrollVertically(scrollTop + viewport.height);
 					break;
 				case "Home":
-					scrollTop = 0;
+					scrollVertically(0);
 					break;
 				case "End":
-					scrollTop = scrollHeight - viewport.height;
+					scrollVertically(maxScrollTop);
 					break;
 				case "Tab":
 					if (focusNextItem(event.shiftKey)) {
@@ -1126,168 +1083,116 @@
 			}
 		}}
 	></canvas>
-	<SelectedBounds
-		dragging={dragPreview != null}
-		bounds={selection.bounds}
-		selectedItemCount={selection.selectedItems.size ?? 0}
-		onmousedown={prepareDragSelection}
-		onmouseup={(e) => {
-			if (e.button === 2) {
-				oncontextmenu(
-					e,
-					Array.from(selection.selectedItems.values()).map(
-						(it) => it.layoutItem.item,
-					),
-				);
-			}
-		}}
-		onwheel={handleScroll}
-	/>
-	{#if hover != null && display != null}
+	{#if hover instanceof HoveredItem}
 		<Hover
-			{display}
 			position={hover.element}
-			name={hover.element.layoutItem.item.name()}
-			value={hover.element.layoutItem.item.value()}
+			summary={summarizeItem(hover.element.item)}
 		/>
 	{/if}
-	{#if dragPreview != null && display != null && dragPreview.getCount() === 1}
-		<DraggedItem
-			{display}
-			position={dragPreview.at(0)}
-			name={dragPreview.at(0).item.name()}
-			value={dragPreview.at(0).value}
-		/>
+	{#if dragPreview != null}
+		{@const itemPreview = dragPreview.singleOrNull()}
+		{#if itemPreview !== null}
+			<DraggedItem
+				position={itemPreview}
+				summary={previewItem(
+					itemPreview.base.item,
+					itemPreview.base.name(),
+					itemPreview.value,
+					itemPreview.length,
+					itemPreview.value + itemPreview.length,
+				)}
+			/>
+		{/if}
 	{/if}
 	{#if focus != null}
-		<FocusedItem focus={focus.element} />
+		{@const element = focus.element}
+		{#if element !== null}
+			<FocusedItem focus={element} />
+		{/if}
 	{/if}
-	<Scrollbar
-		style={`height: ${scrollbarHeight}px;`}
-		orientation={"horizontal"}
-		controls={"stage"}
-		tabindex={sortedItems.length}
-		value={hScrollValue}
-		visibleAmount={visibleHAmount}
-		min={minHScrollValue}
-		max={maxHScrollValue}
-		on:change={handleHScroll}
-		on:dragstart={() => {
+	<Scrollbars
+		bind:this={scrollbars}
+		tabIndex={timelineItems.length}
+		{id}
+		{scrollHeight}
+		{scrollTop}
+		minLeftOffset={scrolled.items[0]?.offsetLeft ?? 0}
+		maxRightOffset={scrolled.items[scrolled.items.length - 1]
+			?.offsetRight ?? 0}
+		onVScroll={handleVScroll}
+		onHScroll={handleHScroll}
+		onThumbDragStart={() => {
 			scrollbarDragging = true;
 		}}
-		on:dragend={() => {
+		onThumbDragEnd={() => {
 			scrollbarDragging = false;
 		}}
 	/>
-	<Scrollbar
-		style={`width: ${scrollbarWidth}px;`}
-		orientation={"vertical"}
-		controls={"stage"}
-		tabindex={sortedItems.length + 1}
-		value={scrollTop}
-		visibleAmount={visibleVAmount}
-		min={0}
-		max={scrollHeight}
-		on:change={handleVScroll}
-		on:dragstart={() => {
-			scrollbarDragging = true;
-		}}
-		on:dragend={() => {
-			scrollbarDragging = false;
-		}}
+
+	<!-- CSS getters -->
+	<CssProp name="--item-margin-top" bind:value={itemStyle.margin.top} />
+	<CssProp name="--item-margin-left" bind:value={itemStyle.margin.left} />
+	<CssProp name="--item-margin-bottom" bind:value={itemStyle.margin.bottom} />
+	<CssProp name="--item-margin-right" bind:value={itemStyle.margin.right} />
+	<CssProp name="--item-size" bind:value={itemStyle.size} />
+	<CssProp name="--item-radius" bind:value={itemStyle.radius} />
+	<CssColorProp name="--item-color" bind:value={itemStyle.color} />
+	<CssProp
+		name="--selected-item-border-width"
+		bind:value={itemStyle.selected.borderWidth}
+	/>
+	<CssColorProp
+		name="--selected-item-color"
+		bind:value={itemStyle.selected.color}
+	/>
+	<CssColorProp
+		name="--selected-item-border-color"
+		bind:value={itemStyle.selected.borderColor}
 	/>
 </div>
-<div
-	bind:clientHeight={scrollbarMeasurerInnerHeight}
-	bind:clientWidth={scrollbarMeasurerInnerWidth}
-	bind:offsetHeight={scrollbarMeasurerFullHeight}
-	bind:offsetWidth={scrollbarMeasurerFullWidth}
-	class="scrollbar-style-measurer"
-></div>
 
 <style>
-	@property --timeline-item-color {
-		syntax: "<color>";
-		initial-value: grey;
-		inherits: true;
-	}
-	@property --timeline-item-size {
-		syntax: "<length>";
-		initial-value: 16px;
-		inherits: true;
-	}
-	@property --timeline-item-margin {
-		syntax: "<length>";
-		initial-value: 4px;
-		inherits: true;
+	div {
+		--item-v-margin: max(var(--item-margin-top), var(--item-margin-bottom));
+		--item-cross-axis-spacing: calc(
+			var(--item-size) + var(--item-v-margin)
+		);
 	}
 
-	:global(.timeline-item) {
-		background-color: var(--timeline-item-color);
-		margin: var(--timeline-item-margin, 4px);
-	}
+	div {
+		padding-top: var(--padding-top, 8px);
+		padding-left: var(--padding-left, 8px);
+		padding-bottom: var(--padding-bottom, 8px);
+		padding-right: var(--padding-right, 48px);
 
-	:global(.timeline-item.selected) {
-		background-color: var(--timeline-background);
-		border-color: var(--timeline-item-border-hover);
-		border-width: 1px;
-		border-style: solid;
-	}
-
-	div#stage {
-		--timeline-item-diameter: var(--timeline-item-size);
+		--timeline-item-diameter: var(--item-size);
 		--timeline-item-radius: calc(var(--timeline-item-diameter) / 2);
 
 		flex-grow: 1;
 		position: relative;
-		padding: var(--timeline-padding);
 		overflow: hidden;
 		--scrollbar-width: var(--size-4-1);
 	}
-	div#stage.has-hover {
+	div.hovered:not([data-hover-over-selection="true"]) {
 		cursor: pointer;
+	}
+	div.hovered[data-hover-side="left"]:not([aria-readonly="true"]) {
+		cursor: e-resize;
+	}
+	div.hovered[data-hover-side="right"]:not([aria-readonly="true"]) {
+		cursor: w-resize;
+	}
+	div:not(
+			[aria-readonly="true"]
+		).hovered[data-hover-over-selection="true"]:not(
+			[data-hover-side="middle"]
+		) {
+		cursor: grab;
 	}
 
 	canvas {
 		position: absolute;
 		top: 0;
 		left: 0;
-	}
-	div#stage .timeline-item {
-		visibility: hidden !important;
-		width: var(--timeline-item-diameter);
-		height: var(--timeline-item-diameter);
-	}
-	div#stage .bottom-right-padding-measure {
-		width: 1005;
-		height: 100%;
-		visibility: hidden !important;
-		pointer-events: none;
-		bottom: 0;
-		right: 0;
-	}
-
-	.scrollbar-style-measurer {
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100px;
-		height: 100px;
-		overflow: scroll;
-		visibility: hidden;
-	}
-
-	div#stage :global([role="scrollbar"]) {
-		position: absolute;
-	}
-	div#stage :global([role="scrollbar"][aria-orientation="horizontal"]) {
-		bottom: 0;
-		left: 0;
-		width: 100%;
-	}
-	div#stage :global([role="scrollbar"][aria-orientation="vertical"]) {
-		top: 0;
-		right: 0;
-		height: 100%;
 	}
 </style>

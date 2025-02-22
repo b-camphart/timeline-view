@@ -6,12 +6,13 @@ type Tooltip = {
 	label: string;
 
 	elementPosition?: (rect: DOMRect) => { x: number; y: number };
+	mod?: "mod-top" | "mod-right" | "mod-left";
 	className?: string;
 	styles?: Partial<CSSStyleDeclaration>;
 };
 export function hoverTooltip(element: HTMLElement, args: Tooltip) {
 	const tooltip = document.createElement("div");
-	tooltip.className = "tooltip " + args.className;
+	tooltip.className = "tooltip " + args.className + " " + (args.mod || "");
 
 	tooltip.innerText = args.label;
 
@@ -19,17 +20,32 @@ export function hoverTooltip(element: HTMLElement, args: Tooltip) {
 	tooltipArrow.className = "tooltip-arrow";
 	tooltip.appendChild(tooltipArrow);
 
-	function position({ elementPosition, styles }: Tooltip) {
+	function position({
+		elementPosition = hoverTooltip.center,
+		mod,
+		styles,
+	}: Tooltip) {
 		const clientBounds = element.getBoundingClientRect();
 
-		const relativePosition = (elementPosition ?? hoverTooltip.center)(
-			clientBounds,
-		);
+		const relativePosition = elementPosition(clientBounds);
+
+		const deltaX =
+			mod === "mod-left"
+				? -tooltipArrow.offsetWidth
+				: mod === "mod-right"
+					? tooltipArrow.offsetWidth
+					: 0;
+		const deltaY =
+			mod === "mod-top"
+				? -tooltipArrow.offsetHeight
+				: mod === undefined
+					? tooltipArrow.offsetHeight
+					: 0;
 
 		tooltip.setCssStyles({
 			...styles,
-			top: `${relativePosition.y}px`,
-			left: `${relativePosition.x}px`,
+			top: `${relativePosition.y + deltaY}px`,
+			left: `${relativePosition.x + deltaX}px`,
 		});
 	}
 
@@ -51,8 +67,8 @@ export function hoverTooltip(element: HTMLElement, args: Tooltip) {
 			if (tooltipArrow.parentElement !== tooltip) {
 				tooltip.appendChild(tooltipArrow);
 			}
-			tooltip.className = "tooltip " + args.className;
-			position(args);
+			tooltip.className =
+				"tooltip " + args.className + " " + (args.mod || "");
 			observer.disconnect();
 			observer = new MutationObserver(() => position(args));
 			observer.observe(element, { attributes: true });
@@ -64,6 +80,7 @@ export function hoverTooltip(element: HTMLElement, args: Tooltip) {
 			) {
 				tooltip.remove();
 			}
+			position(args);
 		},
 	};
 }

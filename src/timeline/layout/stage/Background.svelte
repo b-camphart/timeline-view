@@ -1,66 +1,52 @@
-<script lang="ts">
-	
-
-	interface Props {
-		scrollTop: number;
-		itemDimensions: Readonly<{
-			height: number;
-			margin: Readonly<{
-				vertical: number;
-			}>;
-		}>;
-		viewport: Readonly<{
-			padding: Readonly<{
-				top: number;
-			}>;
-		}>;
-	}
-
-	let { scrollTop, itemDimensions, viewport }: Props = $props();
-
-	let spacingBetweenItems =
-		$derived(itemDimensions.height + itemDimensions.margin.vertical);
-	let rowCenterOffset = $derived(spacingBetweenItems / 2 + viewport.padding.top + 0.5);
-
-	const backgroundPatternId = Math.random().toString(36).slice(2);
-</script>
-
-<svg class="stage-background">
-	<pattern
-		id={backgroundPatternId}
-		patternUnits="userSpaceOnUse"
-		x={0}
-		y={-scrollTop}
-		height={spacingBetweenItems * 2}
-		width="100%"
-	>
-		<line x1="0" y1={rowCenterOffset} x2={"100%"} y2={rowCenterOffset} />
-	</pattern>
-	<rect
-		x="0"
-		y="0"
-		width="100%"
-		height="100%"
-		fill="url(#{backgroundPatternId})"
-	/>
-</svg>
+<div class="timeline-view--plotarea-background"></div>
 
 <style>
-	svg {
+	div {
+		pointer-events: none;
 		position: absolute;
 		top: 0;
 		left: 0;
-		width: 100%;
-		height: 100%;
-		pointer-events: none;
+		right: 0;
+		bottom: 0;
 	}
-	svg line {
-		stroke-width: 1px;
-	}
+	.timeline-view--plotarea-background {
+		/** draw horizontal lines */
+		--line-color: var(--background-line-color);
+		--line-width: var(--background-line-width);
+		--gap: var(--item-cross-axis-spacing);
 
-	/* Exposed for overriding in obsidian */
+		background: linear-gradient(
+			var(--line-color),
+			var(--line-color) var(--line-width),
+			transparent var(--line-width),
+			transparent
+		);
+		background-size: 100% var(--gap);
 
-	:global(.stage-background line) {
-		stroke: var(--color-base-30);
+		/** prevents lines from appearing above items in the plot area */
+		--start-y: calc(var(--item-size) / 2);
+		--top-offset: calc(
+			var(--padding-top) + var(--item-margin-top) -
+				var(--cross-axis-scroll)
+		);
+		--top: max(0px, var(--top-offset));
+		top: var(--top);
+		background-position-y: calc(
+			var(--start-y) + var(--top-offset) - var(--top)
+		);
+
+		/** create dashes by masking out horizontal lines with repeating vertical lines */
+		--dash-on: var(--background-line-dash-on);
+		--dash-off: var(--background-line-dash-off);
+
+		mask-image: repeating-linear-gradient(
+			to right,
+			white,
+			white var(--dash-on),
+			transparent var(--dash-on),
+			transparent
+		);
+		--dash-full: calc(var(--dash-on) + var(--dash-off));
+		mask-size: var(--dash-full) 100%;
 	}
 </style>

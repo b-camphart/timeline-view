@@ -4,13 +4,12 @@
 	import ActionButton from "./inputs/ActionButton.svelte";
 	import LucideIcon from "src/obsidian/view/LucideIcon.svelte";
 
-	
 	interface Props {
 		name: string;
 		class?: string;
 		tabindex?: number;
 		collapsed?: boolean;
-		children?: import('svelte').Snippet;
+		children?: import("svelte").Snippet;
 	}
 
 	let {
@@ -18,7 +17,7 @@
 		class: className = "",
 		tabindex = 0,
 		collapsed = $bindable(true),
-		children
+		children,
 	}: Props = $props();
 
 	function toggleCollapse() {
@@ -26,10 +25,11 @@
 	}
 </script>
 
-<section class="collapsable{collapsed ? ' collapsed' : ''} {className}">
+<section class="collapsable {className}" class:is-collapsed={collapsed}>
 	<ActionButton
 		on:action={toggleCollapse}
 		{tabindex}
+		aria-expanded={!collapsed}
 		class="header clickable-icon collapse-icon {collapsed
 			? 'is-collapsed'
 			: ''}"

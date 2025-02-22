@@ -1,34 +1,50 @@
-<script lang="ts">
+<script lang="ts" generics="T extends TimelineItemSource">
 	import { type TimelineNavigation } from "./controls/TimelineNavigation";
-	import { type TimelineItem } from "./Timeline";
-	import { writable as makeWritable, writable } from "svelte/store";
+	import { writable as makeWritable } from "svelte/store";
 	import { timelineNavigation } from "./controls/TimelineNavigation";
-	import TimelineRuler from "./layout/ruler/TimelineRuler.svelte";
+	import TimelineRuler from "src/timeline/ruler/TimelineRuler.svelte";
 	import type { NamespacedWritableFactory } from "./Persistence";
 	import CanvasStage from "./layout/stage/CanvasStage.svelte";
 	import type { TimelineViewModel } from "./viewModel";
 	import { ValuePerPixelScale, type Scale } from "./scale";
 	import TimelineNavigationControls from "./controls/TimelineNavigationControls.svelte";
 	import TimelineSettings from "./controls/settings/TimelineSettings.svelte";
-	import type { RulerValueDisplay } from "src/timeline/Timeline";
-	import type { TimelineGroups } from "src/timeline/group/groups";
-	import TimelineGroupsList from "src/timeline/group/TimelineGroupsList.svelte";
-	import { type ComponentProps, mount, unmount } from "svelte";
-	import { SortedArray } from "src/utils/collections";
+	import { type Groups as TimelineGroups } from "src/timeline/group/TimelineGroupsList.svelte";
+	import { mount, type Snippet, unmount, untrack } from "svelte";
 	import TimelineGroupsSettingsSection from "src/timeline/group/TimelineGroupsSettingsSection.svelte";
 	import { ObservableCollapsable } from "src/view/collapsable";
 	import LucideIcon from "src/obsidian/view/LucideIcon.svelte";
 	import ActionButton from "src/view/inputs/ActionButton.svelte";
 	import TimelineInteractionsHelp from "./TimelineInteractionsHelp.svelte";
+	import {
+		timelineItem,
+		type TimelineItem,
+		type TimelineItemSource,
+	} from "src/timeline/item/TimelineItem.svelte";
+	import Controls from "src/timeline/controls/Controls.svelte";
+	import ControlGroup from "src/timeline/controls/ControlGroup.svelte";
+	import { controlItem } from "src/timeline/controls/ControlItem.svelte";
+	import type { DisplayType } from "src/timeline/ruler/labels";
 
-	interface $$Props {
+	type Item = T;
+
+	interface Props {
 		namespacedWritable: NamespacedWritableFactory<TimelineViewModel>;
 		groups: TimelineGroups;
-		groupEvents: Omit<ComponentProps<typeof TimelineGroupsList>, "groups">;
-		display: RulerValueDisplay;
+		rulerDisplayType: DisplayType;
 		controlBindings: {};
 
-		items: SortedArray<TimelineItem>;
+		items: ReadonlyArray<Item>;
+		selectValue(item: Item): number;
+		selectLength(item: Item): number;
+
+		summarizeItem: (item: Item) => string;
+		previewItem: (
+			name: string,
+			value: number,
+			length: number,
+			endValue: number,
+		) => string;
 		pendingGroupUpdates: number;
 		openDialog(
 			callback: (modal: {
@@ -39,30 +55,52 @@
 			}) => () => void,
 		): void;
 
-		onPreviewNewItemValue(item: TimelineItem, value: number): number;
-		onMoveItem(item: TimelineItem, value: number): boolean;
-		oncontextmenu?(e: MouseEvent, items: TimelineItem[]): void;
+		onPreviewNewItemValue(item: Item, value: number): number;
+		itemsResizable: boolean;
+		onItemsResized(
+			resized: {
+				item: Item;
+				value: number;
+				length: number;
+				endValue: number;
+			}[],
+		): Promise<void>;
+		onSelected(item: Item, causedBy: Event): void;
+		onFocused(item: Item): void;
+		onCreate(value: number, cause: Event): void;
+		oncontextmenu?(e: MouseEvent, items: Item[]): void;
+		additionalSettings: Snippet<[]>;
 	}
 
-	export let namespacedWritable: $$Props["namespacedWritable"];
-	export let groups: $$Props["groups"];
-	export let groupEvents: $$Props["groupEvents"];
-	export let display: $$Props["display"];
-	export let controlBindings: $$Props["controlBindings"];
+	const {
+		namespacedWritable,
+		groups,
+		rulerDisplayType,
+
+		items: inputItems,
+		selectValue,
+		selectLength,
+		previewItem,
+		summarizeItem,
+		pendingGroupUpdates,
+		openDialog,
+
+		onPreviewNewItemValue,
+		itemsResizable,
+		onItemsResized,
+		oncontextmenu,
+		onSelected,
+		onFocused,
+		onCreate,
+
+		additionalSettings,
+	}: Props = $props();
 
 	const focalValue = namespacedWritable.make("focalValue", 0);
 	const persistedValuePerPixel = namespacedWritable.make("scale", 1);
 
-	export let items: $$Props["items"];
-	export let pendingGroupUpdates: $$Props["pendingGroupUpdates"];
-	export let openDialog: $$Props["openDialog"];
-
-	export let onPreviewNewItemValue: $$Props["onPreviewNewItemValue"];
-	export let onMoveItem: $$Props["onMoveItem"];
-	export let oncontextmenu: $$Props["oncontextmenu"] = () => {};
-
-	const stageWidth = writable(0);
-	let stageClientWidth = 0;
+	let plotarea = $state<null | CanvasStage<T, TimelineItem<T>>>(null);
+	const fitBounds = $derived(plotarea?.fitBounds());
 
 	function scaleStore(initialScale: Scale = new ValuePerPixelScale(1)) {
 		function atLeastMinimum(value: Scale) {
@@ -87,14 +125,86 @@
 		};
 	}
 
-	const scale = scaleStore(new ValuePerPixelScale($persistedValuePerPixel));
-	$: $scale = new ValuePerPixelScale($persistedValuePerPixel);
+	const timelineItems = $derived(inputItems.map(timelineItem));
+	const valued = $derived.by(() => {
+		const items = timelineItems;
+		const valueOf = selectValue;
+		const lengthOf = selectLength;
 
-	const navigation: TimelineNavigation = timelineNavigation(
+		items.forEach((it) => {
+			let value = valueOf(it.source);
+			let length = lengthOf(it.source);
+			if (length < 0) {
+				value = value + length;
+				length = -length;
+			}
+			untrack(() => {
+				it.setStartValue(value);
+				it.setLength(length);
+			});
+		});
+
+		return {
+			items: items,
+			_: Math.random(),
+		};
+	});
+	async function resizeItems(
+		detail: {
+			item: TimelineItem<T>;
+			value: number;
+			length: number;
+			endValue: number;
+		}[],
+	) {
+		await onItemsResized(
+			detail.map((it) => {
+				let value = it.value;
+				let length = it.length;
+				let endValue = it.endValue;
+
+				const currentLength = selectLength(it.item.source);
+
+				if (currentLength < 0) {
+					length = -length;
+					value = endValue;
+					endValue = it.value;
+				}
+
+				return {
+					item: it.item.source,
+					value,
+					length,
+					endValue,
+				};
+			}),
+		);
+		detail.forEach((it) => it.item.setStartValue(it.value));
+		detail.forEach((it) => it.item.setLength(it.length));
+	}
+
+	const sorted = $derived.by(() => {
+		return {
+			items: valued.items.sort((a, b) => {
+				const deltaV = a.startValue() - b.startValue();
+				if (deltaV !== 0) return deltaV;
+				// larger lengths first
+				return b.length() - a.length();
+			}),
+			_: Math.random(),
+		};
+	});
+
+	const scale = scaleStore(new ValuePerPixelScale($persistedValuePerPixel));
+	$effect(() => {
+		$scale = new ValuePerPixelScale($persistedValuePerPixel);
+	});
+
+	const navigation: TimelineNavigation<T> = timelineNavigation(
 		scale,
 		{
 			get() {
-				return items;
+				return sorted.items;
 			},
 		},
 		(updater) => {
@@ -103,56 +213,52 @@
 				$focalValue = newFocalValue;
 			}
 		},
-		() => $stageWidth,
+		() => fitBounds!,
 	);
 
-	export function zoomToFit(items?: SortedArray<TimelineItem>) {
+	let needsZoomToFit = $state(false);
+	export function zoomToFit() {
 		if (initialized) {
-			navigation.zoomToFit(items, $stageWidth);
+			navigation.zoomToFit(timelineItems, fitBounds);
 		} else {
-			const unsubscribe = stageWidth.subscribe((newStageWidth) => {
-				if (newStageWidth > 0) {
-					navigation.zoomToFit(items, newStageWidth);
-					unsubscribe();
-				}
-			});
+			needsZoomToFit = true;
 		}
 	}
 
+	$effect(() => {
+		if (needsZoomToFit && fitBounds == null) {
+			needsZoomToFit = false;
+			navigation.zoomToFit(timelineItems, fitBounds);
+		}
+	});
+
 	export function refresh() {
-		items = items;
+		// items = items;
 	}
 
-	export function focusOnItem(item: TimelineItem) {
-		canvasStage.focusOnItem(item);
+	export function focusOnId(id: string) {
+		plotarea?.focusOnId(id);
 	}
 
-	let canvasStage: CanvasStage;
 	export function invalidateColors() {
-		canvasStage.invalidateColors();
+		// canvasStage.invalidateColors();
 	}
 
 	let initialized = false;
-	$: if (!initialized) {
-		if ($stageWidth > 0) {
-			initialized = true;
-		}
-	}
-
-	function moveItems(
-		event: CustomEvent<{ item: TimelineItem; value: number }[]>,
-	) {
-		event.detail.forEach(({ item, value }) => {
-			if (!onMoveItem(item, value)) {
-				return;
+	$effect(() => {
+		if (!initialized) {
+			if (fitBounds != null) {
+				initialized = true;
 			}
-			item.value = () => value;
-		});
-		items = new SortedArray((item) => item.value(), ...items);
-	}
+		}
+	});
 
-	let rulerHeight = 0;
-	$: mode = namespacedWritable?.make("mode", "edit");
+	let ruler = $state<TimelineRuler>();
+	export function minRulerStep() {
+		return ruler?.minValueStep() ?? 0;
+	}
+	let rulerHeight = $state(0);
+	const mode = namespacedWritable?.make("mode", "edit");
 
 	const settingsOpen = namespacedWritable
 		.namespace("settings")
@@ -166,12 +272,6 @@
 		.namespace("settings")
 		.namespace("groups")
 		.make("collapsed", true);
-	const groupsSectionCollapable = new ObservableCollapsable(
-		$groupsSectionCollapsed,
-	);
-	groupsSectionCollapable.onChange = () => {
-		$groupsSectionCollapsed = groupsSectionCollapable.isCollapsed();
-	};
 
 	function openHelpDialog() {
 		openDialog((modal) => {
@@ -188,131 +288,104 @@
 </script>
 
 <div
-	class="timeline"
+	class="timeline-view--timeline"
 	style:--ruler-height="{rulerHeight}px"
-	style:--stage-client-width="{stageClientWidth}px"
+	style:--plotarea-client-width="{plotarea?.clientWidth() ?? 0}px"
 >
 	<TimelineRuler
-		{display}
+		bind:this={ruler}
+		displayType={rulerDisplayType}
 		scale={$scale}
 		focalValue={$focalValue}
 		bind:clientHeight={rulerHeight}
 	/>
+
 	<CanvasStage
-		bind:this={canvasStage}
-		{display}
-		sortedItems={items}
+		bind:this={plotarea}
+		previewItem={(item, name, value, length, endValue) => {
+			const currentLength = selectLength(item.source);
+
+			if (currentLength < 0) {
+				return previewItem(name, endValue, -length, value);
+			}
+			return previewItem(name, value, length, endValue);
+		}}
+		summarizeItem={(it) => summarizeItem(it.source)}
+		sortedItems={sorted.items}
 		scale={$scale}
 		focalValue={$focalValue}
-		bind:width={$stageWidth}
-		bind:clientWidth={stageClientWidth}
 		editable={mode != null ? $mode === "edit" : false}
+		{itemsResizable}
 		on:scrollToValue={(event) => navigation.scrollToValue(event.detail)}
 		on:scrollX={({ detail }) =>
 			navigation.scrollToValue($focalValue + detail)}
 		on:zoomIn={({ detail }) => navigation.zoomIn(detail)}
 		on:zoomOut={({ detail }) => navigation.zoomOut(detail)}
-		on:select
-		on:focus
-		on:create
-		on:moveItems={moveItems}
-		{onPreviewNewItemValue}
-		{oncontextmenu}
+		on:select={({ detail }) =>
+			onSelected(detail.item.source, detail.causedBy)}
+		on:focus={({ detail }) => onFocused(detail.source)}
+		on:create={({ detail }) => onCreate(detail.value, detail.cause)}
+		onItemsChanged={resizeItems}
+		onPreviewNewItemValue={(item, value) =>
+			onPreviewNewItemValue(item.source, value)}
+		oncontextmenu={!oncontextmenu
+			? undefined
+			: (e, items) => {
+					oncontextmenu(
+						e,
+						items.map((it) => it.source),
+					);
+				}}
 	/>
-	<menu class="timeline-controls">
+	<Controls>
 		<TimelineNavigationControls {navigation} />
 		<TimelineSettings collapsable={settingsCollapable}>
-			<slot name="additional-settings" />
+			{@render additionalSettings()}
 			<TimelineGroupsSettingsSection
-				collapsable={groupsSectionCollapable}
+				bind:collapsed={$groupsSectionCollapsed}
 				{groups}
 				{pendingGroupUpdates}
-				{...groupEvents}
 			/>
 		</TimelineSettings>
-		<div class="control-group">
+		<ControlGroup>
 			<ActionButton
-				class="clickable-icon control-item"
+				class="clickable-icon {controlItem}"
 				on:action={openHelpDialog}
 			>
 				<LucideIcon id="help" />
 			</ActionButton>
-		</div>
-	</menu>
+		</ControlGroup>
+	</Controls>
 </div>
 
 <style>
-	@property --timeline-background {
-		syntax: "<color>";
-		inherits: true;
-		initial-value: darkgrey;
+	.timeline-view--timeline :global(.timeline-view--ruler) {
+		--border-color: var(--ruler-border-color);
+		--border-width: var(--ruler-border-width);
 	}
 
-	:global(.timeline) {
-		background-color: var(--timeline-background);
+	.timeline-view--timeline :global(.timeline-view--ruler-label) {
+		--padding: var(--ruler-label-padding);
+		--font-size: var(--ruler-label-font-size);
+		--font-weight: var(--ruler-label-font-weight);
+		--border-color: var(--ruler-label-border-color);
+		--border-width: var(--ruler-label-border-width);
 	}
 
-	/*! Positioning */
-	:global(.timeline-controls) {
-		position: absolute;
-		top: var(--ruler-height);
-		margin-top: var(--size-4-2);
-		margin-right: var(--size-4-2);
-		right: calc(100% - var(--stage-client-width));
-	}
-	/*! Icon sizing */
-	:global(.timeline-controls) {
-		--icon-size: var(--icon-s);
-		--icon-stroke: var(--icon-s-stroke-width);
-	}
-	/*! Menu padding overrides  */
-	:global(menu.timeline-controls) {
-		padding: 0;
-	}
+	.timeline-view--timeline :global(.timeline-view--plotarea) {
+		--padding-top: var(--plotarea-padding-top);
+		--padding-left: var(--plotarea-padding-left);
+		--padding-bottom: var(--plotarea-padding-bottom);
+		--padding-right: var(--plotarea-padding-right);
 
-	/*! Internal layout */
-	:global(.timeline-controls) {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-4-2);
-		align-items: flex-end;
-	}
-	:global(.timeline-controls > *) {
-		margin: 0;
-	}
-
-	/*! Item styling */
-	:global(.timeline-controls > *) {
-		border-radius: var(--radius-s);
-		background-color: var(--timeline-settings-background);
-		border: 1px solid var(--background-modifier-border);
-		box-shadow: var(--input-shadow);
-		box-sizing: border-box;
-	}
-	:global(.timeline-controls > * > *) {
-		background-color: var(--timeline-settings-background);
+		--background-line-color: var(--plotarea-background-line-color);
+		--background-line-width: var(--plotarea-background-line-width);
+		--background-line-dash-on: var(--plotarea-background-line-dash-on);
+		--background-line-dash-off: var(--plotarea-background-line-dash-off);
 	}
 
 	:global(.timeline-settings-groups-section) {
 		position: relative;
-	}
-
-	.control-group :global(.control-item) {
-		padding: var(--timeline-settings-button-padding);
-	}
-
-	.control-group :global(button.control-item.clickable-icon) {
-		background-color: var(--interactive-normal);
-	}
-	.control-group :global(button.control-item.clickable-icon:hover) {
-		background-color: var(--interactive-normal);
-	}
-
-	div menu {
-		pointer-events: none;
-	}
-	div menu > :global(*) {
-		pointer-events: all;
 	}
 
 	div {

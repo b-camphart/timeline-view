@@ -57,7 +57,7 @@
 		scrollSpan === 0 ? 0 : (value - min) / scrollSpan,
 	);
 
-	let thumb: HTMLDivElement = $state();
+	let thumb: HTMLDivElement | undefined = $state();
 	let dragging = $state(false);
 	function onThumbMouseDown(e: MouseEvent) {
 		const startScreenX = e.screenX;
@@ -128,6 +128,7 @@
 	}
 
 	function onBarMouseDown(e: MouseEvent) {
+		if (thumb === undefined) return;
 		// increment the value by the visible amount, and do so while the mouse is down
 		// stop when the mouse is released, or the thumb is now under the mouse
 
@@ -144,6 +145,7 @@
 			: 1;
 
 		function incrementValue() {
+			if (thumb === undefined) return;
 			if (orientation === "horizontal") {
 				if (
 					thumb.offsetLeft <= startX &&
@@ -191,7 +193,7 @@
 <div
 	{...rest}
 	role="scrollbar"
-	class:unneeded={percent >= 0.99999999999}
+	aria-hidden={percent >= 0.99999999999}
 	aria-orientation={orientation}
 	aria-controls={controls}
 	aria-valuenow={value}
@@ -217,13 +219,13 @@
 </div>
 
 <style>
-	div[role="scrollbar"] {
+	[role="scrollbar"] {
 		background-color: var(--scrollbar-bg, transparent);
 	}
-	div[role="scrollbar"].unneeded {
+	[role="scrollbar"][aria-hidden="true"] {
 		visibility: hidden;
 	}
-	div[role="scrollbar"] .thumb {
+	[role="scrollbar"] .thumb {
 		position: absolute;
 
 		background-color: var(
@@ -236,25 +238,58 @@
 		border: 3px solid transparent;
 		border-width: 3px 3px 3px 3px;
 	}
-	div[role="scrollbar"] .thumb:hover,
-	div[role="scrollbar"] .thumb.dragging {
+	[role="scrollbar"] .thumb:hover,
+	[role="scrollbar"] .thumb.dragging {
 		background-color: var(
 			--scrollbar-active-thumb-bg,
 			var(--ui3, rbga(256, 256, 256, 0.4))
 		);
 	}
-	div[role="scrollbar"][aria-orientation="horizontal"] .thumb {
-		min-width: 45px;
-		height: 100%;
-		--thumb-width: calc(100% * var(--percent, 1));
-		width: var(--thumb-width);
-		left: calc(calc(100% - var(--thumb-width)) * var(--value, 0));
+
+	[role="scrollbar"][aria-orientation="horizontal"] {
+		height: var(--size);
 	}
-	div[role="scrollbar"][aria-orientation="vertical"] .thumb {
-		min-height: 45px;
+	[role="scrollbar"][aria-orientation="vertical"] {
+		width: var(--size);
+	}
+
+	[role="scrollbar"] .thumb {
+		--min-size: 45px;
+		--size: max(var(--min-size), calc(100% * var(--percent)));
+
+		--range: calc(100% - var(--size));
+		--position: calc(var(--range) * var(--value));
+	}
+
+	[role="scrollbar"][aria-orientation="horizontal"] .thumb {
+		height: 100%;
+
+		min-width: var(--min-size);
+		width: var(--size);
+		left: var(--position);
+	}
+	[role="scrollbar"][aria-orientation="vertical"] .thumb {
 		width: 100%;
-		--thumb-height: calc(100% * var(--percent, 1));
-		height: var(--thumb-height);
-		top: calc(calc(100% - var(--thumb-height)) * var(--value, 0));
+
+		min-height: var(--min-size);
+		height: var(--size);
+
+		top: var(--position);
+	}
+	:global(
+			*:has(
+					[role="scrollbar"][aria-orientation="horizontal"][aria-hidden="false"]
+				)
+		)
+		[role="scrollbar"][aria-orientation="vertical"][aria-hidden="false"] {
+		height: calc(100% - var(--size));
+	}
+	:global(
+			*:has(
+					[role="scrollbar"][aria-orientation="vertical"][aria-hidden="false"]
+				)
+		)
+		[role="scrollbar"][aria-orientation="horizontal"][aria-hidden="false"] {
+		width: calc(100% - var(--size));
 	}
 </style>

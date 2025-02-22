@@ -1,10 +1,10 @@
-import type {FileManager, MetadataCache, TFile, Vault} from "obsidian";
-import type {Note} from "src/note";
-import type {MutableNoteRepository} from "src/note/repository";
-import {EmtpyFilter, parse, type FileFilter} from "obsidian-search";
-import type {NoteFilter} from "src/note/filter";
-import {truncate} from "src/utils/number";
-import {exists} from "src/utils/null";
+import type { FileManager, MetadataCache, TFile, Vault } from "obsidian";
+import type { Note } from "src/note";
+import type { MutableNoteRepository } from "src/note/repository";
+import { EmtpyFilter, parse, type FileFilter } from "obsidian-search";
+import type { NoteFilter } from "src/note/filter";
+import { truncate } from "src/utils/number";
+import { exists } from "src/utils/null";
 
 export class ObsidianNoteRepository implements MutableNoteRepository {
 	#vault;
@@ -37,7 +37,7 @@ export class ObsidianNoteRepository implements MutableNoteRepository {
 			mtime: truncate(note.modified),
 		});
 		if (note.properties) {
-			this.#files.processFrontMatter(tFile, frontmatter => {
+			await this.#files.processFrontMatter(tFile, (frontmatter) => {
 				Object.assign(frontmatter, note.properties);
 			});
 		}
@@ -49,7 +49,7 @@ export class ObsidianNoteRepository implements MutableNoteRepository {
 		modification: {
 			created?: number;
 			modified?: number;
-			property?: {[name: string]: unknown};
+			properties?: { [name: string]: unknown };
 		},
 	) {
 		const tFile = this.getFileFromNote(note);
@@ -69,10 +69,10 @@ export class ObsidianNoteRepository implements MutableNoteRepository {
 				},
 			);
 		}
-		if (modification.property != null) {
-			const property = modification.property;
-			await this.#files.processFrontMatter(tFile, frontmatter => {
-				for (const [key, value] of Object.entries(property)) {
+		if (modification.properties != null) {
+			const properties = modification.properties;
+			await this.#files.processFrontMatter(tFile, (frontmatter) => {
+				for (const [key, value] of Object.entries(properties)) {
 					frontmatter[key] = value;
 				}
 			});

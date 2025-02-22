@@ -3,33 +3,19 @@
 	import type { OffsetBox } from "./TimelineItemElement";
 
 	interface Props {
-		bounds: OffsetBox | undefined | null;
+		bounds: OffsetBox | null;
 		selectedItemCount: number;
 		dragging: boolean;
-		onmousedown?: (event: MouseEvent) => void;
-		onmouseup?: (event: MouseEvent) => void;
-		onwheel?: (event: WheelEvent) => void;
 	}
 
-	let {
-		bounds,
-		selectedItemCount,
-		dragging,
-		onmousedown,
-		onmouseup,
-		onwheel,
-	}: Props = $props();
+	let { bounds, selectedItemCount, dragging }: Props = $props();
 </script>
 
 {#if bounds != null && selectedItemCount > 1}
 	<CanvasSelectionArea
-		class="selected {dragging && 'dragging'}"
 		area={bounds}
-		{onmousedown}
-		{onmouseup}
-		{onwheel}
-		role="gridcell"
-		tabindex={0}
+		role="region"
+		label="{selectedItemCount} items selected"
 	/>
 {/if}
 

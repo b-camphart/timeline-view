@@ -1,15 +1,17 @@
 {
 	"name": "timeline-view",
-	"version": "1.3.2",
+	"version": "1.4.0",
 	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
 	"main": "main.js",
 	"scripts": {
 		"check": "svelte-check",
-		"dev": "vite build --mode development --watch",
 		"test:unit": "vitest --config ./test/vitest.config.ts",
+		"bench:unit": "vitest bench --config ./test/vitest.config.ts",
 		"test:view": "node component_tests",
 		"dev:component": "vite -c component_tests/vite.config.js",
-		"build": "npm run obsidian:version && vite build && git add styles.css versions.json manifest.json",
+		"build:dev": "tsx build.ts dev",
+		"build:preview": "tsx build.ts preview",
+		"build": "pnpm obsidian:version && tsx build.ts",
 		"obsidian:version": "tsx src/obsidian/plugin/version-bump.ts && git add src/obsidian/plugin/versions.ts"
 	},
 	"type": "module",
@@ -24,10 +26,11 @@
 		"@sveltejs/vite-plugin-svelte": "latest",
 		"@tsconfig/svelte": "latest",
 		"@types/node": "latest",
-		"@typescript-eslint/eslint-plugin": "^8.22.0",
-		"@typescript-eslint/parser": "^8.22.0",
+		"@typescript-eslint/eslint-plugin": "^8.24.1",
+		"@typescript-eslint/parser": "^8.24.1",
 		"builtin-modules": "latest",
 		"esbuild": "latest",
+		"hot-reload": "github:pjeby/hot-reload",
 		"obsidian": "latest",
 		"svelte": "latest",
 		"svelte-check": "latest",
@@ -37,5 +40,8 @@
 		"typescript": "latest",
 		"vite": "latest",
 		"vitest": "latest"
+	},
+	"peerDependencies": {
+		"obsidian-style-settings": "mgmeyers/obsidian-style-settings"
 	}
 }

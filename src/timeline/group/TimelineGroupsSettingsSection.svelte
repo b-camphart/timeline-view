@@ -2,55 +2,24 @@
 	import { run } from "svelte/legacy";
 
 	import LucideIcon from "src/obsidian/view/LucideIcon.svelte";
-	import type { TimelineGroups } from "src/timeline/group/groups";
-	import TimelineGroupsList from "src/timeline/group/TimelineGroupsList.svelte";
+	import TimelineGroupsList, {
+		type Groups as TimelineGroups,
+	} from "src/timeline/group/TimelineGroupsList.svelte";
 	import type { Collapsable } from "src/view/collapsable";
 	import CollapsableSection from "src/view/CollapsableSection.svelte";
-	import type { ComponentProps } from "svelte";
-
-	type TimelineGroupsListProps = ComponentProps<typeof TimelineGroupsList>;
 
 	interface Props {
-		collapsable: Collapsable;
+		/** @bindable */
+		collapsed: boolean;
 		pendingGroupUpdates: number;
 		groups: TimelineGroups;
-		onGroupAppended?: TimelineGroupsListProps["onGroupAppended"];
-		onGroupsReordered?: TimelineGroupsListProps["onGroupsReordered"];
-		onGroupRemoved?: TimelineGroupsListProps["onGroupRemoved"];
-		onGroupColored?: TimelineGroupsListProps["onGroupColored"];
-		onGroupQueried?: TimelineGroupsListProps["onGroupQueried"];
 	}
 
 	let {
-		collapsable,
+		collapsed = $bindable(),
 		pendingGroupUpdates,
 		groups,
-		onGroupAppended = undefined,
-		onGroupsReordered = undefined,
-		onGroupRemoved = undefined,
-		onGroupColored = undefined,
-		onGroupQueried = undefined,
 	}: Props = $props();
-
-	let collapsed = $state(collapsable.isCollapsed());
-	function onCollapsableChanged(collapsable: Props["collapsable"]) {
-		collapsed = collapsable.isCollapsed();
-	}
-	function onCollapsedChanged(collapsed: boolean) {
-		if (collapsed) {
-			collapsable.collapse();
-		} else {
-			collapsable.expand();
-		}
-		collapsed = collapsable.isCollapsed();
-	}
-
-	run(() => {
-		onCollapsableChanged(collapsable);
-	});
-	run(() => {
-		onCollapsedChanged(collapsed);
-	});
 </script>
 
 <CollapsableSection
@@ -68,14 +37,7 @@
 			{pendingGroupUpdates.toLocaleString()} pending
 		</span>
 	{/if}
-	<TimelineGroupsList
-		{groups}
-		{onGroupAppended}
-		{onGroupsReordered}
-		{onGroupRemoved}
-		{onGroupColored}
-		{onGroupQueried}
-	/>
+	<TimelineGroupsList {groups} />
 </CollapsableSection>
 
 <style>

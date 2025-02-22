@@ -17,8 +17,8 @@ export async function createNewTimeline(
 	const firstNote = includedNotes.at(0);
 	const lastNote = includedNotes.at(-1);
 
-	const minValue = firstNote ? order.selectValueFromNote(firstNote) : 0;
-	const maxValue = lastNote ? order.selectValueFromNote(lastNote) : minValue;
+	const minValue = firstNote ? order.selectValueFromNote(firstNote) ?? 0 : 0;
+	const maxValue = lastNote ? order.selectValueFromNote(lastNote) ?? minValue : minValue;
 
 	const range = maxValue - minValue;
 

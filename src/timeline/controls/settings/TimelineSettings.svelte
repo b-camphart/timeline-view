@@ -10,6 +10,7 @@
 	import ActionButton from "../../../view/inputs/ActionButton.svelte";
 	import LucideIcon from "src/obsidian/view/LucideIcon.svelte";
 	import type { Collapsable } from "src/view/collapsable";
+	import ControlGroup from "src/timeline/controls/ControlGroup.svelte";
 
 	interface Props {
 		collapsable: Collapsable;
@@ -39,81 +40,84 @@
 	});
 </script>
 
-<form
-	class="timeline-settings control-group{isOpen ? ' open' : ' closed'}"
-	onsubmit={stopPropagation(preventDefault(bubble("submit")))}
->
-	{#if !isOpen}
-		<ActionButton
-			id="toggle-button"
-			class="open-button clickable-icon"
-			aria-label="Open"
-			data-tooltip-position="left"
-			on:action={() => (isOpen = true)}
-		>
-			<LucideIcon id="settings" />
-		</ActionButton>
-	{:else}
-		<ActionButton
-			id="toggle-button"
-			class="close-button clickable-icon"
-			aria-label="Close"
-			data-tooltip-position="left"
-			on:action={() => (isOpen = false)}
-		>
-			<LucideIcon id="x" />
-		</ActionButton>
-	{/if}
-	{@render children?.()}
-	<!-- <TimelineDisplaySettings
+<ControlGroup>
+	<details open={isOpen} class="timeline-view--timeline-settings">
+		<summary>
+			{#if !isOpen}
+				<ActionButton
+					class="toggle-button open-button clickable-icon"
+					aria-label="Settings"
+					data-tooltip-position="left"
+					on:action={() => (isOpen = true)}
+				>
+					<LucideIcon id="settings" />
+				</ActionButton>
+			{:else}
+				<ActionButton
+					class="toggle-button close-button clickable-icon"
+					aria-label="Close"
+					data-tooltip-position="left"
+					on:action={() => (isOpen = false)}
+				>
+					<LucideIcon id="x" />
+				</ActionButton>
+			{/if}
+		</summary>
+		<form onsubmit={stopPropagation(preventDefault(bubble("submit")))}>
+			{@render children?.()}
+		</form>
+		<!-- <TimelineDisplaySettings
 		namespacedWritable={namespacedWritable.namespace("display")}
 	/>
 	<CollapsableSection name="Layout">
 		<span>Coming Soon!</span>
 	</CollapsableSection> -->
-</form>
+	</details>
+</ControlGroup>
 
 <style>
-	.timeline-settings {
+	.timeline-view--timeline-settings[open] {
 		width: var(--timeline-settings-width);
 	}
-	.timeline-settings.closed {
+	.timeline-view--timeline-settings:not([open]) {
 		width: auto;
 	}
-	form.closed > :global(*:not(#toggle-button)) {
-		display: none;
+
+	details.timeline-view--timeline-settings summary {
+		list-style: none;
 	}
 
-	.timeline-settings {
+	.timeline-view--timeline-settings {
 		position: relative;
 	}
-	.timeline-settings.open :global(#toggle-button) {
+	.timeline-view--timeline-settings[open] :global(.toggle-button) {
 		position: absolute;
 		top: 0;
 		right: 0;
 		z-index: 1;
 	}
 
-	.timeline-settings :global(button#toggle-button) {
+	.timeline-view--timeline-settings :global(.toggle-button) {
 		padding: var(--timeline-settings-button-padding);
 		border-bottom: 1px solid var(--background-modifier-border);
 	}
-	.timeline-settings.open :global(#toggle-button) {
-		border: none;
-	}
-	.timeline-settings.closed :global(#toggle-button) {
-		background-color: var(--interactive-normal);
-	}
-	.timeline-settings :global(#toggle-button):hover {
+	.timeline-view--timeline-settings :global(.toggle-button):hover {
 		background-color: var(--interactive-hover);
 	}
 
-	.timeline-settings :global(section.collapsable) {
+	.timeline-view--timeline-settings[open] :global(.toggle-button) {
+		border: none;
+	}
+	.timeline-view--timeline-settings:not([open]) :global(.toggle-button) {
+		background-color: var(--interactive-normal);
+	}
+
+	.timeline-view--timeline-settings :global(section.collapsable) {
 		padding: var(--size-2-3) var(--size-4-3);
 		border-bottom: 1px solid var(--background-modifier-border);
 	}
 
-	.timeline-settings :global(section.collapsable .header) {
+	.timeline-view--timeline-settings :global(section.collapsable .header) {
 		color: var(--text-normal);
 		font-weight: var(--font-semibold);
 		font-size: var(--font-ui-small);
@@ -125,16 +129,17 @@
 		gap: var(--size-2-3);
 		margin-block-end: var(--size-2-1);
 	}
-	.timeline-settings
+	.timeline-view--timeline-settings
 		:global(section.collapsable .header.clickable-icon):hover {
 		background-color: var(--timeline-settings-background);
 		color: var(--text-normal);
 	}
-	.timeline-settings :global(section.collapsable .header .svg-icon) {
+	.timeline-view--timeline-settings
+		:global(section.collapsable .header .svg-icon) {
 		margin-inline-start: calc(-1 * var(--size-2-3));
 	}
 
-	.timeline-settings :global(section.collapsable .content) {
+	.timeline-view--timeline-settings :global(section.collapsable .content) {
 		padding-block: var(
 			--nav-item-children-padding-start,
 			var(--nav-item-children-padding-left)

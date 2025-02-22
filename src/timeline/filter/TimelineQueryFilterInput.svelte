@@ -1,14 +1,15 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
+	import { run } from "svelte/legacy";
 
 	import ObsidianSearchInput from "src/obsidian/view/ObsidianSearchInput.svelte";
 	import type { QueryFilterReaderWriter } from "src/timeline/filter/query";
 
 	interface Props {
 		filter: QueryFilterReaderWriter;
+		filtering?: boolean;
 	}
 
-	let { filter }: Props = $props();
+	let { filter, filtering = false }: Props = $props();
 
 	let query: string = $state(filter.query());
 	run(() => {
@@ -19,4 +20,8 @@
 	});
 </script>
 
-<ObsidianSearchInput placeholder="Search files..." bind:value={query} />
+<ObsidianSearchInput
+	placeholder="Search files..."
+	bind:value={query}
+	isLoading={filtering || undefined}
+/>

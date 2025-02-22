@@ -1,0 +1,50 @@
+/* @settings
+
+name: Timeline View
+id: timeline-view
+settings:
+    -
+        id: timeline-view--item-color
+        title: Item color
+        description: "The default color for an item if it doesn't belong to a group"
+        type: variable-themed-color
+        format: hex
+        default-dark: '#'
+        default-light: '#'
+    -
+        id: timeline-view--item-size
+        title: Item size
+        type: variable-number
+        default: 16
+        format: px
+    -
+        id: timeline-view--item-radius
+        title: Item radius
+        description: "How rounded should the items be.  Defaults to half the item size."
+        type: variable-number
+        default: 8
+        format: px
+    -
+        id: timeline-view--selected-item-color
+        title: Selected item color
+        description: "By default, selected items retain their color.  If the opacity is less than 1, the item's group color will show through."
+        type: variable-themed-color
+        format: hex
+        opacity: true
+        default-dark: '#0000'
+        default-light: '#fff0'
+    -
+        id: timeline-view--selected-item-border-width
+        title: Selected item border width
+        type: variable-number
+        default: 3
+        format: px
+    -
+        id: timeline-view--selected-item-border-color
+        title: Selected item border color
+        type: variable-themed-color
+        format: rgb
+        default-dark: '#'
+        default-light: '#'
+
+*/
