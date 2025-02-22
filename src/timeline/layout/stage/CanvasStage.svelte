@@ -1046,7 +1046,6 @@
 		bind:this={canvas}
 		tabindex={0}
 		onwheelcapture={(e) => {
-			console.log("wheel", e);
 			e.stopPropagation();
 			handleScroll(e);
 		}}
