@@ -260,7 +260,7 @@
 
 		currentItems.forEach((it) => {
 			const prefColor = it.color();
-			if (selection.has(it)) {
+			if (selection.hasId(it.id)) {
 				it.backgroundColor = selectedItemColor.blend(
 					prefColor ?? itemColor,
 				);
@@ -491,7 +491,7 @@
 			return;
 		}
 		mouseDownOn = hover.element;
-		if (!selection.has(mouseDownOn)) {
+		if (!selection.hasId(mouseDownOn.id)) {
 			if (shouldExtendSelection(event)) {
 				selection.addAll([mouseDownOn]);
 			} else {
@@ -508,7 +508,7 @@
 
 	function prepareDragSelection(event: MouseEvent) {
 		if (selection.isEmpty()) return false;
-		const selectedItems = selection.items();
+		const selectedItems = selection.items(items);
 
 		const startViewportBounds = stageCSSTarget!.getBoundingClientRect();
 
@@ -591,7 +591,7 @@
 		pureResize: boolean,
 	) {
 		if (!editable || selection.isEmpty()) return;
-		const selectedItems = selection.items();
+		const selectedItems = selection.items(items);
 
 		const startMouseValue =
 			focalValue -
@@ -664,22 +664,7 @@
 
 	let selectionArea = $state<null | OffsetBox>(null);
 	const selection = new Selection<Item>();
-	$effect(() => {
-		if (selection.length() === 0) return;
-		if (selection.length() === 1) {
-			const selectedItem = selection.items()[0];
-			if (!items.includes(selectedItem)) {
-				selection.clear();
-			}
-			return;
-		}
-		const ids = new Set(items.map((it) => it.id));
-		for (const item of selection.items()) {
-			if (!ids.has(item.id)) {
-				selection.remove(item);
-			}
-		}
-	});
+	$effect(() => selection.updateItems(items));
 	const selectedBounds = $derived.by(() => {
 		if (selection.length() <= 1) return null;
 		let offsetRight = -Infinity;
@@ -691,10 +676,7 @@
 			offsetHeight: 0,
 		};
 
-		// update when items are scrolled
-		scrolled.items;
-
-		for (const item of selection) {
+		for (const item of selection.items(scrolled.items)) {
 			bounds.offsetLeft = Math.min(bounds.offsetLeft, item.offsetLeft);
 			bounds.offsetTop = Math.min(bounds.offsetTop, item.offsetTop);
 			offsetRight = Math.max(offsetRight, item.offsetRight);
@@ -804,7 +786,7 @@
 			) {
 				oncontextmenu(
 					event,
-					selection.items().map((it) => it.item),
+					selection.items(items).map((it) => it.item),
 				);
 				return;
 			}
