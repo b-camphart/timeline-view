@@ -9,7 +9,6 @@
 		type OffsetBox,
 	} from "src/timeline/layout/stage/TimelineItemElement";
 	import { type Scale } from "src/timeline/scale";
-	import Scrollbar from "src/view/controls/Scrollbar.svelte";
 	import type { ChangeEvent } from "src/view/controls/Scrollbar";
 	import Hover from "./Hover.svelte";
 	import FocusedItem from "./FocusedItem.svelte";
@@ -396,9 +395,9 @@
 				selectedItem.hide();
 				return new DragPreviewElement(
 					selectedItem,
-					selectedItem.item.value(),
+					selectedItem.item.startValue(),
 					selectedItem.item.length(),
-					selectedItem.item.value() + selectedItem.item.length(),
+					selectedItem.item.startValue() + selectedItem.item.length(),
 					selectedItem.offsetLeft + selectedItem.minSize / 2,
 					selectedItem.backgroundColor,
 					selectedItem.borderColor,
@@ -629,7 +628,8 @@
 				dragPreview.forEach((previewItem) => {
 					const selectedItem = previewItem.base;
 
-					previewItem.value = selectedItem.item.value() + deltaValue;
+					previewItem.value =
+						selectedItem.item.startValue() + deltaValue;
 					previewItem.length =
 						previewItem.endValue - previewItem.value;
 
@@ -898,9 +898,9 @@
 	}
 	function horizontalScrollToFocusItem(element: Item) {
 		if (element.offsetLeft < 0) {
-			dispatch("scrollToValue", element.item.value());
+			dispatch("scrollToValue", element.item.startValue());
 		} else if (element.offsetRight > viewport.width) {
-			dispatch("scrollToValue", element.item.value());
+			dispatch("scrollToValue", element.item.startValue());
 		}
 	}
 	function focusOn(element: Item, index: number, skipEvent: boolean = false) {

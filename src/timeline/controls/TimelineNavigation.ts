@@ -32,7 +32,7 @@ class TimelineNavigationSvelteImpl<T extends TimelineItemSource>
 		private scaleProperty: Vetoable<Scale>,
 		private items: { get(): Iterable<TimelineItem<T>> },
 		private setFocalValue: Writable<number>["update"],
-		private fitBounds: () => FitBounds,
+		private fitBounds: () => FitBounds
 	) {
 		this.scale = new ValuePerPixelScale(1);
 		scaleProperty.subscribe((newValue) => {
@@ -53,7 +53,7 @@ class TimelineNavigationSvelteImpl<T extends TimelineItemSource>
 		}
 
 		const newScale = this.scaleProperty.set(
-			new ValuePerPixelScale(multiple * Math.pow(10, orderOfMagnitude)),
+			new ValuePerPixelScale(multiple * Math.pow(10, orderOfMagnitude))
 		);
 		if (constraints != null) {
 			const { keepValue, at } = constraints;
@@ -74,7 +74,7 @@ class TimelineNavigationSvelteImpl<T extends TimelineItemSource>
 		}
 
 		const newScale = this.scaleProperty.set(
-			new ValuePerPixelScale(multiple * Math.pow(10, orderOfMagnitude)),
+			new ValuePerPixelScale(multiple * Math.pow(10, orderOfMagnitude))
 		);
 		if (constraints != null) {
 			const { keepValue, at } = constraints;
@@ -84,7 +84,7 @@ class TimelineNavigationSvelteImpl<T extends TimelineItemSource>
 
 	zoomToFit(
 		items: Iterable<TimelineItem<T>> = this.items.get(),
-		within: FitBounds = this.fitBounds(),
+		within: FitBounds = this.fitBounds()
 	) {
 		const [scale, centerValue] = zoomToFit(items, within);
 		this.scaleProperty.set(scale);
@@ -103,7 +103,7 @@ class TimelineNavigationSvelteImpl<T extends TimelineItemSource>
 	private minimumValue(items = this.items.get()) {
 		let minimumValue: number | undefined;
 		for (const item of items) {
-			const itemValue = item.value();
+			const itemValue = item.startValue();
 			if (minimumValue === undefined || itemValue < minimumValue) {
 				minimumValue = itemValue;
 			}
@@ -117,7 +117,7 @@ class TimelineNavigationSvelteImpl<T extends TimelineItemSource>
 	private maximumValue(items = this.items.get()) {
 		let maximumValue: number | undefined;
 		for (const item of items) {
-			const itemValue = item.value();
+			const itemValue = item.startValue();
 			if (maximumValue === undefined || itemValue > maximumValue) {
 				maximumValue = itemValue;
 			}
@@ -148,12 +148,12 @@ export function timelineNavigation<T extends TimelineItemSource>(
 	scale: Vetoable<Scale>,
 	items: { get(): Iterable<TimelineItem<T>> },
 	focalValue: Writable<number>["update"],
-	fitBounds: () => FitBounds,
+	fitBounds: () => FitBounds
 ): TimelineNavigation<T> {
 	return new TimelineNavigationSvelteImpl(
 		scale,
 		items,
 		focalValue,
-		fitBounds,
+		fitBounds
 	);
 }

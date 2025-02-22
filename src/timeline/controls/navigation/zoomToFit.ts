@@ -16,8 +16,8 @@ export interface FitBounds {
 }
 
 export function zoomToFit(
-	items: Iterable<{ value(): number; length(): number }>,
-	within: FitBounds,
+	items: Iterable<{ startValue(): number; length(): number }>,
+	within: FitBounds
 ): [scale: ValuePerPixelScale, centerValue: number] {
 	const minimum = minValue(items);
 	const maximum = maxValue(items);
@@ -43,10 +43,10 @@ export function zoomToFit(
 	return [scale, midValue + offset];
 }
 
-function minValue(items: Iterable<{ value(): number }>) {
+function minValue(items: Iterable<{ startValue(): number }>) {
 	let minimumValue = Number.POSITIVE_INFINITY;
 	for (const item of items) {
-		const itemValue = item.value();
+		const itemValue = item.startValue();
 		if (itemValue < minimumValue) {
 			minimumValue = itemValue;
 		}
@@ -57,10 +57,10 @@ function minValue(items: Iterable<{ value(): number }>) {
 	return minimumValue;
 }
 
-function maxValue(items: Iterable<{ value(): number; length(): number }>) {
+function maxValue(items: Iterable<{ startValue(): number; length(): number }>) {
 	let maximumValue = Number.NEGATIVE_INFINITY;
 	for (const item of items) {
-		let endValue = item.value() + item.length();
+		let endValue = item.startValue() + item.length();
 		if (endValue > maximumValue) {
 			maximumValue = endValue;
 		}

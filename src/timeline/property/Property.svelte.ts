@@ -1,9 +1,5 @@
 import type { Reactive } from "src/svelte/reactive";
 import { DisplayType } from "src/timeline/ruler/labels";
-import {
-	timelineDateValueDisplay,
-	timelineNumericValueDisplay,
-} from "src/timeline/Timeline";
 import { untrack } from "svelte";
 
 const enum Type {

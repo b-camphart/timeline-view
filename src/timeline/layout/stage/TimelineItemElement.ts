@@ -1,5 +1,3 @@
-import type { TimelineItem } from "src/timeline/Timeline";
-
 export interface OffsetBox {
 	readonly offsetTop: number;
 	readonly offsetLeft: number;
@@ -39,45 +37,18 @@ export function boxContainsPoint(box: OffsetBox, x: number, y: number) {
 	);
 }
 
-export class TimelineLayoutItem {
-	constructor(
-		public item: TimelineItem,
-		public centerX: number = 0,
-		public centerY: number = 0,
-		public width: number = 0,
-		public height: number = 0,
-		public radius: number = 0,
-	) {}
-
-	left() {
-		return this.centerX - this.radius;
-	}
-
-	right() {
-		return this.centerX + this.radius;
-	}
-
-	top() {
-		return this.centerY - this.radius;
-	}
-
-	bottom() {
-		return this.centerY + this.radius;
-	}
-}
-
 export class TimelineItemElementStyle {
 	constructor(
 		public fill: string,
 		public stroke: string,
-		public strokeWidth: number,
+		public strokeWidth: number
 	) {}
 
 	static fromCSS(css: CSSStyleDeclaration) {
 		return new TimelineItemElementStyle(
 			css.backgroundColor,
 			css.borderColor,
-			parseFloat(css.borderWidth),
+			parseFloat(css.borderWidth)
 		);
 	}
 

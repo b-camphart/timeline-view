@@ -9,7 +9,6 @@
 	import { ValuePerPixelScale, type Scale } from "./scale";
 	import TimelineNavigationControls from "./controls/TimelineNavigationControls.svelte";
 	import TimelineSettings from "./controls/settings/TimelineSettings.svelte";
-	import type { RulerValueDisplay } from "src/timeline/Timeline";
 	import { type Groups as TimelineGroups } from "src/timeline/group/TimelineGroupsList.svelte";
 	import { mount, type Snippet, unmount, untrack } from "svelte";
 	import TimelineGroupsSettingsSection from "src/timeline/group/TimelineGroupsSettingsSection.svelte";
@@ -140,7 +139,7 @@
 				length = -length;
 			}
 			untrack(() => {
-				it.setValue(value);
+				it.setStartValue(value);
 				it.setLength(length);
 			});
 		});
@@ -180,13 +179,18 @@
 				};
 			}),
 		);
-		detail.forEach((it) => it.item.setValue(it.value));
+		detail.forEach((it) => it.item.setStartValue(it.value));
 		detail.forEach((it) => it.item.setLength(it.length));
 	}
 
 	const sorted = $derived.by(() => {
 		return {
-			items: valued.items.sort((a, b) => a.value() - b.value()),
+			items: valued.items.sort((a, b) => {
+				const deltaV = a.startValue() - b.startValue();
+				if (deltaV !== 0) return deltaV;
+				// larger lengths first
+				return b.length() - a.length();
+			}),
 			_: Math.random(),
 		};
 	});

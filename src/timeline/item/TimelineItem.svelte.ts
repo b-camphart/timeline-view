@@ -1,8 +1,8 @@
 type Reactive<T> = () => T;
 
-type Identified = {readonly id: string};
-type Named = {name: Reactive<string>};
-type Colored = {color: Reactive<string | undefined>};
+type Identified = { readonly id: string };
+type Named = { name: Reactive<string> };
+type Colored = { color: Reactive<string | undefined> };
 
 export type TimelineItemSource = Identified & Named & Colored;
 
@@ -20,12 +20,12 @@ class TimelineItem<T extends TimelineItemSource> {
 		return this.source.color();
 	}
 
-	#value: number = $state(0);
-	value() {
-		return this.#value;
+	#startValue: number = $state(0);
+	startValue() {
+		return this.#startValue;
 	}
-	setValue(value: number) {
-		this.#value = value;
+	setStartValue(startValue: number) {
+		this.#startValue = startValue;
 	}
 	#length: number = $state(0);
 	length() {
@@ -35,7 +35,7 @@ class TimelineItem<T extends TimelineItemSource> {
 		this.#length = length;
 	}
 }
-export {type TimelineItem};
+export { type TimelineItem };
 export function timelineItem<T extends TimelineItemSource>(source: T) {
 	return new TimelineItem<T>(source);
 }

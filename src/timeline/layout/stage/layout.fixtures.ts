@@ -16,7 +16,7 @@ export function padding(padding: Partial<{ top: number }> = {}) {
 }
 
 export function itemStyles(
-	styles: Partial<{ size: number; margin: ReturnType<typeof margin> }> = {},
+	styles: Partial<{ size: number; margin: ReturnType<typeof margin> }> = {}
 ) {
 	return {
 		width: styles.size ?? 0,
@@ -30,7 +30,7 @@ export function margin(
 		right: number;
 		bottom: number;
 		left: number;
-	}> = {},
+	}> = {}
 ) {
 	return {
 		top: margin.top ?? 0,
@@ -45,7 +45,7 @@ export function scale(valuePerPixel: number = 1) {
 }
 
 export function layoutItem(
-	item: Partial<{ valuePx: number; lengthPx: number }> = {},
+	item: Partial<{ valuePx: number; lengthPx: number }> = {}
 ): ScaledItem {
 	return {
 		valuePx: item.valuePx ?? 0,
@@ -61,7 +61,7 @@ export function plotAreaItem(
 		id: string;
 		name: string;
 		color: string | undefined;
-	}> = {},
+	}> = {}
 ) {
 	const id = params.id ?? Math.random().toString(36).slice(2);
 	const name = params.name ?? `Item ${id}`;
@@ -77,7 +77,7 @@ export function plotAreaItem(
 		name: () => source.name(),
 		color: () => source.color(),
 
-		value: () => params.value ?? 0,
+		startValue: () => params.value ?? 0,
 		length: () => params.length ?? 0,
 	});
 }

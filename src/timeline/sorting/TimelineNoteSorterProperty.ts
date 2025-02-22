@@ -19,7 +19,7 @@ type NumericNotePropertyType = (typeof NotePropertyTypes)[number];
 type NumericNoteProperty = NoteProperty<NumericNotePropertyType>;
 
 export function isNumericNoteProperty(
-	property: NoteProperty<string>,
+	property: NoteProperty<string>
 ): property is NumericNoteProperty {
 	return isNotePropertyOfType(NotePropertyTypes, property);
 }
@@ -64,18 +64,18 @@ export class NotePropertyValueSelector implements NumericNoteValueSelector {
 
 export class TimelineNoteSorterProperty implements NumericNoteValueSelector {
 	static fromNoteProperty(
-		noteProperty: NumericNoteProperty,
+		noteProperty: NumericNoteProperty
 	): TimelineNoteSorterProperty {
 		return new TimelineNoteSorterProperty(
 			noteProperty.name(),
 			timelineNoteSorterPropertyType(noteProperty.type()),
-			new NotePropertyValueSelector(noteProperty),
+			new NotePropertyValueSelector(noteProperty)
 		);
 	}
 
 	static update(
 		sorter: TimelineNoteSorterProperty,
-		noteProperty: NumericNoteProperty,
+		noteProperty: NumericNoteProperty
 	) {
 		if (
 			sorter === TimelineNoteSorterProperty.Created ||
@@ -90,7 +90,7 @@ export class TimelineNoteSorterProperty implements NumericNoteValueSelector {
 	constructor(
 		name: string,
 		type: TimelineNoteSorterPropertyType,
-		valueSelector: NumericNoteValueSelector,
+		valueSelector: NumericNoteValueSelector
 	) {
 		this.#name = name;
 		this.#type = type;
@@ -129,7 +129,7 @@ export class TimelineNoteSorterProperty implements NumericNoteValueSelector {
 			selectValueFromNote(note) {
 				return note.created();
 			},
-		},
+		}
 	);
 	static readonly Modified = new TimelineNoteSorterProperty(
 		"modified",
@@ -138,6 +138,6 @@ export class TimelineNoteSorterProperty implements NumericNoteValueSelector {
 			selectValueFromNote(note) {
 				return note.modified();
 			},
-		},
+		}
 	);
 }

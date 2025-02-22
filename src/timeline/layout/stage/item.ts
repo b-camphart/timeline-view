@@ -6,19 +6,19 @@ import type { Scale } from "src/timeline/scale";
 
 export type PlotAreaSourceItem<T extends TimelineItemSource> = Omit<
 	TimelineItem<T>,
-	"setValue" | "setLength"
+	"setStartValue" | "setLength"
 >;
 
 export class PlotAreaItem<
 	T extends TimelineItemSource,
-	S extends PlotAreaSourceItem<T>,
+	S extends PlotAreaSourceItem<T>
 > {
 	static #byItem = new WeakMap<
 		PlotAreaSourceItem<any>,
 		PlotAreaItem<any, any>
 	>();
 	static from<T extends TimelineItemSource, S extends PlotAreaSourceItem<T>>(
-		item: S,
+		item: S
 	): PlotAreaItem<T, S> {
 		const existingItem = PlotAreaItem.#byItem.get(item);
 		if (existingItem !== undefined) {
@@ -42,7 +42,7 @@ export class PlotAreaItem<
 		return this.item.source;
 	}
 	value() {
-		return this.item.value();
+		return this.item.startValue();
 	}
 	length() {
 		return this.item.length();
@@ -52,7 +52,7 @@ export class PlotAreaItem<
 	lengthPx = 0;
 	scale(scale: Scale) {
 		const item = this.item;
-		this.valuePx = scale.toPixels(item.value());
+		this.valuePx = scale.toPixels(item.startValue());
 		this.lengthPx = scale.toPixels(item.length());
 	}
 
@@ -68,7 +68,7 @@ export class PlotAreaItem<
 		right: number,
 		minSize: number,
 		width: number,
-		height: number,
+		height: number
 	) {
 		this.layoutTop = top;
 		this.layoutLeft = left;
