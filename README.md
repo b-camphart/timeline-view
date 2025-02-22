@@ -110,8 +110,8 @@ You can find details about the css variables and classes [here](/docs/Theme%20De
 -   [x] Filter based on obsidian query
 -   [x] Color groups based on obsidian query
 -   [x] [Create new note with property based on filter and position in timeline](https://github.com/b-camphart/plot-point-timeline/issues/4)
+-   [x] Duration/length and/or end property
 -   [ ] [Manual Vertical Positioning of Notes](https://github.com/b-camphart/plot-point-timeline/issues/1)
 -   [ ] [Vertical Layout](https://github.com/b-camphart/plot-point-timeline/issues/2)
 -   [ ] [Embeds?](https://github.com/b-camphart/plot-point-timeline/issues/6)
 -   [ ] [Mobile support](https://github.com/b-camphart/plot-point-timeline/issues/7)
--   [ ] Duration/length and/or end property
