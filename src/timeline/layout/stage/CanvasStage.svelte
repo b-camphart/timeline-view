@@ -33,6 +33,7 @@
 	import { OverlayColor } from "src/color";
 	import { scrollItems } from "src/timeline/layout/stage/scroll";
 	import Scrollbars from "src/timeline/layout/stage/Scrollbars.svelte";
+	import { PlotAreaHover } from "./hover.svelte";
 
 	type Item = PlotAreaItem<T, SourceItem>;
 
@@ -317,28 +318,6 @@
 	});
 
 	const elements = $derived(scrolled.items);
-	$effect(() => {
-		const currentHover = hover;
-		if (currentHover instanceof HoveredItem) {
-			const scrolledItems = scrolled.items;
-			if (
-				currentHover.element.offsetContains(
-					currentHover.pos[0],
-					currentHover.pos[1],
-				)
-			) {
-				return;
-			}
-			const hoveredItem = scrolledItems.find((it) =>
-				it.offsetContains(currentHover.pos[0], currentHover.pos[1]),
-			);
-			if (hoveredItem === undefined) {
-				hover = null;
-			} else {
-				currentHover.element = hoveredItem;
-			}
-		}
-	});
 
 	function handleScroll(event: WheelEvent) {
 		if (event.shiftKey) {
@@ -466,43 +445,37 @@
 
 	function handleMouseDown(event: MouseEvent) {
 		focusCausedByClick = true;
-
-		if (!(hover instanceof HoveredItem) || hover.element == null) {
-			focus = null;
-
-			if (
-				selectedBounds !== null &&
-				boxContainsPoint(selectedBounds, event.offsetX, event.offsetY)
-			) {
-				if (prepareDragSelection(event)) {
-					return;
+		const hovered = hover.hovered();
+		if (hovered !== null) {
+			if (event.button === 2) {
+				focusOn(hovered.item, hovered.index);
+				return;
+			}
+			mouseDownOn = hovered.item;
+			if (!selection.hasId(hovered.item.id)) {
+				if (shouldExtendSelection(event)) {
+					selection.addAll([hovered.item]);
+				} else {
+					selection.replaceWith([hovered.item]);
 				}
 			}
 
-			if (!shouldExtendSelection(event)) {
-				selection.clear();
-			}
-			prepareMultiSelectDraw(event);
-			return;
-		}
-		if (event.button === 2) {
-			focusOn(hover.element, elements.indexOf(hover.element));
-			return;
-		}
-		mouseDownOn = hover.element;
-		if (!selection.hasId(mouseDownOn.id)) {
-			if (shouldExtendSelection(event)) {
-				selection.addAll([mouseDownOn]);
+			if (hovered.side === "middle") {
+				prepareDragSelection(event);
 			} else {
-				selection.replaceWith([mouseDownOn]);
+				prepareResizeSelection(event, hovered.side === "right");
 			}
+			return;
 		}
-
-		if (hover.side === "middle") {
+		focus = null;
+		if (hover.inSelectedBounds()) {
 			prepareDragSelection(event);
-		} else {
-			prepareResizeSelection(event, hover.side === "right");
+			return;
 		}
+		if (!shouldExtendSelection(event)) {
+			selection.clear();
+		}
+		prepareMultiSelectDraw(event);
 	}
 
 	function prepareDragSelection(event: MouseEvent) {
@@ -778,22 +751,32 @@
 		window.addEventListener("mousemove", dragSelectionArea);
 	}
 
+	function releaseItemRightClick(item: Item, event: MouseEvent) {
+		oncontextmenu(event, [item.item]);
+	}
+
+	function releaseSelectedBoundsRightClick(
+		selectedItems: SourceItem[],
+		event: MouseEvent,
+	) {
+		oncontextmenu(event, selectedItems);
+	}
+
 	function handleMouseUp(event: MouseEvent) {
+		const hoveredItem = hover.hovered();
 		if (event.button === 2) {
 			if (
 				selectedBounds !== null &&
 				boxContainsPoint(selectedBounds, event.offsetX, event.offsetY)
 			) {
-				oncontextmenu(
-					event,
+				releaseSelectedBoundsRightClick(
 					selection.items(items).map((it) => it.item),
+					event,
 				);
 				return;
 			}
-			if (!(hover instanceof HoveredItem) || hover.element == null) {
-				return;
-			}
-			oncontextmenu(event, [hover.element.item]);
+			if (hoveredItem === null) return;
+			releaseItemRightClick(hoveredItem.item, event);
 			return;
 		}
 		if (mouseDownOn == null) {
@@ -801,20 +784,17 @@
 		}
 		const mouseWasDownOn = mouseDownOn;
 		mouseDownOn = null;
-		if (!(hover instanceof HoveredItem) || hover.element == null) {
-			return;
-		}
-		if (hover.element !== mouseWasDownOn) {
+		if (hoveredItem === null) return;
+		if (hoveredItem.item !== mouseWasDownOn) {
 			return;
 		}
 
 		focus = null;
-		const hoveredItem = hover.element.item;
-		hover = null;
+		hover.detectHover(event.offsetX, event.offsetY);
 
 		if (!shouldExtendSelection(event)) {
 			dispatch("select", {
-				item: hoveredItem,
+				item: hoveredItem.item.item,
 				causedBy: event,
 			});
 		}
@@ -824,7 +804,7 @@
 		if (!editable) {
 			return;
 		}
-		if (hover != null) {
+		if (hover.hovered() !== null) {
 			return;
 		}
 
@@ -862,9 +842,12 @@
 		}
 	}
 
-	const WithinSelection = Symbol();
-
-	let hover = $state<HoveredItem | typeof WithinSelection | null>(null);
+	const hover = new PlotAreaHover(
+		() => scrolled.items,
+		() => selectedBounds,
+		() => (scrollbarDragging ? {} : (dragPreview ?? selectionArea)),
+		() => itemStyle.size,
+	);
 
 	class Focus {
 		#id: string | null = null;
@@ -930,56 +913,7 @@
 		}
 	}
 
-	function handleMouseMove(event: MouseEvent) {
-		detectHover(event);
-	}
-
 	let scrollbarDragging = $state(false);
-	function detectHover(event: { offsetX: number; offsetY: number }) {
-		if (
-			!scrollbarDragging &&
-			dragPreview == null &&
-			selectionArea == null
-		) {
-			for (let i = 0; i < elements.length; i++) {
-				const element = elements[i];
-				if (element.offsetContains(event.offsetX, event.offsetY)) {
-					let side: "middle" | "left" | "right" = "middle";
-					if (itemsResizable) {
-						if (
-							event.offsetX <
-							element.offsetLeft + element.minSize / 4
-						) {
-							side = "left";
-						} else if (
-							event.offsetX >=
-							element.offsetRight - element.minSize / 4
-						) {
-							side = "right";
-						}
-					}
-					hover = new HoveredItem(element, side, [
-						event.offsetX,
-						event.offsetY,
-					]);
-					return;
-				}
-			}
-			if (selectedBounds != null) {
-				if (
-					boxContainsPoint(
-						selectedBounds,
-						event.offsetX,
-						event.offsetY,
-					)
-				) {
-					hover = WithinSelection;
-					return;
-				}
-			}
-		}
-		hover = null;
-	}
 
 	let scrollbars = $state<Scrollbars | null>(null);
 
@@ -1009,9 +943,9 @@
 	bind:offsetHeight={viewport.height}
 	bind:this={stageCSSTarget}
 	aria-readonly={!editable}
-	class:hovered={hover != null}
-	data-hover-over-selection={hover === WithinSelection}
-	data-hover-side={hover instanceof HoveredItem ? hover.side : undefined}
+	class:hovered={hover.hovered() !== null}
+	data-hover-over-selection={hover.inSelectedBounds()}
+	data-hover-side={hover.hovered()?.side}
 	style:--cross-axis-scroll="{scrollTop}px"
 >
 	<Background />
@@ -1036,8 +970,8 @@
 			e.stopPropagation();
 			handleScroll(e);
 		}}
-		onmouseleave={() => (hover = null)}
-		onmousemove={handleMouseMove}
+		onmouseleave={() => hover.clear()}
+		onmousemove={(e) => hover.detectHover(e.offsetX, e.offsetY)}
 		onmousedown={handleMouseDown}
 		onmouseup={handleMouseUp}
 		ondblclick={handleDblClick}
@@ -1083,10 +1017,11 @@
 			}
 		}}
 	></canvas>
-	{#if hover instanceof HoveredItem}
+	{#if hover.hovered() !== null}
+		{@const hovered = hover.hovered()!}
 		<Hover
-			position={hover.element}
-			summary={summarizeItem(hover.element.item)}
+			position={hovered.item}
+			summary={summarizeItem(hovered.item.item)}
 		/>
 	{/if}
 	{#if dragPreview != null}
