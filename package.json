@@ -3,6 +3,7 @@
 	"version": "1.4.0",
 	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
 	"main": "main.js",
+	"packageManager": "pnpm@10.5.1",
 	"scripts": {
 		"check": "svelte-check",
 		"test:unit": "vitest --config ./test/vitest.config.ts",
@@ -23,6 +24,8 @@
 		"obsidian-search": "0.1.1"
 	},
 	"devDependencies": {
+		"prettier": "^3.5.2",
+		"prettier-plugin-svelte": "^3.3.3",
 		"@sveltejs/vite-plugin-svelte": "latest",
 		"@tsconfig/svelte": "latest",
 		"@types/node": "latest",
@@ -39,9 +42,14 @@
 		"tsx": "latest",
 		"typescript": "latest",
 		"vite": "latest",
-		"vitest": "latest"
-	},
-	"peerDependencies": {
+		"vitest": "latest",
 		"obsidian-style-settings": "mgmeyers/obsidian-style-settings"
+	},
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"core-js",
+			"esbuild",
+			"svelte-preprocess"
+		]
 	}
 }
