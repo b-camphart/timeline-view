@@ -1007,21 +1007,25 @@
 		overflow: hidden;
 		--scrollbar-width: var(--size-4-1);
 	}
-	div.hovered:not([data-hover-over-selection="true"]) {
+
+	/** the default hovered cursor */
+	div.hovered {
 		cursor: pointer;
 	}
-	div.hovered[data-hover-side="left"]:not([aria-readonly="true"]) {
-		cursor: e-resize;
-	}
-	div.hovered[data-hover-side="right"]:not([aria-readonly="true"]) {
-		cursor: w-resize;
-	}
-	div:not(
-			[aria-readonly="true"]
-		).hovered[data-hover-over-selection="true"]:not(
-			[data-hover-side="middle"]
-		) {
-		cursor: grab;
+	/** hovered cursors for editable timeline */
+	div:not([aria-readonly="true"]).hovered {
+		&[data-hover-over-selection="true"] {
+			cursor: grab;
+		}
+		&[data-hover-side="left"] {
+			cursor: e-resize;
+		}
+		&[data-hover-side="right"] {
+			cursor: w-resize;
+		}
+		&[data-hover-side="middle"] {
+			cursor: pointer;
+		}
 	}
 
 	canvas {
