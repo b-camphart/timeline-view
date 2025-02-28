@@ -1,21 +1,17 @@
 <script lang="ts">
-	interface Props {
-		focus: {
-			offsetTop: number;
-			offsetLeft: number;
-			offsetWidth: number;
-		};
-	}
+	import type { OffsetBox } from "./TimelineItemElement";
 
-	let { focus }: Props = $props();
+	const { focused }: { focused: OffsetBox | null } = $props();
 </script>
 
-<div
-	class="timeline-item focus"
-	style:--top="{focus.offsetTop}px"
-	style:--left="{focus.offsetLeft}px"
-	style:--width="{focus.offsetWidth}px"
-></div>
+{#if focused !== null}
+	<div
+		class="timeline-item focus"
+		style:--top="{focused.offsetTop}px"
+		style:--left="{focused.offsetLeft}px"
+		style:--width="{focused.offsetWidth}px"
+	></div>
+{/if}
 
 <style>
 	:global(.timeline-item.focus) {

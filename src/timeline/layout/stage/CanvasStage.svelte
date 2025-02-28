@@ -11,7 +11,6 @@
 	import { type Scale } from "src/timeline/scale";
 	import type { ChangeEvent } from "src/view/controls/Scrollbar";
 	import Hover from "./Hover.svelte";
-	import FocusedItem from "./FocusedItem.svelte";
 	import { Platform } from "obsidian";
 	import SelectionArea from "./CanvasSelectionArea.svelte";
 	import SelectedBounds from "./SelectedBounds.svelte";
@@ -34,6 +33,8 @@
 	import { scrollItems } from "src/timeline/layout/stage/scroll";
 	import Scrollbars from "src/timeline/layout/stage/Scrollbars.svelte";
 	import { PlotAreaHover } from "./hover.svelte";
+	import { PlotAreaFocus } from "./focus.svelte";
+	import Focus from "./Focus.svelte";
 
 	type Item = PlotAreaItem<T, SourceItem>;
 
@@ -160,27 +161,6 @@
 			_: Math.random(),
 		};
 	});
-	$effect(() => {
-		const currentFocus = focus;
-		if (
-			currentFocus != null &&
-			(currentFocus.index >= items.length ||
-				items.find((it) => it.id === currentFocus.id) === undefined)
-		) {
-			if (currentFocus.index >= items.length) {
-				focus = null;
-				return;
-			}
-			const index = items.findIndex((it) => it.id === currentFocus.id);
-			if (index === -1) {
-				focus = null;
-				return;
-			}
-			if (index !== currentFocus.index) {
-				currentFocus.index = index;
-			}
-		}
-	});
 
 	const layout = $derived.by(() => {
 		const plotAreaItems = scaled.items;
@@ -198,15 +178,6 @@
 			(it) => (max = Math.max(max, it.layoutBottom + layoutPadding)),
 		);
 		return max;
-	});
-	$effect(() => {
-		const currentFocus = focus;
-		if (currentFocus !== null) {
-			const element = layout.items[currentFocus.index];
-			if (element == null) return;
-			verticalScrollToFocusItem(element);
-			horizontalScrollToFocusItem(element);
-		}
 	});
 	const maxScrollTop = $derived(Math.max(0, scrollHeight - viewport.height));
 	let scrollTop = $state(0);
@@ -444,11 +415,10 @@
 	}
 
 	function handleMouseDown(event: MouseEvent) {
-		focusCausedByClick = true;
+		focus.mousePressed();
 		const hovered = hover.hovered();
 		if (hovered !== null) {
 			if (event.button === 2) {
-				focusOn(hovered.item, hovered.index);
 				return;
 			}
 			mouseDownOn = hovered.item;
@@ -467,7 +437,6 @@
 			}
 			return;
 		}
-		focus = null;
 		if (hover.inSelectedBounds()) {
 			prepareDragSelection(event);
 			return;
@@ -763,6 +732,7 @@
 	}
 
 	function handleMouseUp(event: MouseEvent) {
+		focus.mouseReleased(event);
 		const hoveredItem = hover.hovered();
 		if (event.button === 2) {
 			if (
@@ -789,7 +759,6 @@
 			return;
 		}
 
-		focus = null;
 		hover.detectHover(event.offsetX, event.offsetY);
 
 		if (!shouldExtendSelection(event)) {
@@ -815,56 +784,24 @@
 		dispatch("create", { value, cause: event });
 	}
 
-	class HoveredItem {
-		#element: Item = $state(undefined as any as Item);
-		get element() {
-			// update when items scroll
-			scrolled.items;
-			return this.#element;
-		}
-		set element(element: Item) {
-			this.#element = element;
-		}
-		side: "middle" | "left" | "right";
-		/**
-		 * keeps track of the moues position that caused the hover so it can
-		 * be checked again when the timeline is scaled/scrolled
-		 */
-		pos: [number, number];
-		constructor(
-			element: Item,
-			side: "middle" | "left" | "right",
-			pos: [number, number],
-		) {
-			this.element = element;
-			this.side = side;
-			this.pos = pos;
-		}
-	}
-
 	const hover = new PlotAreaHover(
 		() => scrolled.items,
 		() => selectedBounds,
 		() => (scrollbarDragging ? {} : (dragPreview ?? selectionArea)),
 		() => itemStyle.size,
 	);
-
-	class Focus {
-		#id: string | null = null;
-		get id() {
-			return this.#id;
-		}
-		/** updates when items scroll */
-		get element(): Item | null {
-			return scrolled.items[this.index] ?? null;
-		}
-		index: number = $state(-1);
-		constructor(index: number, element: Item) {
-			this.index = index;
-			this.#id = element.id;
-		}
-	}
-	let focus: Focus | null = $state(null);
+	const focus = new PlotAreaFocus(
+		{
+			hoveredItem: () => hover.hovered(),
+			items: () => scrolled.items,
+			scrollIntoView(item) {
+				verticalScrollToFocusItem(item);
+				horizontalScrollToFocusItem(item);
+			},
+		},
+		(item, _index) => dispatch("focus", item.item),
+	);
+	$effect(() => focus.follow());
 	function verticalScrollToFocusItem(element: Item) {
 		if (element.offsetTop < 0) {
 			scrollVertically(
@@ -886,31 +823,9 @@
 			dispatch("scrollToValue", element.item.startValue());
 		}
 	}
-	function focusOn(element: Item, index: number, skipEvent: boolean = false) {
-		if (!skipEvent) {
-			dispatch("focus", element.item);
-		}
-		focus = new Focus(index, element);
 
-		verticalScrollToFocusItem(element);
-		horizontalScrollToFocusItem(element);
-	}
-	function focusNextItem(back: boolean = false) {
-		const index =
-			focus == null ? 0 : back ? focus.index - 1 : focus.index + 1;
-		if (index < elements.length && index >= 0) {
-			focusOn(elements[index], index);
-			return true;
-		} else {
-			focus = null;
-			return false;
-		}
-	}
 	export function focusOnId(id: string) {
-		const index = elements.findIndex((element) => element.item.id === id);
-		if (index >= 0) {
-			focusOn(elements[index], index, true);
-		}
+		focus.focusOnId(id);
 	}
 
 	let scrollbarDragging = $state(false);
@@ -975,13 +890,7 @@
 		onmousedown={handleMouseDown}
 		onmouseup={handleMouseUp}
 		ondblclick={handleDblClick}
-		onfocus={(e) => {
-			if (!focusCausedByClick && focusNextItem()) {
-				e.stopPropagation();
-				e.preventDefault();
-			}
-			focusCausedByClick = false;
-		}}
+		onfocus={(e) => focus.focused(e)}
 		onkeydown={(event) => {
 			switch (event.key) {
 				case "ArrowLeft":
@@ -1008,13 +917,8 @@
 				case "End":
 					scrollVertically(maxScrollTop);
 					break;
-				case "Tab":
-					if (focusNextItem(event.shiftKey)) {
-						event.stopPropagation();
-						event.preventDefault();
-					}
-					break;
 			}
+			focus.keyPressed(event);
 		}}
 	></canvas>
 	{#if hover.hovered() !== null}
@@ -1039,12 +943,7 @@
 			/>
 		{/if}
 	{/if}
-	{#if focus != null}
-		{@const element = focus.element}
-		{#if element !== null}
-			<FocusedItem focus={element} />
-		{/if}
-	{/if}
+	<Focus focused={focus.focusedBounds(scrolled.items)} />
 	<Scrollbars
 		bind:this={scrollbars}
 		tabIndex={timelineItems.length}
