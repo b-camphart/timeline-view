@@ -1,7 +1,8 @@
 import path from "path";
 import tsconfig from "./tsconfig.json";
-import fs from "fs";
-import fsAsync from "fs/promises";
+import os from "os"
+import fs, { existsSync } from "fs";
+import fsAsync, { mkdir, writeFile } from "fs/promises";
 import http from "https";
 import { exec } from "child_process";
 
@@ -208,10 +209,70 @@ if (Array.isArray(fullOutput)) {
 	await Promise.all(writes);
 
 	if (dev || preview) {
-		exec(
-			`start "" "obsidian://open?path=${process.cwd()}/${testVaultPath}"`
-		);
+		const obsidianLink = `obsidian://open?path=${process.cwd()}/${testVaultPath}`;
+		generateTestFilesIfNeeded(testVaultPath)
+		if (os.platform() === "win32") {
+			exec(
+				`start "" "${obsidianLink}"`
+			);
+		} else if (os.platform() === "linux") {
+			exec(
+				`xdg-open ${obsidianLink}`
+			)
+		}
 	} else {
 		exec("git add manifest.json versions.json");
+	}
+}
+
+async function generateTestFilesIfNeeded(vaultPath: string) {
+	const filesPath = vaultPath + "/value-files"
+	if (existsSync(filesPath)) {
+		return;
+	}
+
+	function createTestFile(parentDir: string, index: number) {
+		return writeFile(parentDir + `/${index}.md`, `---\nvalue: ${Math.trunc(Math.random() * 10000)}\n---\n`, { encoding: "utf-8" })
+	}
+
+	async function createTestDir(parentDir: string, startIndex: number) {
+		// startIndex 5690
+		// parentDir: 5000-6000/5600-5700
+
+		const path = parentDir + `/${startIndex}-${startIndex + 10}`;
+		await mkdir(path);
+		await Promise.all(Array(10).fill(0).map((_, i) => {
+			return createTestFile(path, startIndex + i);
+		}))
+	}
+
+	async function createTestDir1(parentDir: string, startIndex: number) {
+		// startIndex 5600
+		// parentDir: 5000-6000
+
+		// /5600-5700
+
+		const path = parentDir + `/${startIndex}-${startIndex + 100}`;
+		await mkdir(path);
+		await Promise.all(Array(10).fill(0).map((_, i) => {
+			return createTestDir(path, startIndex + i);
+		}))
+	}
+	async function createTestDir2(parentDir: string, startIndex: number) {
+		// startIndex 5000
+
+		// 5000-6000
+
+		const path = parentDir + `/${startIndex}-${startIndex + 1000}`;
+		await mkdir(path);
+		await Promise.all(Array(10).fill(0).map((_, i) => {
+			return createTestDir1(path, startIndex + i);
+		}))
+	}
+
+	await mkdir(filesPath)
+	for (let i = 0; i < 10; i++) {
+		console.log(`Creating items ${i * 1000}-${(i + 1) * 1000}`)
+		await createTestDir2(filesPath, (i * 1000));
 	}
 }
