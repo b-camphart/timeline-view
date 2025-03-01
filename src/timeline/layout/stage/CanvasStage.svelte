@@ -1,39 +1,30 @@
-<script
-	lang="ts"
-	generics="T extends TimelineItemSource, SourceItem extends PlotAreaSourceItem<T>"
->
-	import { createEventDispatcher, untrack } from "svelte";
-	import { renderLayout } from "./draw";
-	import {
-		boxContainsPoint,
-		type OffsetBox,
-	} from "src/timeline/layout/stage/TimelineItemElement";
-	import { type Scale } from "src/timeline/scale";
-	import type { ChangeEvent } from "src/view/controls/Scrollbar";
+<script lang="ts" generics="T extends TimelineItemSource, SourceItem extends PlotAreaSourceItem<T>">
+	import {createEventDispatcher, untrack} from "svelte";
+	import {renderLayout} from "./draw";
+	import {boxContainsPoint, type OffsetBox} from "src/timeline/layout/stage/TimelineItemElement";
+	import {type Scale} from "src/timeline/scale";
+	import type {ChangeEvent} from "src/view/controls/Scrollbar";
 	import Hover from "./Hover.svelte";
-	import { Platform } from "obsidian";
+	import {Platform} from "obsidian";
 	import SelectionArea from "./CanvasSelectionArea.svelte";
 	import SelectedBounds from "./SelectedBounds.svelte";
 	import DraggedItem from "./DraggedItem.svelte";
-	import { DragPreviewElement } from "src/timeline/layout/stage/drag.svelte";
-	import { on } from "svelte/events";
-	import { layoutItems, scaleItems } from "src/timeline/layout/stage/layout";
-	import {
-		PlotAreaItem,
-		type PlotAreaSourceItem,
-	} from "src/timeline/layout/stage/item";
-	import type { TimelineItemSource } from "src/timeline/item/TimelineItem.svelte";
-	import { Selection } from "src/timeline/layout/stage/selection.svelte";
+	import {DragPreviewElement} from "src/timeline/layout/stage/drag.svelte";
+	import {on} from "svelte/events";
+	import {layoutItems, scaleItems} from "src/timeline/layout/stage/layout";
+	import {PlotAreaItem, type PlotAreaSourceItem} from "src/timeline/layout/stage/item";
+	import type {TimelineItemSource} from "src/timeline/item/TimelineItem.svelte";
+	import {Selection} from "src/timeline/layout/stage/selection.svelte";
 	import CssProp from "src/view/CSSProp.svelte";
 	import CssColorProp from "src/view/CSSColorProp.svelte";
 	import Background from "src/timeline/layout/stage/Background.svelte";
 	import Padding from "src/timeline/layout/stage/Padding.svelte";
-	import type { FitBounds } from "src/timeline/controls/navigation/zoomToFit";
-	import { OverlayColor } from "src/color";
-	import { scrollItems } from "src/timeline/layout/stage/scroll";
+	import type {FitBounds} from "src/timeline/controls/navigation/zoomToFit";
+	import {OverlayColor} from "src/color";
+	import {scrollItems} from "src/timeline/layout/stage/scroll";
 	import Scrollbars from "src/timeline/layout/stage/Scrollbars.svelte";
-	import { PlotAreaHover } from "./hover.svelte";
-	import { PlotAreaFocus } from "./focus.svelte";
+	import {PlotAreaHover} from "./hover.svelte";
+	import {PlotAreaFocus} from "./focus.svelte";
 	import Focus from "./Focus.svelte";
 
 	type Item = PlotAreaItem<T, SourceItem>;
@@ -48,9 +39,9 @@
 		scrollToValue: number;
 		zoomIn: ZoomEvent;
 		zoomOut: ZoomEvent;
-		select: { item: SourceItem; causedBy: Event };
+		select: {item: SourceItem; causedBy: Event};
 		focus: SourceItem;
-		create: { value: number; cause: Event };
+		create: {value: number; cause: Event};
 	}>();
 
 	interface Props {
@@ -61,13 +52,7 @@
 		editable: boolean;
 		itemsResizable: boolean;
 		summarizeItem: (item: SourceItem) => string;
-		previewItem: (
-			item: SourceItem,
-			name: string,
-			value: number,
-			length: number,
-			endValue: number,
-		) => string;
+		previewItem: (item: SourceItem, name: string, value: number, length: number, endValue: number) => string;
 		onPreviewNewItemValue?: (item: SourceItem, value: number) => number;
 		oncontextmenu?: (e: MouseEvent, items: SourceItem[]) => void;
 		onItemsChanged?(
@@ -129,9 +114,7 @@
 			left: 2,
 		},
 	});
-	const selectedColorOverlay = $derived(
-		new OverlayColor(itemStyle.selected.color),
-	);
+	const selectedColorOverlay = $derived(new OverlayColor(itemStyle.selected.color));
 
 	export function fitBounds(): FitBounds {
 		return {
@@ -174,9 +157,7 @@
 		const padding = viewport.padding;
 		let max = padding.top;
 		const layoutPadding = padding.top + padding.bottom;
-		layout.items.forEach(
-			(it) => (max = Math.max(max, it.layoutBottom + layoutPadding)),
-		);
+		layout.items.forEach((it) => (max = Math.max(max, it.layoutBottom + layoutPadding)));
 		return max;
 	});
 	const maxScrollTop = $derived(Math.max(0, scrollHeight - viewport.height));
@@ -195,9 +176,7 @@
 			scrollVertically(maxScrollTop);
 		}
 	});
-	const scrollLeft = $derived(
-		scale.toPixels(focalValue) - viewport.width / 2,
-	);
+	const scrollLeft = $derived(scale.toPixels(focalValue) - viewport.width / 2);
 	const scrolled = $derived.by(() => {
 		const layoutItems = layout.items;
 		const top = scrollTop - viewport.padding.top;
@@ -220,7 +199,7 @@
 				it.borderColor = prefColor ?? itemColor;
 				it.strokeWidth = 0;
 			});
-			return { items: currentItems, _: Math.random() };
+			return {items: currentItems, _: Math.random()};
 		}
 
 		const selectedItemColor = selectedColorOverlay;
@@ -232,9 +211,7 @@
 		currentItems.forEach((it) => {
 			const prefColor = it.color();
 			if (selection.hasId(it.id)) {
-				it.backgroundColor = selectedItemColor.blend(
-					prefColor ?? itemColor,
-				);
+				it.backgroundColor = selectedItemColor.blend(prefColor ?? itemColor);
 				it.borderColor = selectedItemBorder.color;
 				it.strokeWidth = selectedItemBorder.width;
 			} else {
@@ -243,7 +220,7 @@
 				it.strokeWidth = 0;
 			}
 		});
-		return { items: currentItems, _: Math.random() };
+		return {items: currentItems, _: Math.random()};
 	});
 
 	$effect(() => {
@@ -264,10 +241,7 @@
 			if (renderContext == null) return;
 
 			const ratio = activeWindow.devicePixelRatio || 1;
-			if (
-				currentCanvas.width != viewportWidth * ratio ||
-				currentCanvas.height != viewportHeight * ratio
-			) {
+			if (currentCanvas.width != viewportWidth * ratio || currentCanvas.height != viewportHeight * ratio) {
 				currentCanvas.width = viewportWidth * ratio;
 				currentCanvas.height = viewportHeight * ratio;
 				currentCanvas.style.width = viewportWidth + "px";
@@ -275,13 +249,7 @@
 				renderContext.scale(ratio, ratio);
 			}
 
-			renderLayout(
-				renderContext,
-				viewport,
-				radius,
-				scrolledItems,
-				previewItems,
-			);
+			renderLayout(renderContext, viewport, radius, scrolledItems, previewItems);
 		});
 		return () => {
 			cancelAnimationFrame(handle);
@@ -297,11 +265,9 @@
 				scrollVertically(scrollTop + event.deltaX);
 			}
 		} else if (event.ctrlKey) {
-			const mouseOffsetX =
-				event.clientX - stageCSSTarget!.getBoundingClientRect().left;
+			const mouseOffsetX = event.clientX - stageCSSTarget!.getBoundingClientRect().left;
 			const xRelativeToMiddle = mouseOffsetX - viewport.width / 2;
-			const zoomFocusValue =
-				focalValue + scale.toValue(xRelativeToMiddle);
+			const zoomFocusValue = focalValue + scale.toValue(xRelativeToMiddle);
 
 			if (event.deltaY > 0) {
 				dispatch(`zoomOut`, {
@@ -400,12 +366,7 @@
 		return (Platform.isMacOS && event.metaKey) || event.ctrlKey;
 	}
 
-	function createSelectionArea(
-		x: number,
-		y: number,
-		width: number,
-		height: number,
-	) {
+	function createSelectionArea(x: number, y: number, width: number, height: number) {
 		selectionArea = {
 			offsetLeft: x,
 			offsetTop: y,
@@ -476,17 +437,9 @@
 			}
 			dragPreview.forEach((previousPreview) => {
 				const item = previousPreview.base;
-				const newItemValue = onPreviewNewItemValue(
-					item.item,
-					item.value() + deltaValue,
-				);
-				const newEndValue = onPreviewNewItemValue(
-					item.item,
-					newItemValue + item.item.length(),
-				);
-				const offsetCenterX =
-					scale.toPixels(newItemValue - focalValue) +
-					viewport.width / 2;
+				const newItemValue = onPreviewNewItemValue(item.item, item.value() + deltaValue);
+				const newEndValue = onPreviewNewItemValue(item.item, newItemValue + item.item.length());
+				const offsetCenterX = scale.toPixels(newItemValue - focalValue) + viewport.width / 2;
 
 				previousPreview.value = newItemValue;
 				previousPreview.endValue = newEndValue;
@@ -497,16 +450,10 @@
 			});
 
 			if (mouseX < startViewportBounds.left + viewport.padding.left) {
-				const delta =
-					mouseX - (startViewportBounds.left + viewport.padding.left);
+				const delta = mouseX - (startViewportBounds.left + viewport.padding.left);
 				dispatch("scrollX", scale.toValue(delta));
-			} else if (
-				mouseX >
-				startViewportBounds.right - viewport.padding.right
-			) {
-				const delta =
-					mouseX -
-					(startViewportBounds.right - viewport.padding.right);
+			} else if (mouseX > startViewportBounds.right - viewport.padding.right) {
+				const delta = mouseX - (startViewportBounds.right - viewport.padding.right);
 				dispatch("scrollX", scale.toValue(delta));
 			}
 		}
@@ -527,10 +474,7 @@
 		return false;
 	}
 
-	function prepareResizeSelection(
-		event: Pick<MouseEvent, "clientX">,
-		pureResize: boolean,
-	) {
+	function prepareResizeSelection(event: Pick<MouseEvent, "clientX">, pureResize: boolean) {
 		if (!editable || selection.isEmpty()) return;
 		const selectedItems = selection.items(items);
 
@@ -556,39 +500,25 @@
 				dragPreview.forEach((previewItem) => {
 					const selectedItem = previewItem.base;
 
-					previewItem.length =
-						selectedItem.item.length() + deltaValue;
-					previewItem.endValue =
-						previewItem.value + previewItem.length;
-					previewItem.offsetWidth =
-						scale.toPixels(previewItem.length) +
-						selectedItem.minSize;
-					previewItem.offsetRight =
-						previewItem.offsetLeft + previewItem.offsetWidth;
+					previewItem.length = selectedItem.item.length() + deltaValue;
+					previewItem.endValue = previewItem.value + previewItem.length;
+					previewItem.offsetWidth = scale.toPixels(previewItem.length) + selectedItem.minSize;
+					previewItem.offsetRight = previewItem.offsetLeft + previewItem.offsetWidth;
 				});
 			} else {
 				dragPreview.forEach((previewItem) => {
 					const selectedItem = previewItem.base;
 
-					previewItem.value =
-						selectedItem.item.startValue() + deltaValue;
-					previewItem.length =
-						previewItem.endValue - previewItem.value;
+					previewItem.value = selectedItem.item.startValue() + deltaValue;
+					previewItem.length = previewItem.endValue - previewItem.value;
 
-					previewItem.offsetWidth =
-						scale.toPixels(previewItem.length) +
-						selectedItem.minSize;
-					previewItem.offsetLeft =
-						previewItem.offsetRight - previewItem.offsetWidth;
+					previewItem.offsetWidth = scale.toPixels(previewItem.length) + selectedItem.minSize;
+					previewItem.offsetLeft = previewItem.offsetRight - previewItem.offsetWidth;
 				});
 			}
 		}
 
-		const removeMouseMoveListener = on(
-			window,
-			"mousemove",
-			resizeSelection,
-		);
+		const removeMouseMoveListener = on(window, "mousemove", resizeSelection);
 		on(
 			window,
 			"mouseup",
@@ -600,7 +530,7 @@
 					dragPreview = null;
 				}
 			},
-			{ once: true },
+			{once: true},
 		);
 	}
 
@@ -638,8 +568,7 @@
 		let isDragging = false;
 
 		function dragSelectionArea(event: MouseEvent) {
-			const scrolledStartX =
-				startX - scale.toPixels(focalValue - startFocalValue);
+			const scrolledStartX = startX - scale.toPixels(focalValue - startFocalValue);
 			const scrolledStartY = pageStartY - scrollTop;
 			const endX = event.clientX - startViewportBounds.left;
 			const endY = event.clientY - startViewportBounds.top;
@@ -679,35 +608,18 @@
 				selection.replaceWith(selectedItems);
 			}
 
-			if (
-				event.clientX <
-				startViewportBounds.left + viewport.padding.left
-			) {
-				const delta =
-					event.clientX -
-					(startViewportBounds.left + viewport.padding.left);
+			if (event.clientX < startViewportBounds.left + viewport.padding.left) {
+				const delta = event.clientX - (startViewportBounds.left + viewport.padding.left);
 				dispatch("scrollX", scale.toValue(delta));
-			} else if (
-				event.clientX >
-				startViewportBounds.right - viewport.padding.right
-			) {
-				const delta =
-					event.clientX -
-					(startViewportBounds.right - viewport.padding.right);
+			} else if (event.clientX > startViewportBounds.right - viewport.padding.right) {
+				const delta = event.clientX - (startViewportBounds.right - viewport.padding.right);
 				dispatch("scrollX", scale.toValue(delta));
 			}
-			if (
-				event.clientY <
-				startViewportBounds.top + viewport.padding.top
-			) {
-				const delta =
-					event.clientY -
-					(startViewportBounds.top + viewport.padding.top);
+			if (event.clientY < startViewportBounds.top + viewport.padding.top) {
+				const delta = event.clientY - (startViewportBounds.top + viewport.padding.top);
 				scrollVertically(scrollTop + delta);
 			} else if (event.clientY > startViewportBounds.bottom) {
-				const delta =
-					event.clientY -
-					(startViewportBounds.bottom - viewport.padding.bottom);
+				const delta = event.clientY - (startViewportBounds.bottom - viewport.padding.bottom);
 				scrollVertically(scrollTop + delta);
 			}
 		}
@@ -724,10 +636,7 @@
 		oncontextmenu(event, [item.item]);
 	}
 
-	function releaseSelectedBoundsRightClick(
-		selectedItems: SourceItem[],
-		event: MouseEvent,
-	) {
+	function releaseSelectedBoundsRightClick(selectedItems: SourceItem[], event: MouseEvent) {
 		oncontextmenu(event, selectedItems);
 	}
 
@@ -735,10 +644,7 @@
 		focus.mouseReleased(event);
 		const hoveredItem = hover.hovered();
 		if (event.button === 2) {
-			if (
-				selectedBounds !== null &&
-				boxContainsPoint(selectedBounds, event.offsetX, event.offsetY)
-			) {
+			if (selectedBounds !== null && boxContainsPoint(selectedBounds, event.offsetX, event.offsetY)) {
 				releaseSelectedBoundsRightClick(
 					selection.items(items).map((it) => it.item),
 					event,
@@ -781,7 +687,7 @@
 		const valueFromLeft = scale.toValue(event.offsetX);
 		const value = leftValue + valueFromLeft;
 
-		dispatch("create", { value, cause: event });
+		dispatch("create", {value, cause: event});
 	}
 
 	const hover = new PlotAreaHover(
@@ -804,15 +710,10 @@
 	$effect(() => focus.follow());
 	function verticalScrollToFocusItem(element: Item) {
 		if (element.offsetTop < 0) {
-			scrollVertically(
-				element.layoutTop - viewport.padding.top - itemStyle.margin.top,
-			);
+			scrollVertically(element.layoutTop - viewport.padding.top - itemStyle.margin.top);
 		} else if (element.offsetBottom > viewport.height) {
 			scrollVertically(
-				element.layoutBottom -
-					viewport.height +
-					viewport.padding.bottom +
-					itemStyle.margin.bottom,
+				element.layoutBottom - viewport.height + viewport.padding.bottom + itemStyle.margin.bottom,
 			);
 		}
 	}
@@ -837,11 +738,7 @@
 	}
 
 	function handleHScroll(event: ChangeEvent) {
-		dispatch(
-			"scrollToValue",
-			focalValue +
-				scale.toValue(event.detail.deltaPixels) / event.detail.ratio,
-		);
+		dispatch("scrollToValue", focalValue + scale.toValue(event.detail.deltaPixels) / event.detail.ratio);
 	}
 
 	function handleVScroll(event: ChangeEvent) {
@@ -873,11 +770,7 @@
 		}}
 	/>
 	<SelectionArea area={selectionArea} />
-	<SelectedBounds
-		dragging={dragPreview != null}
-		bounds={selectedBounds}
-		selectedItemCount={selection.length()}
-	/>
+	<SelectedBounds dragging={dragPreview != null} bounds={selectedBounds} selectedItemCount={selection.length()} />
 	<canvas
 		bind:this={canvas}
 		tabindex={0}
@@ -923,10 +816,7 @@
 	></canvas>
 	{#if hover.hovered() !== null}
 		{@const hovered = hover.hovered()!}
-		<Hover
-			position={hovered.item}
-			summary={summarizeItem(hovered.item.item)}
-		/>
+		<Hover position={hovered.item} summary={summarizeItem(hovered.item.item)} />
 	{/if}
 	{#if dragPreview != null}
 		{@const itemPreview = dragPreview.singleOrNull()}
@@ -951,8 +841,7 @@
 		{scrollHeight}
 		{scrollTop}
 		minLeftOffset={scrolled.items[0]?.offsetLeft ?? 0}
-		maxRightOffset={scrolled.items[scrolled.items.length - 1]
-			?.offsetRight ?? 0}
+		maxRightOffset={scrolled.items[scrolled.items.length - 1]?.offsetRight ?? 0}
 		onVScroll={handleVScroll}
 		onHScroll={handleHScroll}
 		onThumbDragStart={() => {
@@ -971,26 +860,15 @@
 	<CssProp name="--item-size" bind:value={itemStyle.size} />
 	<CssProp name="--item-radius" bind:value={itemStyle.radius} />
 	<CssColorProp name="--item-color" bind:value={itemStyle.color} />
-	<CssProp
-		name="--selected-item-border-width"
-		bind:value={itemStyle.selected.borderWidth}
-	/>
-	<CssColorProp
-		name="--selected-item-color"
-		bind:value={itemStyle.selected.color}
-	/>
-	<CssColorProp
-		name="--selected-item-border-color"
-		bind:value={itemStyle.selected.borderColor}
-	/>
+	<CssProp name="--selected-item-border-width" bind:value={itemStyle.selected.borderWidth} />
+	<CssColorProp name="--selected-item-color" bind:value={itemStyle.selected.color} />
+	<CssColorProp name="--selected-item-border-color" bind:value={itemStyle.selected.borderColor} />
 </div>
 
 <style>
 	div {
 		--item-v-margin: max(var(--item-margin-top), var(--item-margin-bottom));
-		--item-cross-axis-spacing: calc(
-			var(--item-size) + var(--item-v-margin)
-		);
+		--item-cross-axis-spacing: calc(var(--item-size) + var(--item-v-margin));
 	}
 
 	div {
