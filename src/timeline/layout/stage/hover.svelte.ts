@@ -73,7 +73,7 @@ export class PlotAreaHover<T extends OffsetBox> {
 			if (edge === null) return new SelectItem(hoveredItem.item, hoveredItem.index);
 			return new ResizeItem(edge, hoveredItem.item, hoveredItem.index);
 		}
-		if (this.isEditable() && this.#inSelectedBounds()) return new MoveAll();
+		if (this.isEditable() && this.drag() === null && this.#inSelectedBounds()) return new MoveAll();
 		return new DefaultMouseDownAction();
 	}
 
