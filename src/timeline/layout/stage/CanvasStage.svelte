@@ -26,6 +26,7 @@
 	import {PlotAreaHover, ResizeItemEdge} from "./hover.svelte";
 	import {PlotAreaFocus} from "./focus.svelte";
 	import Focus from "./Focus.svelte";
+	import {PlotAreaContextMenu} from "./contextmenu";
 
 	type Item = PlotAreaItem<T, SourceItem>;
 
@@ -637,38 +638,30 @@
 		window.addEventListener("mousemove", dragSelectionArea);
 	}
 
-	function releaseItemRightClick(item: Item, event: MouseEvent) {
-		oncontextmenu(event, [item.item]);
-	}
-
-	function releaseSelectedBoundsRightClick(selectedItems: SourceItem[], event: MouseEvent) {
-		oncontextmenu(event, selectedItems);
-	}
+	const contextmenu = new PlotAreaContextMenu(
+		() => selectedBounds,
+		() => selection.items(items),
+		() => hover.item(),
+		(cause, items) =>
+			oncontextmenu(
+				cause,
+				items.map((it) => it.item),
+			),
+	);
 
 	function handleMouseUp(event: MouseEvent) {
 		focus.mouseReleased(event);
 		hover.mouseReleased(event);
+		contextmenu.mouseReleased(event);
+		if (event.button === 2) return;
 
-		const hoveredItem = hover.item();
-		if (event.button === 2) {
-			if (selectedBounds !== null && boxContainsPoint(selectedBounds, event.offsetX, event.offsetY)) {
-				releaseSelectedBoundsRightClick(
-					selection.items(items).map((it) => it.item),
-					event,
-				);
-				return;
-			}
-			if (hoveredItem === null) return;
-			releaseItemRightClick(hoveredItem.item, event);
-			return;
-		}
 		if (mouseDownOn == null) {
 			return;
 		}
 		const mouseWasDownOn = mouseDownOn;
 		mouseDownOn = null;
-		if (hoveredItem === null) return;
-		if (hoveredItem.item !== mouseWasDownOn) {
+		const hoveredItem = hover.item();
+		if (hoveredItem?.item !== mouseWasDownOn) {
 			return;
 		}
 
