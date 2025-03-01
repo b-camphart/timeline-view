@@ -23,7 +23,7 @@
 	import {OverlayColor} from "src/color";
 	import {scrollItems} from "src/timeline/layout/stage/scroll";
 	import Scrollbars from "src/timeline/layout/stage/Scrollbars.svelte";
-	import {PlotAreaHover} from "./hover.svelte";
+	import {PlotAreaHover, ResizeItemEdge} from "./hover.svelte";
 	import {PlotAreaFocus} from "./focus.svelte";
 	import Focus from "./Focus.svelte";
 
@@ -290,7 +290,6 @@
 		}
 	}
 
-	let focusCausedByClick = $state(false);
 	let mouseDownOn: Item | null = null;
 
 	class DragPreview {
@@ -377,35 +376,41 @@
 
 	function handleMouseDown(event: MouseEvent) {
 		focus.mousePressed();
-		const hovered = hover.hovered();
-		if (hovered !== null) {
-			if (event.button === 2) {
+		const action = hover.mouseDownAction();
+		switch (action.name) {
+			case "default": {
+				if (!shouldExtendSelection(event)) {
+					selection.clear();
+				}
+				prepareMultiSelectDraw(event);
 				return;
 			}
-			mouseDownOn = hovered.item;
-			if (!selection.hasId(hovered.item.id)) {
-				if (shouldExtendSelection(event)) {
-					selection.addAll([hovered.item]);
-				} else {
-					selection.replaceWith([hovered.item]);
+			case "select-item": /** pass through */
+			case "resize-start": /** pass through */
+			case "resize-end": {
+				const item = action.item;
+				mouseDownOn = item;
+				if (!selection.hasId(item.id)) {
+					if (shouldExtendSelection(event)) {
+						selection.addAll([item]);
+					} else {
+						selection.replaceWith([item]);
+					}
 				}
-			}
 
-			if (hovered.side === "middle") {
-				prepareDragSelection(event);
-			} else {
-				prepareResizeSelection(event, hovered.side === "right");
+				if ("edge" in action) {
+					prepareResizeSelection(event, action.edge === ResizeItemEdge.Right);
+				} else {
+					prepareDragSelection(event);
+				}
+
+				return;
 			}
-			return;
+			case "move-all": {
+				prepareDragSelection(event);
+				return;
+			}
 		}
-		if (hover.inSelectedBounds()) {
-			prepareDragSelection(event);
-			return;
-		}
-		if (!shouldExtendSelection(event)) {
-			selection.clear();
-		}
-		prepareMultiSelectDraw(event);
 	}
 
 	function prepareDragSelection(event: MouseEvent) {
@@ -642,7 +647,9 @@
 
 	function handleMouseUp(event: MouseEvent) {
 		focus.mouseReleased(event);
-		const hoveredItem = hover.hovered();
+		hover.mouseReleased(event);
+
+		const hoveredItem = hover.item();
 		if (event.button === 2) {
 			if (selectedBounds !== null && boxContainsPoint(selectedBounds, event.offsetX, event.offsetY)) {
 				releaseSelectedBoundsRightClick(
@@ -665,8 +672,6 @@
 			return;
 		}
 
-		hover.detectHover(event.offsetX, event.offsetY);
-
 		if (!shouldExtendSelection(event)) {
 			dispatch("select", {
 				item: hoveredItem.item.item,
@@ -679,7 +684,7 @@
 		if (!editable) {
 			return;
 		}
-		if (hover.hovered() !== null) {
+		if (hover.item !== null) {
 			return;
 		}
 
@@ -695,10 +700,12 @@
 		() => selectedBounds,
 		() => (scrollbarDragging ? {} : (dragPreview ?? selectionArea)),
 		() => itemStyle.size,
+		() => itemsResizable,
+		() => editable,
 	);
 	const focus = new PlotAreaFocus(
 		{
-			hoveredItem: () => hover.hovered(),
+			hoveredItem: () => hover.item(),
 			items: () => scrolled.items,
 			scrollIntoView(item) {
 				verticalScrollToFocusItem(item);
@@ -755,9 +762,7 @@
 	bind:offsetHeight={viewport.height}
 	bind:this={stageCSSTarget}
 	aria-readonly={!editable}
-	class:hovered={hover.hovered() !== null}
-	data-hover-over-selection={hover.inSelectedBounds()}
-	data-hover-side={hover.hovered()?.side}
+	data-hover-action={hover.mouseDownAction().name}
 	style:--cross-axis-scroll="{scrollTop}px"
 >
 	<Background />
@@ -779,7 +784,7 @@
 			handleScroll(e);
 		}}
 		onmouseleave={() => hover.clear()}
-		onmousemove={(e) => hover.detectHover(e.offsetX, e.offsetY)}
+		onmousemove={(e) => hover.mouseMoved(e.offsetX, e.offsetY)}
 		onmousedown={handleMouseDown}
 		onmouseup={handleMouseUp}
 		ondblclick={handleDblClick}
@@ -814,10 +819,7 @@
 			focus.keyPressed(event);
 		}}
 	></canvas>
-	{#if hover.hovered() !== null}
-		{@const hovered = hover.hovered()!}
-		<Hover position={hovered.item} summary={summarizeItem(hovered.item.item)} />
-	{/if}
+	<Hover hovered={hover.item()} summaryOf={(it) => summarizeItem(it.item)} positionOf={(it) => it} />
 	{#if dragPreview != null}
 		{@const itemPreview = dragPreview.singleOrNull()}
 		{#if itemPreview !== null}
@@ -886,24 +888,17 @@
 		--scrollbar-width: var(--size-4-1);
 	}
 
-	/** the default hovered cursor */
-	div.hovered {
+	div[data-hover-action="resize-start"] {
+		cursor: e-resize;
+	}
+	div[data-hover-action="resize-end"] {
+		cursor: w-resize;
+	}
+	div[data-hover-action="select-item"] {
 		cursor: pointer;
 	}
-	/** hovered cursors for editable timeline */
-	div:not([aria-readonly="true"]).hovered {
-		&[data-hover-over-selection="true"] {
-			cursor: grab;
-		}
-		&[data-hover-side="left"] {
-			cursor: e-resize;
-		}
-		&[data-hover-side="right"] {
-			cursor: w-resize;
-		}
-		&[data-hover-side="middle"] {
-			cursor: pointer;
-		}
+	div[data-hover-action="move-all"] {
+		cursor: grab;
 	}
 
 	canvas {
