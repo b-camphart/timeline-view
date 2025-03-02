@@ -10,7 +10,7 @@ import {boxContainsPoint, type OffsetBox} from "./TimelineItemElement";
  */
 export class PlotAreaHover<T extends OffsetBox> {
 	constructor(
-		private readonly items: () => T[],
+		private readonly items: () => readonly T[],
 		private readonly selectedBounds: () => OffsetBox | null,
 		private readonly drag: () => unknown | null,
 		private readonly minItemSize: () => number,

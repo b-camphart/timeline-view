@@ -28,7 +28,7 @@ export class PlotAreaFocus<T extends {readonly id: string}> {
 	constructor(
 		private readonly plotarea: {
 			hoveredItem(): HoveredItem<T> | null;
-			items(): T[];
+			items(): readonly T[];
 			scrollIntoView(item: T): void;
 		},
 		private readonly onFocused: (item: T, index: number) => void,

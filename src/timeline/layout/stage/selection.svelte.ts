@@ -1,8 +1,8 @@
-import { untrack } from "svelte";
+import {untrack} from "svelte";
 
-export class Selection<T extends { id: string }> {
+export class Selection<T extends {id: string}> {
 	#indexById = new Map<string, number>();
-	#selectedIds = $state.raw({ value: new Set<string>() });
+	#selectedIds = $state.raw({value: new Set<string>()});
 
 	updateItems(items: readonly T[]) {
 		const selectedIds = untrack(() => this.#selectedIds).value;
@@ -29,7 +29,7 @@ export class Selection<T extends { id: string }> {
 			selectedIds.delete(id);
 			this.#indexById.delete(id);
 		}
-		this.#selectedIds = { value: selectedIds };
+		this.#selectedIds = {value: selectedIds};
 	}
 
 	length() {
@@ -42,7 +42,7 @@ export class Selection<T extends { id: string }> {
 		return this.#selectedIds.value.has(id);
 	}
 
-	items(from: T[]): T[] {
+	items(from: readonly T[]): T[] {
 		const selectedIds = this.#selectedIds.value;
 		const items: T[] = [];
 		for (const id of selectedIds.values()) {
@@ -56,31 +56,24 @@ export class Selection<T extends { id: string }> {
 		if (untrack(() => this.#selectedIds).value.size === 0) {
 			return;
 		}
-		this.#selectedIds = { value: new Set() };
+		this.#selectedIds = {value: new Set()};
 	}
 	replaceWith(items: readonly T[]) {
 		const selectedIds = untrack(() => this.#selectedIds).value;
-		if (
-			untrack(
-				() =>
-					items.length === selectedIds.size &&
-					items.every((it) => selectedIds.has(it.id))
-			)
-		)
-			return;
-		this.#selectedIds = { value: new Set(items.map((it) => it.id)) };
+		if (untrack(() => items.length === selectedIds.size && items.every((it) => selectedIds.has(it.id)))) return;
+		this.#selectedIds = {value: new Set(items.map((it) => it.id))};
 	}
 	addAll(items: readonly T[]) {
 		const selectedIds = untrack(() => this.#selectedIds).value;
 		for (const item of items) {
 			selectedIds.add(item.id);
 		}
-		this.#selectedIds = { value: selectedIds };
+		this.#selectedIds = {value: selectedIds};
 	}
 	remove(item: T) {
 		const selectedIds = untrack(() => this.#selectedIds).value;
 		if (!selectedIds.has(item.id)) return;
 		selectedIds.delete(item.id);
-		this.#selectedIds = { value: selectedIds };
+		this.#selectedIds = {value: selectedIds};
 	}
 }

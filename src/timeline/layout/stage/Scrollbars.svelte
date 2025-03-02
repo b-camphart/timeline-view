@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ChangeEvent } from "src/view/controls/Scrollbar";
+	import type {ChangeEvent} from "src/view/controls/Scrollbar";
 	import Scrollbar from "src/view/controls/Scrollbar.svelte";
 
 	const {
@@ -15,9 +15,6 @@
 
 		onVScroll,
 		onHScroll,
-
-		onThumbDragStart,
-		onThumbDragEnd,
 	}: {
 		id: string;
 		scrollTop: number;
@@ -30,9 +27,6 @@
 
 		onVScroll(event: ChangeEvent): void;
 		onHScroll(event: ChangeEvent): void;
-
-		onThumbDragStart(): void;
-		onThumbDragEnd(): void;
 	} = $props();
 
 	let clientHeight: number = $state(0);
@@ -46,14 +40,20 @@
 
 	const scrollbarHeight = $derived(offsetHeight - clientHeight);
 	const scrollbarWidth = $derived(offsetWidth - clientWidth);
+
+	let thumbDragging = $state(false);
+	function onThumbDragStart() {
+		thumbDragging = true;
+	}
+	function onThumbDragEnd() {
+		thumbDragging = false;
+	}
+	export function dragging() {
+		return thumbDragging;
+	}
 </script>
 
-<div
-	bind:clientHeight
-	bind:offsetHeight
-	bind:clientWidth
-	bind:offsetWidth
-></div>
+<div bind:clientHeight bind:offsetHeight bind:clientWidth bind:offsetWidth></div>
 <Scrollbar
 	orientation={"horizontal"}
 	style={`--size: ${scrollbarHeight}px;`}

@@ -27,6 +27,7 @@
 	import {PlotAreaFocus} from "./focus.svelte";
 	import Focus from "./Focus.svelte";
 	import {PlotAreaContextMenu} from "./contextmenu";
+	import {PlotAreaScrolling} from "./scrolling.svelte";
 
 	type Item = PlotAreaItem<T, SourceItem>;
 
@@ -154,40 +155,22 @@
 			_: Math.random(),
 		};
 	});
-	const scrollHeight = $derived.by(() => {
-		const padding = viewport.padding;
-		let max = padding.top;
-		const layoutPadding = padding.top + padding.bottom;
-		layout.items.forEach((it) => (max = Math.max(max, it.layoutBottom + layoutPadding)));
-		return max;
-	});
-	const maxScrollTop = $derived(Math.max(0, scrollHeight - viewport.height));
-	let scrollTop = $state(0);
-	function scrollVertically(value: number) {
-		scrollTop = Math.max(
-			0,
-			Math.min(
-				untrack(() => maxScrollTop),
-				value,
-			),
-		);
-	}
-	$effect(() => {
-		if (untrack(() => scrollTop) > maxScrollTop) {
-			scrollVertically(maxScrollTop);
-		}
-	});
-	const scrollLeft = $derived(scale.toPixels(focalValue) - viewport.width / 2);
-	const scrolled = $derived.by(() => {
-		const layoutItems = layout.items;
-		const top = scrollTop - viewport.padding.top;
-		const left = scrollLeft;
-		scrollItems(layoutItems, top, left);
-		return {
-			items: layoutItems,
-			_: Math.random(),
-		};
-	});
+	const scroll = new PlotAreaScrolling(
+		() => stageCSSTarget?.getBoundingClientRect()?.top ?? 0,
+		() => stageCSSTarget?.getBoundingClientRect()?.left ?? 0,
+		() => viewport.width,
+		() => viewport.height,
+		() => scale,
+		() => focalValue,
+		() => viewport.padding,
+		() => itemStyle.margin,
+		() => layout.items,
+		(deltaValue) => dispatch("scrollX", deltaValue),
+		(focalValue) => dispatch("scrollToValue", focalValue),
+		(constraints) => dispatch("zoomIn", constraints),
+		(constraints) => dispatch("zoomOut", constraints),
+	);
+	const scrolled = $derived(scroll.scrolledItems());
 
 	const styled = $derived.by(() => {
 		const currentItems = items;
@@ -260,35 +243,7 @@
 	const elements = $derived(scrolled.items);
 
 	function handleScroll(event: WheelEvent) {
-		if (event.shiftKey) {
-			dispatch("scrollX", scale.toValue(event.deltaY));
-			if (event.deltaX !== 0) {
-				scrollVertically(scrollTop + event.deltaX);
-			}
-		} else if (event.ctrlKey) {
-			const mouseOffsetX = event.clientX - stageCSSTarget!.getBoundingClientRect().left;
-			const xRelativeToMiddle = mouseOffsetX - viewport.width / 2;
-			const zoomFocusValue = focalValue + scale.toValue(xRelativeToMiddle);
-
-			if (event.deltaY > 0) {
-				dispatch(`zoomOut`, {
-					keepValue: zoomFocusValue,
-					at: xRelativeToMiddle,
-					within: viewport.width,
-				});
-			} else if (event.deltaY < 0) {
-				dispatch(`zoomIn`, {
-					keepValue: zoomFocusValue,
-					at: xRelativeToMiddle,
-					within: viewport.width,
-				});
-			}
-		} else {
-			scrollVertically(scrollTop + event.deltaY);
-			if (event.deltaX !== 0) {
-				dispatch("scrollX", scale.toValue(event.deltaX));
-			}
-		}
+		scroll.wheel(event);
 	}
 
 	let mouseDownOn: Item | null = null;
@@ -418,8 +373,6 @@
 		if (selection.isEmpty()) return false;
 		const selectedItems = selection.items(items);
 
-		const startViewportBounds = stageCSSTarget!.getBoundingClientRect();
-
 		const startMouseValue =
 			focalValue -
 			scale.toValue(viewport.width / 2) -
@@ -427,9 +380,6 @@
 			scale.toValue(event.clientX);
 
 		function dragItemListener(event: MouseEvent) {
-			/** x position of the mouse relative to the document viewport */
-			const mouseX = event.clientX;
-
 			const mouseValue =
 				focalValue -
 				scale.toValue(viewport.width / 2) -
@@ -455,13 +405,7 @@
 				previousPreview.offsetRight = offsetCenterX + item.offsetWidth;
 			});
 
-			if (mouseX < startViewportBounds.left + viewport.padding.left) {
-				const delta = mouseX - (startViewportBounds.left + viewport.padding.left);
-				dispatch("scrollX", scale.toValue(delta));
-			} else if (mouseX > startViewportBounds.right - viewport.padding.right) {
-				const delta = mouseX - (startViewportBounds.right - viewport.padding.right);
-				dispatch("scrollX", scale.toValue(delta));
-			}
+			scroll.mouseDragged(event);
 		}
 		async function releaseItemListener() {
 			try {
@@ -490,7 +434,7 @@
 			scale.toValue(stageCSSTarget!.getBoundingClientRect().left) +
 			scale.toValue(event.clientX);
 
-		function resizeSelection(event: Pick<MouseEvent, "clientX">) {
+		function resizeSelection(event: MouseEvent) {
 			const mouseValue =
 				focalValue -
 				scale.toValue(viewport.width / 2) -
@@ -522,6 +466,8 @@
 					previewItem.offsetLeft = previewItem.offsetRight - previewItem.offsetWidth;
 				});
 			}
+
+			scroll.mouseDragged(event);
 		}
 
 		const removeMouseMoveListener = on(window, "mousemove", resizeSelection);
@@ -569,13 +515,13 @@
 		const startViewportBounds = stageCSSTarget!.getBoundingClientRect();
 		const startX = event.clientX - startViewportBounds.left;
 		const startFocalValue = focalValue;
-		const pageStartY = event.clientY - startViewportBounds.top + scrollTop;
+		const pageStartY = event.clientY - startViewportBounds.top + scroll.top();
 
 		let isDragging = false;
 
 		function dragSelectionArea(event: MouseEvent) {
 			const scrolledStartX = startX - scale.toPixels(focalValue - startFocalValue);
-			const scrolledStartY = pageStartY - scrollTop;
+			const scrolledStartY = pageStartY - scroll.top();
 			const endX = event.clientX - startViewportBounds.left;
 			const endY = event.clientY - startViewportBounds.top;
 
@@ -614,20 +560,7 @@
 				selection.replaceWith(selectedItems);
 			}
 
-			if (event.clientX < startViewportBounds.left + viewport.padding.left) {
-				const delta = event.clientX - (startViewportBounds.left + viewport.padding.left);
-				dispatch("scrollX", scale.toValue(delta));
-			} else if (event.clientX > startViewportBounds.right - viewport.padding.right) {
-				const delta = event.clientX - (startViewportBounds.right - viewport.padding.right);
-				dispatch("scrollX", scale.toValue(delta));
-			}
-			if (event.clientY < startViewportBounds.top + viewport.padding.top) {
-				const delta = event.clientY - (startViewportBounds.top + viewport.padding.top);
-				scrollVertically(scrollTop + delta);
-			} else if (event.clientY > startViewportBounds.bottom) {
-				const delta = event.clientY - (startViewportBounds.bottom - viewport.padding.bottom);
-				scrollVertically(scrollTop + delta);
-			}
+			scroll.mouseDragged(event);
 		}
 		function releaseSelectionArea() {
 			selectionArea = null;
@@ -691,7 +624,7 @@
 	const hover = new PlotAreaHover(
 		() => scrolled.items,
 		() => selectedBounds,
-		() => (scrollbarDragging ? {} : (dragPreview ?? selectionArea)),
+		() => (scrollbars?.dragging() ? {} : (dragPreview ?? selectionArea)),
 		() => itemStyle.size,
 		() => itemsResizable,
 		() => editable,
@@ -701,48 +634,21 @@
 			hoveredItem: () => hover.item(),
 			items: () => scrolled.items,
 			scrollIntoView(item) {
-				verticalScrollToFocusItem(item);
-				horizontalScrollToFocusItem(item);
+				scroll.scrollToItem(item);
 			},
 		},
 		(item, _index) => dispatch("focus", item.item),
 	);
 	$effect(() => focus.follow());
-	function verticalScrollToFocusItem(element: Item) {
-		if (element.offsetTop < 0) {
-			scrollVertically(element.layoutTop - viewport.padding.top - itemStyle.margin.top);
-		} else if (element.offsetBottom > viewport.height) {
-			scrollVertically(
-				element.layoutBottom - viewport.height + viewport.padding.bottom + itemStyle.margin.bottom,
-			);
-		}
-	}
-	function horizontalScrollToFocusItem(element: Item) {
-		if (element.offsetLeft < 0) {
-			dispatch("scrollToValue", element.item.startValue());
-		} else if (element.offsetRight > viewport.width) {
-			dispatch("scrollToValue", element.item.startValue());
-		}
-	}
 
 	export function focusOnId(id: string) {
 		focus.focusOnId(id);
 	}
 
-	let scrollbarDragging = $state(false);
-
 	let scrollbars = $state<Scrollbars | null>(null);
 
 	export function clientWidth() {
 		return scrollbars?.getClientWidth() ?? 0;
-	}
-
-	function handleHScroll(event: ChangeEvent) {
-		dispatch("scrollToValue", focalValue + scale.toValue(event.detail.deltaPixels) / event.detail.ratio);
-	}
-
-	function handleVScroll(event: ChangeEvent) {
-		scrollVertically(event.detail.value);
 	}
 
 	const id = "timeline-view--plotarea-" + Math.random().toString(36).slice(2);
@@ -756,7 +662,7 @@
 	bind:this={stageCSSTarget}
 	aria-readonly={!editable}
 	data-hover-action={hover.mouseDownAction().name}
-	style:--cross-axis-scroll="{scrollTop}px"
+	style:--cross-axis-scroll="{scroll.top()}px"
 >
 	<Background />
 	<Padding
@@ -783,32 +689,7 @@
 		ondblclick={handleDblClick}
 		onfocus={(e) => focus.focused(e)}
 		onkeydown={(event) => {
-			switch (event.key) {
-				case "ArrowLeft":
-					dispatch("scrollX", scale.toValue(-10));
-					break;
-				case "ArrowRight":
-					dispatch("scrollX", scale.toValue(10));
-					break;
-				case "ArrowUp":
-					scrollVertically(scrollTop - 10);
-					break;
-				case "ArrowDown":
-					scrollVertically(scrollTop + 10);
-					break;
-				case "PageUp":
-					scrollVertically(scrollTop - viewport.height);
-					break;
-				case "PageDown":
-					scrollVertically(scrollTop + viewport.height);
-					break;
-				case "Home":
-					scrollVertically(0);
-					break;
-				case "End":
-					scrollVertically(maxScrollTop);
-					break;
-			}
+			scroll.keyPressed(event);
 			focus.keyPressed(event);
 		}}
 	></canvas>
@@ -833,18 +714,12 @@
 		bind:this={scrollbars}
 		tabIndex={timelineItems.length}
 		{id}
-		{scrollHeight}
-		{scrollTop}
+		scrollHeight={scroll.height()}
+		scrollTop={scroll.top()}
 		minLeftOffset={scrolled.items[0]?.offsetLeft ?? 0}
 		maxRightOffset={scrolled.items[scrolled.items.length - 1]?.offsetRight ?? 0}
-		onVScroll={handleVScroll}
-		onHScroll={handleHScroll}
-		onThumbDragStart={() => {
-			scrollbarDragging = true;
-		}}
-		onThumbDragEnd={() => {
-			scrollbarDragging = false;
-		}}
+		onVScroll={(e) => scroll.verticalScrollbarChanged(e)}
+		onHScroll={(e) => scroll.horizontalScrollbarChanged(e)}
 	/>
 
 	<!-- CSS getters -->
