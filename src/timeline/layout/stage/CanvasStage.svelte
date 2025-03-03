@@ -1,9 +1,8 @@
 <script lang="ts" generics="T extends TimelineItemSource, SourceItem extends PlotAreaSourceItem<T>">
-	import {createEventDispatcher, untrack} from "svelte";
+	import {createEventDispatcher} from "svelte";
 	import {renderLayout} from "./draw";
-	import {boxContainsPoint, type OffsetBox} from "src/timeline/layout/stage/TimelineItemElement";
+	import {type OffsetBox} from "src/timeline/layout/stage/TimelineItemElement";
 	import {type Scale} from "src/timeline/scale";
-	import type {ChangeEvent} from "src/view/controls/Scrollbar";
 	import Hover from "./Hover.svelte";
 	import {Platform} from "obsidian";
 	import SelectionArea from "./CanvasSelectionArea.svelte";
@@ -21,13 +20,13 @@
 	import Padding from "src/timeline/layout/stage/Padding.svelte";
 	import type {FitBounds} from "src/timeline/controls/navigation/zoomToFit";
 	import {OverlayColor} from "src/color";
-	import {scrollItems} from "src/timeline/layout/stage/scroll";
 	import Scrollbars from "src/timeline/layout/stage/Scrollbars.svelte";
 	import {PlotAreaHover, ResizeItemEdge} from "./hover.svelte";
 	import {PlotAreaFocus} from "./focus.svelte";
 	import Focus from "./Focus.svelte";
 	import {PlotAreaContextMenu} from "./contextmenu";
 	import {PlotAreaScrolling} from "./scrolling.svelte";
+	import {PlotAreaItemCreation} from "./creation";
 
 	type Item = PlotAreaItem<T, SourceItem>;
 
@@ -606,20 +605,14 @@
 		}
 	}
 
-	function handleDblClick(event: MouseEvent) {
-		if (!editable) {
-			return;
-		}
-		if (hover.item !== null) {
-			return;
-		}
-
-		const leftValue = focalValue - scale.toValue(viewport.width / 2);
-		const valueFromLeft = scale.toValue(event.offsetX);
-		const value = leftValue + valueFromLeft;
-
-		dispatch("create", {value, cause: event});
-	}
+	const creation = new PlotAreaItemCreation(
+		() => editable,
+		() => hover.item(),
+		() => scale,
+		() => focalValue,
+		() => viewport.width,
+		(value, cause) => dispatch("create", {value, cause}),
+	);
 
 	const hover = new PlotAreaHover(
 		() => scrolled.items,
@@ -686,7 +679,7 @@
 		onmousemove={(e) => hover.mouseMoved(e.offsetX, e.offsetY)}
 		onmousedown={handleMouseDown}
 		onmouseup={handleMouseUp}
-		ondblclick={handleDblClick}
+		ondblclick={(e) => creation.dblClick(e)}
 		onfocus={(e) => focus.focused(e)}
 		onkeydown={(event) => {
 			scroll.keyPressed(event);
