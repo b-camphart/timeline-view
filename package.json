@@ -1,6 +1,6 @@
 {
 	"name": "timeline-view",
-	"version": "1.4.0",
+	"version": "1.5.0",
 	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
 	"main": "main.js",
 	"packageManager": "pnpm@10.5.1",
