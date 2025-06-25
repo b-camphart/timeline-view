@@ -3,11 +3,10 @@
 Offsers a select element with a completely customizable dropdown
 -->
 <script lang="ts">
-	import { run, preventDefault, stopPropagation } from "svelte/legacy";
+	import { run } from "svelte/legacy";
 
 	import { range } from "src/utils/range";
 	import { createEventDispatcher, onDestroy, setContext } from "svelte";
-	import type { DOMAttributes, HTMLAttributes } from "svelte/elements";
 
 	const dispatch = createEventDispatcher<{
 		/**
@@ -193,7 +192,6 @@ Offsers a select element with a completely customizable dropdown
 
 		toggleShown();
 	}
-	let isMenuShown = $derived(open);
 	run(() => {
 		if (open && dialog != null) positionDialog(dialog);
 	});
