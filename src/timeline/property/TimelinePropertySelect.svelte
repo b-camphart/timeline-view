@@ -60,10 +60,6 @@
 		}
 	}
 
-	function styleSelectDialog(this: Select) {
-		this.getDialog()?.classList.add("timeline-property-select-popup");
-	}
-
 	onMount(() => {
 		getPropertyList();
 	});
@@ -76,7 +72,7 @@
 	itemCount={propertyCount}
 	on:changed={onChanged}
 	on:showing={getPropertyList}
-	on:shown={styleSelectDialog}
+	dialogClass="timeline-property-select-popup"
 >
 	{#snippet item({ index })}
 		<TimelinePropertyOption
