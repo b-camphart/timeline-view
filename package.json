@@ -26,8 +26,8 @@
 		"@sveltejs/vite-plugin-svelte": "latest",
 		"@tsconfig/svelte": "latest",
 		"@types/node": "latest",
-		"@typescript-eslint/eslint-plugin": "^8.24.1",
-		"@typescript-eslint/parser": "^8.24.1",
+		"@typescript-eslint/eslint-plugin": "^8.40.0",
+		"@typescript-eslint/parser": "^8.40.0",
 		"builtin-modules": "latest",
 		"esbuild": "latest",
 		"hot-reload": "github:pjeby/hot-reload",
@@ -44,5 +44,11 @@
 	"peerDependencies": {
 		"obsidian-style-settings": "mgmeyers/obsidian-style-settings"
 	},
-	"packageManager": "pnpm@10.5.2+sha512.da9dc28cd3ff40d0592188235ab25d3202add8a207afbedc682220e4a0029ffbff4562102b9e6e46b4e3f9e8bd53e6d05de48544b0c57d4b0179e22c76d1199b"
+	"packageManager": "pnpm@10.5.2+sha512.da9dc28cd3ff40d0592188235ab25d3202add8a207afbedc682220e4a0029ffbff4562102b9e6e46b4e3f9e8bd53e6d05de48544b0c57d4b0179e22c76d1199b",
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"esbuild",
+			"svelte-preprocess"
+		]
+	}
 }
