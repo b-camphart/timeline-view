@@ -7,7 +7,7 @@
 	import TimelinePropertySection from "./property/TimelinePropertySection.svelte";
 	import type { TimelineViewModel } from "src/timeline/viewModel";
 	import TimelineFilterSection from "./filter/TimelineFilterSection.svelte";
-	import type { NotePropertyRepository } from "src/note/property/repository";
+	import type { AnyNotePropertyRepository, NotePropertyRepository } from "src/note/property/repository";
 	import type { MutableNoteRepository } from "src/note/repository";
 	import type { Note } from "src/note";
 	import { TimelineItemQueryFilter } from "src/timeline/filter/TimelineItemQueryFilter";
@@ -68,7 +68,7 @@
 
 	interface Props {
 		noteRepository: MutableNoteRepository;
-		notePropertyRepository: NotePropertyRepository;
+		notePropertyRepository: AnyNotePropertyRepository;
 		openModal: (open: (element: obsidian.Modal) => () => void) => void;
 		viewModel: NamespacedWritableFactory<TimelineViewModel>;
 		isNew?: boolean;
@@ -175,6 +175,7 @@
 				notePropertyRepository,
 				NotePropertyTypes,
 			),
+			get(propertySettings.make("interpretedAs", "date")),
 			get(propertySettings.make("property", "created")),
 			get(propertySettings.make("propertiesUseWholeNumbers", {})),
 			{

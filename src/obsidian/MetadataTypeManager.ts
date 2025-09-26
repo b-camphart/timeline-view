@@ -1,120 +1,213 @@
-import type {App} from "obsidian";
+import * as obsidian from "obsidian";
+
+// we mainly need the properties from obsidian for offering a list of available properties to use to the user 
+// there's three possible ways to do this:
+//   - using the metadataTypeManager property of the obsidian.App class (undocumented, private api)
+//   - reading the raw types.json file (may not exist, unknown shape)
+//   - manually scanning for all properties across the vault, and watching for changes
+
+export async function getPropertyLister(app: obsidian.App): Promise<AnyPropertyLister> {
+	const metadataTypeLister = MetadataTypeLister.initOrError(app)
+	if (metadataTypeLister instanceof Error) {
+		console.warn("[Timeline view]", metadataTypeLister);
+	} else {
+		return metadataTypeLister.asPropertyLister();
+	}
+
+	const types_file_lister = new TypesFilePropertyLister({ adapter: app.vault.adapter });
+	const types_file_err_or_properties = await types_file_lister.listProperties()
+	if (types_file_err_or_properties instanceof Error) {
+		console.warn("[Timeline view]", types_file_err_or_properties);
+	} else {
+		return types_file_lister.asPropertyLister();
+	}
+
+	const collector = new VaultPropertyCollector(app);
+	return collector.asPropertyLister();
+}
+
+// runtime interface
+export class PropertyLister<Impl> {
+	impl: Impl;
+	listProperties: (this: PropertyLister<Impl>) => Promise<Error | Array<{ readonly name: string; readonly type: string; }>>;
+	constructor(def: Pick<PropertyLister<Impl>, 'impl' | 'listProperties'>) {
+		this.impl = def.impl;
+		this.listProperties = def.listProperties;
+	}
+}
+export type AnyPropertyLister = PropertyLister<any>;
+
+class MetadataTypeLister {
+	manager: MetadataTypeManager;
+	constructor(def: Pick<MetadataTypeLister, "manager">) {
+		this.manager = def.manager;
+	}
+
+	static async #listProperties(this: PropertyLister<MetadataTypeLister>) {
+		return this.impl.listProperties();
+	}
+
+	listProperties() {
+		return Object.entries(this.manager.properties).map(([name, prop]) => ({
+			name,
+			type: prop.widget,
+		}));
+	}
+
+	asPropertyLister(this: MetadataTypeLister): PropertyLister<MetadataTypeLister> {
+		return new PropertyLister({
+			impl: this,
+			listProperties: MetadataTypeLister.#listProperties,
+		})
+	}
+
+	static initOrError(app: obsidian.App): MetadataTypeLister | Error {
+		const manager = (app as any).metadataTypeManager;
+		if (!manager) return new Error("obsidian.App does not have metadataTypeManager property")
+		const err = new Error("obsidian.App.metadataTypeManager ")
+		if (!isValidMetadataTypeManager(manager, (msg) => err.message += msg)) {
+			return err;
+		}
+		return new MetadataTypeLister({ manager });
+	}
+}
 
 /**
  * Property of obsidian that is undocumented.  Allows access to properties in
  * notes that the user has not registered
  */
 export interface MetadataTypeManager {
-	readonly properties: Readonly<
-		{
-			aliases: Property;
-			cssclasses: Property;
-			tags: Property;
-		} & Record<string, Property>
-	>;
-	readonly types: Readonly<
-		{
-			aliases: PropertyType;
-			cssclasses: PropertyType;
-			tags: PropertyType;
-		} & Record<string, PropertyType>
-	>;
+	readonly properties: Record<string, Property>
+	// there are other properties of this object, but we don't need them
+}
+function isValidMetadataTypeManager(suspect: unknown, on_invalid: (reason: string) => void): suspect is MetadataTypeManager {
+	if (suspect == null) {
+		on_invalid("null")
+		return false;
+	}
+	if (typeof suspect !== "object") {
+		on_invalid("not an object")
+		return false;
+	}
+
+	if (!("properties" in suspect) || suspect.properties == null) {
+		on_invalid("missing 'properties' property");
+		return false;
+	}
+	if (typeof suspect.properties !== "object") {
+		on_invalid("'properties' property is not an object")
+		return false
+	}
+
+	for (const [property_name, property] of Object.entries(suspect.properties)) {
+		if (!isValidProperty(property, (msg) => on_invalid(`properties.${property_name} ${msg}`))) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 export type Property = {
 	readonly name: string;
-	readonly type?: string;
-	readonly count: number;
+	readonly widget: string;
+	// there are other properties of this object, but we don't need them
 };
-
-export type PropertyType = {
-	readonly name: string;
-	readonly type: string;
-};
-
-export function getMetadataTypeManager(app: App): MetadataTypeManager | undefined {
-	const metadataTypeManager = "metadataTypeManager" in app ? app.metadataTypeManager : undefined;
-	if (!metadataTypeManager) {
-		console.warn(`[Timeline View] Could not find metadataTypeManager in app`);
-		return undefined;
-	}
-	if (typeof metadataTypeManager !== "object") {
-		console.warn(`[Timeline View] MetadataTypeManager is not an object in app`);
-		return undefined;
-	}
-
-	if (!validMetadataTypeManager(metadataTypeManager)) {
-		console.warn(`[Timeline View] MetadataTypeManager is not of expected shape in app`);
-		return undefined;
-	}
-
-	return metadataTypeManager;
-}
-
-function validMetadataTypeManager(metadataTypeManager: object): metadataTypeManager is MetadataTypeManager {
-	if (!("properties" in metadataTypeManager) || !metadataTypeManager.properties) {
-		console.warn(`[Timeline View] MetadataTypeManager does not have properties`);
+function isValidProperty(suspect: unknown, on_invalid: (reason: string) => void): suspect is Property {
+	if (suspect == null) {
+		on_invalid("is null")
 		return false;
 	}
-	if (typeof metadataTypeManager.properties !== "object") {
-		console.warn(`[Timeline View] MetadataTypeManager.properties is not an object`);
-		return false;
-	}
-	if (!validMetadataTypeProperties(metadataTypeManager.properties)) {
-		console.warn(`[Timeline View] MetadataTypeManager.properties is not of expected shape`);
+	if (typeof suspect !== "object") {
+		on_invalid("is not an object")
 		return false;
 	}
 
-	if (!("types" in metadataTypeManager) || !metadataTypeManager.types) {
-		console.warn(`[Timeline View] MetadataTypeManager does not have types`);
+	if (!("name" in suspect)) {
+		on_invalid("missing 'name' property");
 		return false;
 	}
-	if (typeof metadataTypeManager.types !== "object") {
-		console.warn(`[Timeline View] MetadataTypeManager.types is not an object`);
+	if (typeof suspect.name !== "string") {
+		on_invalid("'name' property is not a string")
 		return false;
 	}
-	if (!validMetadataTypeTypes(metadataTypeManager.types)) {
-		console.warn(`[Timeline View] MetadataTypeManager.types is not of expected shape`);
+
+	if (!("widget" in suspect)) {
+		on_invalid("missing 'widget' property");
+		return false;
+	}
+	if (typeof suspect.widget !== "string") {
+		on_invalid("'widget' property is not a string")
 		return false;
 	}
 
 	return true;
 }
 
-function validMetadataTypeProperties(properties: object): properties is MetadataTypeManager["properties"] {
-	if (!("aliases" in properties) || properties.aliases === null) {
-		console.warn(`[Timeline View] MetadataTypeManager.properties.aliases is null or undefined`);
-		return false;
+class TypesFilePropertyLister {
+	adapter: obsidian.DataAdapter;
+	constructor(def: Pick<TypesFilePropertyLister, 'adapter'>) {
+		this.adapter = def.adapter;
 	}
-	if (!validProperty("aliases", properties.aliases)) {
-		console.warn(`[Timeline View] MetadataTypeManager.properties.aliases is not of expected shape`);
-		return false;
-	}
-	properties.aliases satisfies MetadataTypeManager["properties"]["aliases"];
 
-	if (!("cssclasses" in properties) || properties.cssclasses === null) {
-		console.warn(`[Timeline View] MetadataTypeManager.properties.cssclasses is null or undefined`);
-		return false;
+	static async #listProperties(this: PropertyLister<TypesFilePropertyLister>) {
+		return this.impl.listProperties();
 	}
-	if (!validProperty("cssclasses", properties.cssclasses)) {
-		console.warn(`[Timeline View] MetadataTypeManager.properties.cssclasses is not of expected shape`);
-		return false;
-	}
-	properties.cssclasses satisfies MetadataTypeManager["properties"]["cssclasses"];
 
-	if (!("tags" in properties) || properties.tags === null) {
-		console.warn(`[Timeline View] MetadataTypeManager.properties.tags is null or undefined`);
-		return false;
-	}
-	if (!validProperty("tags", properties.tags)) {
-		console.warn(`[Timeline View] MetadataTypeManager.properties.tags is not of expected shape`);
-		return false;
-	}
-	properties.tags satisfies MetadataTypeManager["properties"]["tags"];
+	static readonly #path = ".obsidian/types.json";
+	async listProperties(this: TypesFilePropertyLister) {
+		let content: string;
+		try {
+			content = await this.adapter.read(obsidian.normalizePath(TypesFilePropertyLister.#path));
+		} catch (e) {
+			return new Error(`cannot read '${TypesFilePropertyLister.#path}' file`, { cause: e });
+		}
 
-	for (const [key, value] of Object.entries(properties)) {
-		if (!validProperty(key, value)) {
-			console.warn(`[Timeline View] MetadataTypeManager.properties.${key} is not of expected shape`);
+		let json: unknown;
+		try {
+			json = JSON.parse(content)
+		} catch (e) {
+			return new Error(`cannot parse '${TypesFilePropertyLister.#path}'`, { cause: e });
+		}
+
+		let validation_error = new Error(`json content of '${TypesFilePropertyLister}' has incorrect shape: `)
+		if (!isValidPropertyTypeJson(json, (msg) => validation_error.message += msg)) {
+			return validation_error;
+		}
+
+		return Array.from(Object.entries(json.types)).map(([name, type]) => ({ name, type }));
+	}
+
+	asPropertyLister(this: TypesFilePropertyLister): PropertyLister<TypesFilePropertyLister> {
+		return new PropertyLister({
+			impl: this,
+			listProperties: TypesFilePropertyLister.#listProperties,
+		})
+	}
+}
+
+function isValidPropertyTypeJson(suspect: unknown, on_invalid: (reason: string) => void): suspect is { types: Record<string, string> } {
+	if (suspect == null) {
+		on_invalid("null")
+		return false;
+	}
+	if (typeof suspect !== "object") {
+		on_invalid("not an object")
+		return false;
+	}
+
+	if (!("types" in suspect) || suspect.types == null) {
+		on_invalid("missing 'types' property")
+		return false
+	}
+
+	if (typeof suspect.types !== "object") {
+		on_invalid("'types' property is not an object")
+		return false;
+	}
+	for (const entry of Object.entries(suspect.types)) {
+		if (typeof entry[1] !== "string") {
+			on_invalid(`${entry[0]} is not a string`)
 			return false;
 		}
 	}
@@ -122,70 +215,59 @@ function validMetadataTypeProperties(properties: object): properties is Metadata
 	return true;
 }
 
-function validProperty(name: string, property: unknown): property is Property {
-	if (typeof property !== "object" || property === null) {
-		console.warn(`[Timeline View] MetadataTypeManager.properties.${name} is not an object`);
-		return false;
-	}
-	if (!("name" in property) || !("type" in property) || !("count" in property)) {
-		console.warn(`[Timeline View] MetadataTypeManager.properties.${name} is missing "name", "type", or "count"`);
-		return false;
-	}
-	if (typeof property.name !== "string") {
-		console.warn(
-			`[Timeline View] MetadataTypeManager.properties.${name}.name is not a string\nFound: ${property.name}`,
-		);
-		return false;
-	}
-	if (property.type !== undefined && typeof property.type !== "string") {
-		console.warn(
-			`[Timeline View] MetadataTypeManager.properties.${name}.type is not a string\nFound: ${property.type}`,
-		);
-		return false;
-	}
-	if (typeof property.count !== "number") {
-		console.warn(
-			`[Timeline View] MetadataTypeManager.properties.${name}.count is not a number\nFound: ${property.count}`,
-		);
-		return false;
-	}
-	return true;
-}
-
-function validMetadataTypeTypes(types: object): types is MetadataTypeManager["types"] {
-	if (!("aliases" in types) || !("cssclasses" in types) || !("tags" in types)) {
-		return false;
+class VaultPropertyCollector {
+	vault: obsidian.Vault;
+	metadataCache: obsidian.MetadataCache;
+	constructor(def: Pick<VaultPropertyCollector, 'vault' | 'metadataCache'>) {
+		this.vault = def.vault;
+		this.metadataCache = def.metadataCache;
 	}
 
-	if (
-		!validPropertyType("aliases", types.aliases) &&
-		!validPropertyType("cssclasses", types.cssclasses) &&
-		!validPropertyType("tags", types.tags)
-	) {
-		return false;
-	}
-
-	for (const [key, value] of Object.entries(types)) {
-		if (!validPropertyType(key, value)) {
-			return false;
+	// looping through all the files is expensive, so we can use a cached value that is updated every second or so
+	#cache: null | { time: number, properties: { name: string, type: string }[] } = null;
+	collectProperties(this: VaultPropertyCollector) {
+		if (this.#cache !== null && Date.now() - this.#cache.time < 1000) {
+			return this.#cache.properties;
 		}
+
+		const files = this.vault.getMarkdownFiles();
+		const properties = new Map<string, string>();
+		for (const file of files) {
+			const frontmatter = this.metadataCache.getFileCache(file)?.frontmatter
+			if (frontmatter == null) continue;
+			for (const [name, value] of Object.entries(frontmatter)) {
+				if (properties.has(name) && properties.get(name) !== "?") continue;
+				switch (typeof value) {
+					case "string": {
+						if (window.moment(value).isValid()) {
+							properties.set(name, "date");
+							continue;
+						}
+						properties.set(name, "text");
+						continue;
+					}
+					case "number": properties.set(name, "number"); continue;
+					default: properties.set(name, "?"); continue;
+				}
+			}
+		}
+		const cache = {
+			time: Date.now(),
+			properties: Array.from(properties).map(([name, type]) => ({ name, type })),
+		};
+		this.#cache = cache;
+		return cache.properties;
 	}
 
-	return true;
+	static async #listProperties(this: PropertyLister<VaultPropertyCollector>) {
+		return this.impl.collectProperties();
+	}
+	asPropertyLister(this: VaultPropertyCollector): PropertyLister<VaultPropertyCollector> {
+		return new PropertyLister({
+			impl: this,
+			listProperties: VaultPropertyCollector.#listProperties,
+		})
+	}
 }
 
-function validPropertyType(name: string, type: unknown): type is PropertyType {
-	if (typeof type !== "object" || type === null) {
-		return false;
-	}
-	if (!("name" in type) || !("type" in type)) {
-		return false;
-	}
-	if (typeof type.name !== "string") {
-		return false;
-	}
-	if (typeof type.type !== "string") {
-		return false;
-	}
-	return true;
-}
+

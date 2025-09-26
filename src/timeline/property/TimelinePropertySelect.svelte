@@ -3,11 +3,12 @@
 	import { onMount } from "svelte";
 	import { type ObservableTimelineProperty } from "src/timeline/property/Property.svelte";
 	import TimelinePropertyOption from "src/timeline/property/TimelinePropertyOption.svelte";
+	import { Notice } from "obsidian";
 
 	interface Props {
 		alwaysAvailableProperties: Property[];
 		property: Property;
-		getProperties(): Promise<Property[]>;
+		getProperties(): Promise<Error | Property[]>;
 		tabindex: number;
 		onSelected: (property: Property) => void;
 	}
@@ -49,9 +50,16 @@
 	}
 
 	async function getPropertyList() {
-		const propertyList = await getProperties();
-		availableProperties = propertyList;
-		selectedIndex = propertyList.findIndex(
+		const property_list_or_err = await getProperties();
+		if (property_list_or_err instanceof Error) {
+			console.error("[Timeline view]", property_list_or_err);
+			new Notice(
+				"failed to load properties from your vault.  Check the developer console for more information.",
+			);
+			return;
+		}
+		availableProperties = property_list_or_err;
+		selectedIndex = property_list_or_err.findIndex(
 			(property) => property.name === selectedPropertyName,
 		);
 
