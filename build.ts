@@ -104,62 +104,66 @@ function download(url: string, path: string, redirectCount = 0) {
 
 if (Array.isArray(fullOutput)) {
 	const testVaultPath = "testVault";
+	const test_vault_obsidian_path = path.join(testVaultPath, ".obsidian");
+	const test_vault_plugins_path = path.join(test_vault_obsidian_path, "plugins");
 	let dirPath = ".";
 	const writes: Promise<void>[] = [];
 	if (dev || preview) {
-		dirPath = testVaultPath + "/.obsidian/plugins/timeline-view";
+		dirPath = path.join(test_vault_plugins_path, "timeline-view");
 		if (fs.mkdirSync(dirPath, { recursive: true })) {
 			console.log("created test vault directory at ", dirPath);
+		} else {
+			console.log("test vault already created")
 		}
 
 		// hot-reload includes main.js and manifest.json in the root dir, so we can just copy it
-		if (!fs.existsSync(`${testVaultPath}/.obsidian/plugins/hot-reload`)) {
-			console.log("retrieving hot-reload plugin");
-			fs.cpSync(
-				"node_modules/hot-reload",
-				`${testVaultPath}/.obsidian/plugins/hot-reload`,
-				{ recursive: true }
-			);
+		{
+			const target = path.join(test_vault_plugins_path, "hot-reload");
+			if (!fs.existsSync(target)) {
+				console.log("copying hot-reload plugin into ", target);
+				fs.cpSync(
+					"node_modules/hot-reload",
+					target,
+					{ recursive: true, errorOnExist: true }
+				);
+			}
 		}
 
 		// style settings doesn't include main.js or styles.css in the root dir, so we have to get it from the release
 		// page
-		if (
-			!fs.existsSync(
-				`${testVaultPath}/.obsidian/plugins/obsidian-style-settings`
-			)
-		) {
-			console.log("retrieving style-settings plugin");
-			fs.mkdirSync(
-				`${testVaultPath}/.obsidian/plugins/obsidian-style-settings`,
-				{ recursive: true }
-			);
+		{
+			const target = path.join(test_vault_plugins_path, "obsidian-style-settings");
+			if (!fs.existsSync(target)) {
+				console.log("retrieving style-settings plugin");
+				fs.mkdirSync(target, { recursive: true });
 
-			const styleSettingsJSON = JSON.parse(
-				fs.readFileSync(
-					`node_modules/obsidian-style-settings/manifest.json`,
-					{ encoding: "utf-8" }
-				)
-			);
-			const githubLink = styleSettingsJSON.authorUrl;
-			writes.push(
-				download(
-					`${githubLink}/releases/download/${styleSettingsJSON.version}/main.js`,
-					`${testVaultPath}/.obsidian/plugins/obsidian-style-settings/main.js`
-				)
-			);
-			writes.push(
-				download(
-					`${githubLink}/releases/download/${styleSettingsJSON.version}/styles.css`,
-					`${testVaultPath}/.obsidian/plugins/obsidian-style-settings/styles.css`
-				)
-			);
-			writes.push(
-				write(
-					`${testVaultPath}/.obsidian/plugins/obsidian-style-settings/manifest.json`,
-					JSON.stringify(styleSettingsJSON)
-				)
-			);
+				const styleSettingsJSON = JSON.parse(
+					fs.readFileSync(
+						`node_modules/obsidian-style-settings/manifest.json`,
+						{ encoding: "utf-8" }
+					)
+				);
+				const githubLink = styleSettingsJSON.authorUrl;
+				const download_path = path.join(githubLink, "releases", "download", styleSettingsJSON.version);
+				writes.push(
+					download(
+						path.join(download_path, "main.js"),
+						path.join(target, "main.js"),
+					)
+				);
+				writes.push(
+					download(
+						path.join(download_path, "styles.css"),
+						path.join(target, "styles.css"),
+					)
+				);
+				writes.push(
+					write(
+						path.join(target, "manifest.json"),
+						JSON.stringify(styleSettingsJSON)
+					)
+				);
+			}
 		}
 
 		writes.push(

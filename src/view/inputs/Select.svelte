@@ -3,11 +3,10 @@
 Offsers a select element with a completely customizable dropdown
 -->
 <script lang="ts">
-	import { run, preventDefault, stopPropagation } from "svelte/legacy";
+	import { run } from "svelte/legacy";
 
 	import { range } from "src/utils/range";
 	import { createEventDispatcher, onDestroy, setContext } from "svelte";
-	import type { DOMAttributes, HTMLAttributes } from "svelte/elements";
 
 	const dispatch = createEventDispatcher<{
 		/**
@@ -48,6 +47,7 @@ Offsers a select element with a completely customizable dropdown
 		item?: import("svelte").Snippet<
 			[{ index: number; select(index: number): void }]
 		>;
+		dialogClass?: string;
 		[key: string]: any;
 	}
 
@@ -55,6 +55,7 @@ Offsers a select element with a completely customizable dropdown
 		selectedIndex = $bindable(-1),
 		itemCount = 0,
 		item,
+		dialogClass,
 		...rest
 	}: Props = $props();
 	let { "aria-disabled": disabled } = rest as Props;
@@ -193,7 +194,6 @@ Offsers a select element with a completely customizable dropdown
 
 		toggleShown();
 	}
-	let isMenuShown = $derived(open);
 	run(() => {
 		if (open && dialog != null) positionDialog(dialog);
 	});
@@ -269,7 +269,7 @@ Offsers a select element with a completely customizable dropdown
 	<dialog
 		id={dialogId}
 		{open}
-		class="select-dropdown"
+		class="select-dropdown {dialogClass ?? ''}"
 		bind:this={dialog}
 		data-popupfor={rest.id}
 	>

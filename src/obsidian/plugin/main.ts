@@ -1,6 +1,5 @@
 /// <reference types="vite/client" />
 import * as obsidian from "obsidian";
-import * as MetadataTypeManager from "src/obsidian/MetadataTypeManager";
 import * as property from "src/note/property/obsidian-repository";
 import * as note from "src/note/obsidian-repository";
 import * as createTimeline from "src/timeline/create";
@@ -16,13 +15,7 @@ export default class ObsidianTimelinePlugin extends obsidian.Plugin {
 			this.app.metadataCache,
 			this.app.fileManager
 		);
-		const properties = new property.ObsidianNotePropertyRepository(
-			() =>
-				this.app.vault.adapter.read(
-					obsidian.normalizePath(".obsidian/types.json")
-				),
-			() => MetadataTypeManager.getMetadataTypeManager(this.app)
-		);
+		const properties = new property.ObsidianNotePropertyRepository(this.app);
 
 		const timelineSettings =
 			new timelineSettingsTab.ObsidianSettingsTimelineTab(

@@ -16,7 +16,7 @@ import type { ObsidianNoteRepository } from "src/note/obsidian-repository";
 import GroupList, {
 	Groups,
 } from "src/timeline/group/TimelineGroupsList.svelte";
-import { mount } from "svelte";
+import { mount, unmount } from "svelte";
 import { TimelineNoteSorterPropertyType } from "src/timeline/sorting/TimelineNoteSorterProperty";
 import { Group } from "src/timeline/group/GroupListItem.svelte";
 
@@ -131,6 +131,8 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 		return this.#loadedSettings?.openWith?.previousState ?? false;
 	}
 
+	#mounted: Array<any> = [];
+
 	async display() {
 		const containerEl = this.containerEl;
 
@@ -189,7 +191,7 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 		const propertySetting = new obsidian.Setting(containerEl)
 			.setName("Default Ordering Property")
 			.setDesc(propertyDescription);
-		mount(TimelineNoteSorterPropertySelect, {
+		this.#mounted.push(mount(TimelineNoteSorterPropertySelect, {
 			target: propertySetting.controlEl,
 			props: {
 				property: order.selectedProperty(),
@@ -202,7 +204,7 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 					checkPropertyTypes();
 				},
 			},
-		});
+		}));
 
 		new obsidian.Setting(containerEl)
 			.setName("Use Secondary Property")
@@ -237,7 +239,7 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 			.setName("Default Secondary Property")
 			.setDesc(secondaryPropertyDesc);
 
-		mount(TimelineNoteSorterPropertySelect, {
+		this.#mounted.push(mount(TimelineNoteSorterPropertySelect, {
 			target: secondaryPropertySetting.controlEl,
 			props: {
 				property: order.secondaryProperty(),
@@ -250,7 +252,7 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 					checkPropertyTypes();
 				},
 			},
-		});
+		}));
 		checkPropertyTypes();
 
 		new obsidian.Setting(containerEl)
@@ -277,12 +279,12 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 			.setDesc(
 				"The default filter to use for notes in the timeline when it's first opened.",
 			);
-		mount(TimelineQueryFilterInput, {
+		this.#mounted.push(mount(TimelineQueryFilterInput, {
 			target: filterSetting.controlEl,
 			props: {
 				filter,
 			},
-		});
+		}));
 
 		new obsidian.Setting(containerEl)
 			.setName("Default Groups")
@@ -290,16 +292,20 @@ export class ObsidianSettingsTimelineTab extends obsidian.PluginSettingTab {
 				"The default set of groups to use in the timeline when it's first opened.",
 			);
 
-		mount(GroupList, {
+		this.#mounted.push(mount(GroupList, {
 			target: new obsidian.Setting(containerEl).controlEl,
 			props: {
 				groups,
 			},
-		});
+		}));
 	}
 
 	hide() {
 		this.#groupState?.dispose();
+		for (const mounted of this.#mounted) {
+			unmount(mounted);
+		}
+		this.#mounted = [];
 		this.containerEl.empty();
 		super.hide();
 	}

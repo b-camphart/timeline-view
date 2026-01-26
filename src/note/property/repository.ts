@@ -1,7 +1,15 @@
-import {NoteProperty} from ".";
+import { NoteProperty } from ".";
 
-export interface NotePropertyRepository {
-	listPropertiesOfTypes<T extends string>(types: readonly T[]): Promise<NoteProperty<T>[]>;
+export class NotePropertyRepository<Impl> {
+	impl: Impl;
 
-	getPropertyByName(name: string): Promise<NoteProperty<string> | null>;
+	listPropertiesOfTypes: <T extends string>(this: NotePropertyRepository<Impl>, types: readonly T[]) => Promise<Error | NoteProperty<T>[]>;
+	getPropertyByName: (this: NotePropertyRepository<Impl>, name: string) => Promise<Error | NoteProperty<string> | null>;
+
+	constructor(def: Pick<NotePropertyRepository<Impl>, 'impl' | 'listPropertiesOfTypes' | 'getPropertyByName'>) {
+		this.impl = def.impl;
+		this.listPropertiesOfTypes = def.listPropertiesOfTypes;
+		this.getPropertyByName = def.getPropertyByName;
+	}
 }
+export type AnyNotePropertyRepository = NotePropertyRepository<any>;

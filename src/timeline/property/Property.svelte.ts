@@ -190,7 +190,12 @@ export class TimelineProperties {
 		const primary = untrack(() => this.#primary);
 		const secondary = untrack(() => this.#secondaryProperty);
 
-		for (const knownProperty of await this.refresh()) {
+		const known_properties_or_err = await this.refresh();
+		if (known_properties_or_err instanceof Error) {
+			return known_properties_or_err;
+		}
+
+		for (const knownProperty of known_properties_or_err) {
 			const name = knownProperty.name();
 			const type = timelinePropertyType(knownProperty.type());
 			const existingIndex = this.properties.findIndex(
@@ -255,11 +260,12 @@ export class TimelineProperties {
 
 	static async make(
 		knownProperties: () => Promise<
-			{
+			Error | {
 				name(): string;
 				type(): string;
 			}[]
 		>,
+		interpret_as: "date" | "number",
 		property: string,
 		propertiesUseWholeNumbers: Record<string, boolean>,
 		secondaryProperty: {
@@ -272,37 +278,54 @@ export class TimelineProperties {
 			TimelineProperty.Created,
 			TimelineProperty.Modified,
 		];
-		for (const knownProperty of await knownProperties()) {
-			const name = knownProperty.name();
-			const useInts = propertiesUseWholeNumbers[name] ?? true;
-			const type = timelinePropertyType(knownProperty.type());
-			let property;
-			switch (type) {
-				case Type.Number:
-					property = TimelineProperty.Number(name, useInts);
+
+		let primary = TimelineProperty.Created;
+		let secondary = TimelineProperty.Modified;
+
+		const known_properties_or_err = await knownProperties();
+		if (known_properties_or_err instanceof Error) {
+			switch (interpret_as) {
+				case "number": {
+					primary = TimelineProperty.Number(property, propertiesUseWholeNumbers[property] ?? true);
+					secondary = TimelineProperty.Number(secondaryProperty.name, propertiesUseWholeNumbers[secondaryProperty.name] ?? true);
 					break;
-				case Type.Date:
-					property = TimelineProperty.Date(name, useInts);
+				}
+				case "date": {
+					primary = TimelineProperty.Date(property, propertiesUseWholeNumbers[property] ?? true);
+					secondary = TimelineProperty.Date(secondaryProperty.name, propertiesUseWholeNumbers[secondaryProperty.name] ?? true);
 					break;
-				case Type.DateTime:
-					property = TimelineProperty.DateTime(name, useInts);
-					break;
-				default:
-					console.warn(
-						`[Timeline View] Unknown property type: ${type}`
-					);
-					continue;
+				}
+			}
+			console.warn("[Timeline view]", known_properties_or_err)
+		} else {
+			for (const knownProperty of known_properties_or_err) {
+				const name = knownProperty.name();
+				const useInts = propertiesUseWholeNumbers[name] ?? true;
+				const type = timelinePropertyType(knownProperty.type());
+				let property;
+				switch (type) {
+					case Type.Number:
+						property = TimelineProperty.Number(name, useInts);
+						break;
+					case Type.Date:
+						property = TimelineProperty.Date(name, useInts);
+						break;
+					case Type.DateTime:
+						property = TimelineProperty.DateTime(name, useInts);
+						break;
+					default:
+						console.warn(
+							`[Timeline View] Unknown property type: ${type}`
+						);
+						continue;
+				}
+
+				properties.push(property);
 			}
 
-			properties.push(property);
+			primary = properties.find((p) => p.name === property) ?? primary;
+			secondary = properties.find((p) => p.name === secondaryProperty.name) ?? secondary;
 		}
-
-		const primary =
-			properties.find((p) => p.name === property) ??
-			TimelineProperty.Created;
-		const secondary =
-			properties.find((p) => p.name === secondaryProperty.name) ??
-			TimelineProperty.Modified;
 
 		return new TimelineProperties(
 			knownProperties,
@@ -316,7 +339,7 @@ export class TimelineProperties {
 
 	private constructor(
 		private refresh: () => Promise<
-			{
+			Error | {
 				name(): string;
 				type(): string;
 			}[]
@@ -355,7 +378,7 @@ export interface ObservableTimelineProperties<
 	disableSecondaryProperty(disabled?: boolean): void;
 	enableSecondaryProperty(enabled?: boolean): void;
 
-	options(): Promise<Property[]>;
+	options(): Promise<Error | Property[]>;
 }
 
 TimelineProperties.prototype satisfies ObservableTimelineProperties;
